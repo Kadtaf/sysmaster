@@ -11,10 +11,10 @@
 | Accès données | `pg` + SQL versionné | — | Contrôle total du schéma (voir ADR-011) |
 | Validation | `zod` (contrats partagés) | 3 | Mêmes schémas côté web et API |
 | Service IA | Python 3.12, FastAPI, Pydantic | Phase 3 | Écosystème RAG/LLM |
-| Bus | NATS JetStream | Phase 2 | Simple, performant, persistance |
+| Bus | NATS JetStream | Phase 3 | Avec le service IA, premier consommateur hors processus (ADR-013) ; outbox et relais en mémoire d'ici là |
 | Base | PostgreSQL | 16 | |
 | Cache | Redis | 7 | |
-| Recherche | OpenSearch / Elasticsearch | Phase 2 | |
+| Recherche | PostgreSQL (`tsvector`, `unaccent`, trigrammes) ; OpenSearch selon les seuils d'ADR-012 | 16 | 8 ms sur 56 000 fiches à l'essai |
 | Vecteurs | Qdrant | 1.x | Voir ADR-007 |
 | Identité | Keycloak (OIDC, WebAuthn, SAML) | Phase 2 | |
 | Paiement | Stripe Billing, Tax, Connect | Phase 5 | |
