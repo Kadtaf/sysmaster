@@ -128,6 +128,7 @@ UPDATE platform.outbox_events
 |---|---|---|---|
 | `pnpm db:migrate` | Applique les migrations SQL pas encore appliquées (suivies dans `platform.schema_migrations`) | Faible : chaque migration tourne en transaction. Faites une sauvegarde avant en production | — |
 | `pnpm db:seed` | Charge les données de démo. Rejouable sans doublon | Faible, mais **à ne jamais lancer en production** : comptes et contenus fictifs | Importer du vrai contenu par le back-office |
+| `node infra/scripts/build-content-seed.mjs` | Régénère `db/seeds/006_contenu_parcours.sql` après une modification de `db/content/` (fiches et cours initiaux). La CI vérifie qu'il est à jour, et un test applique au contenu les mêmes règles que la relecture | Aucun : écrit un seul fichier. Le seed n'écrase jamais un contenu déjà présent : une fois chargé, un contenu évolue dans le back-office | Modifier le contenu en ligne dans `/editorial` |
 | `pnpm db:reset` | Supprime tous les schémas applicatifs puis recrée tout | **Critique** : efface toutes les données, sans corbeille | En développement seulement. Sinon, sauvegardez puis restaurez |
 | `pg_dump -Fc -f sysmaster.dump "$DATABASE_URL"` | Sauvegarde complète, compressée | Aucun : lecture seule | Sauvegardes gérées par l'hébergeur (PITR) |
 | `pg_restore --clean --if-exists -d "$DATABASE_URL" sysmaster.dump` | Restaurer une sauvegarde | **Élevé** : remplace les données actuelles | Restaurer d'abord dans une base vide pour vérifier |
