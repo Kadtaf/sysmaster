@@ -7,7 +7,7 @@ import { ApiUnavailable } from '@/components/api-unavailable';
 import { Card, CardDescription, CardTitle } from '@/components/ui/card';
 import { ApiUnavailableError, apiGet } from '@/lib/api';
 import { authOptions } from '@/lib/auth';
-import { EDITORIAL_ROLES, revisionStatusMeta } from '@/lib/labels';
+import { contentKindMeta, EDITORIAL_ROLES, revisionStatusMeta } from '@/lib/labels';
 import { cn } from '@/lib/utils';
 import { NewRevision } from './new-revision';
 
@@ -48,9 +48,11 @@ export default async function EditorialPage() {
         <span className={cn('rounded px-2 py-0.5 text-xs font-medium', revisionStatusMeta[r.status]?.className)}>
           {revisionStatusMeta[r.status]?.label ?? r.status}
         </span>
-        <span className="font-medium">{r.name || 'Sans titre'}</span>
-        <code className="font-mono text-xs text-muted-foreground">{r.commandSlug || '—'}</code>
-        <span className="text-xs text-muted-foreground">{r.isNew ? 'nouvelle fiche' : 'modification'}</span>
+        <span className="font-medium">{r.title || 'Sans titre'}</span>
+        <code className="font-mono text-xs text-muted-foreground">{r.key || '—'}</code>
+        <span className="text-xs text-muted-foreground">
+          {contentKindMeta[r.kind]?.label ?? r.kind} · {r.isNew ? 'création' : 'modification'}
+        </span>
         <span className="ml-auto text-xs text-muted-foreground">
           {r.author} · {new Date(r.updatedAt).toLocaleDateString('fr-FR')}
         </span>
@@ -63,9 +65,10 @@ export default async function EditorialPage() {
       <div>
         <h1 className="text-3xl font-bold">Rédaction</h1>
         <p className="mt-2 max-w-2xl text-muted-foreground">
-          Une fiche passe par trois étapes : brouillon, relecture par une autre personne, publication. La version en ligne
-          ne change qu&apos;à l&apos;approbation, et une fiche n&apos;est publiable que si elle explique pourquoi, quand, dans quel
-          contexte, avec quels risques et quelles alternatives.
+          Fiches commandes, cours, parcours et causes de diagnostic suivent les mêmes étapes : brouillon, relecture par une autre
+          personne, publication. La version en ligne ne change qu&apos;à l&apos;approbation, et chaque type a ses règles de
+          publication (par exemple : une fiche explique pourquoi, quand, les risques et les alternatives ; une modification de
+          règle de diagnostic est rejouée sur des cas de référence).
         </p>
       </div>
 

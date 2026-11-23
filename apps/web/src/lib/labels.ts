@@ -52,3 +52,22 @@ export const revisionActionLabel: Record<string, string> = {
 };
 
 export const EDITORIAL_ROLES = ['author', 'reviewer', 'admin', 'super_admin'];
+
+export const contentKindMeta: Record<string, { label: string; newLabel: string; placeholder: string; href: (key: string) => string; rule: string }> = {
+  command: {
+    label: 'Fiche commande', newLabel: 'Nouvelle fiche', placeholder: 'linux-systemctl', href: (k) => `/commandes/${k}`,
+    rule: 'Une fiche n’est publiable que si le lecteur peut comprendre avant d’exécuter',
+  },
+  course: {
+    label: 'Cours', newLabel: 'Nouveau cours', placeholder: 'linux-systemd', href: (k) => `/cours/${k}`,
+    rule: 'Un cours n’est publiable que si chaque leçon a des objectifs et un contenu, sans effacer la progression des apprenants',
+  },
+  path: {
+    label: 'Parcours', newLabel: 'Nouveau parcours', placeholder: 'administrateur-linux', href: (k) => `/parcours/${k}`,
+    rule: 'Un parcours n’est publiable que s’il présente son objectif et enchaîne des cours publiés',
+  },
+  diagnostic_cause: {
+    label: 'Cause de diagnostic', newLabel: 'Nouvelle cause', placeholder: 'psu_failure', href: () => '/diagnostic',
+    rule: 'Une cause n’est publiable que si chaque probabilité est justifiée et que le plan d’action commence sans danger',
+  },
+};

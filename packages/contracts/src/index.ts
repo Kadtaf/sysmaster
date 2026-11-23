@@ -292,34 +292,132 @@ export const CommandContentSchema = z.object({
 });
 export type CommandContent = z.infer<typeof CommandContentSchema>;
 
+const slugRe = /^[a-z0-9]+(?:-[a-z0-9]+)*$|^$/;
+const LESSON_TYPES_ = ['reading', 'video', 'interactive', 'lab', 'quiz', 'case_study'] as const;
+
+/** Cours : plan complet (modules et leçons). Les leçons sont reconnues par leur identifiant d'URL. */
+export const CourseContentSchema = z.object({
+  slug: text(80).regex(slugRe, 'minuscules, chiffres et tirets'),
+  title: text(200),
+  summary: text(1000),
+  platform: z.enum(PLATFORMS),
+  difficulty: z.enum(DIFFICULTIES),
+  isPremium: z.boolean().default(false),
+  modules: z
+    .array(
+      z.object({
+        title: text(200),
+        lessons: z
+          .array(
+            z.object({
+              slug: text(80).regex(slugRe, 'minuscules, chiffres et tirets'),
+              title: text(200),
+              type: z.enum(LESSON_TYPES_),
+              estMinutes: z.number().int().min(1).max(600).nullable().default(null),
+              objectives: z.array(req(300)).max(10).default([]),
+              contentMd: text(50000),
+              skills: z.array(req(80)).max(10).default([]),
+            }),
+          )
+          .max(50),
+      }),
+    )
+    .max(30)
+    .default([]),
+});
+export type CourseContent = z.infer<typeof CourseContentSchema>;
+
+/** Parcours : présentation et suite ordonnée de cours publiés. */
+export const PathContentSchema = z.object({
+  slug: text(80).regex(slugRe, 'minuscules, chiffres et tirets'),
+  title: text(200),
+  summary: text(1000),
+  career: text(60).nullable().default(null),
+  difficulty: z.enum(DIFFICULTIES),
+  estHours: z.number().int().min(1).max(2000).nullable().default(null),
+  courses: z.array(req(80)).max(40).default([]),
+});
+export type PathContent = z.infer<typeof PathContentSchema>;
+
+/** Cause de diagnostic : probabilité a priori, plan d'action, règles P(symptôme | cause) et indices de journaux. */
+export const CauseContentSchema = z.object({
+  code: text(60).regex(/^[a-z0-9]+(?:_[a-z0-9]+)*$|^$/, 'minuscules, chiffres et soulignés'),
+  label: text(200),
+  platform: z.enum(PLATFORMS),
+  prior: z.number().gt(0).max(1),
+  explanation: text(4000),
+  actionPlan: z
+    .array(z.object({ step: req(500), why: text(1000), risk: z.enum(RISK_LEVELS), commandSlug: text(80).nullable().default(null) }))
+    .max(20)
+    .default([]),
+  rules: z
+    .array(z.object({ symptom: req(60), likelihood: z.number().gt(0).lt(1), rationale: text(1000) }))
+    .max(50)
+    .default([]),
+  evidencePatterns: z
+    .array(
+      z.object({
+        name: req(120),
+        source: z.enum(['windows_event', 'syslog', 'journald', 'docker', 'postgresql', 'nginx', 'apache', 'macos_log', 'screenshot_ocr']),
+        pattern: req(500),
+        boost: z.number().gt(0).max(50),
+      }),
+    )
+    .max(20)
+    .default([]),
+  /** Symptômes à créer à la publication s'ils n'existent pas encore. */
+  newSymptoms: z
+    .array(z.object({ code: req(60).regex(/^[a-z0-9]+(?:_[a-z0-9]+)*$/, 'minuscules, chiffres et soulignés'), label: req(200), synonyms: z.array(req(100)).max(30).default([]) }))
+    .max(20)
+    .default([]),
+});
+export type CauseContent = z.infer<typeof CauseContentSchema>;
+
+export const CONTENT_KINDS = ['command', 'course', 'path', 'diagnostic_cause'] as const;
+export type ContentKind = (typeof CONTENT_KINDS)[number];
+
 export const REVISION_STATUSES = ['draft', 'in_review', 'changes_requested', 'published', 'withdrawn'] as const;
 export type RevisionStatus = (typeof REVISION_STATUSES)[number];
 
-/** Écart à la règle « comprendre avant d'exécuter » : empêche la soumission tant qu'il en reste. */
+/** Écart aux règles de publication : empêche la soumission tant qu'il en reste. */
 export interface ContentIssue { field: string; message: string }
 
 export interface RevisionSummaryDto {
   id: string;
-  commandSlug: string;
-  name: string;
-  /** null : nouvelle fiche ; sinon modification d'une fiche publiée. */
+  kind: ContentKind;
+  /** Identifiant d'URL (fiche, cours, parcours) ou code (cause de diagnostic). */
+  key: string;
+  title: string;
+  /** true : crée un contenu ; false : modifie un contenu publié. */
   isNew: boolean;
   status: RevisionStatus;
   author: string;
   updatedAt: string;
 }
 
-export interface RevisionDto extends RevisionSummaryDto {
-  content: CommandContent;
-  issues: ContentIssue[];
-  reviewer: string | null;
-  reviewComment: string | null;
-  /** Ce que l'utilisateur courant peut faire : l'interface n'a pas à deviner les règles. */
-  can: { edit: boolean; submit: boolean; review: boolean; withdraw: boolean };
-  history: { action: string; actor: string; comment: string | null; at: string }[];
-}
+export type RevisionContent =
+  | { kind: 'command'; content: CommandContent }
+  | { kind: 'course'; content: CourseContent }
+  | { kind: 'path'; content: PathContent }
+  | { kind: 'diagnostic_cause'; content: CauseContent };
 
-export const CreateRevisionSchema = z.object({ fromSlug: z.string().trim().max(80).optional() });
+export type RevisionDto = RevisionSummaryDto &
+  RevisionContent & {
+    issues: ContentIssue[];
+    reviewer: string | null;
+    reviewComment: string | null;
+    /** Ce que l'utilisateur courant peut faire : l'interface n'a pas à deviner les règles. */
+    can: { edit: boolean; submit: boolean; review: boolean; withdraw: boolean };
+    history: { action: string; actor: string; comment: string | null; at: string }[];
+  };
+
+export const CreateRevisionSchema = z.object({
+  kind: z.enum(CONTENT_KINDS).default('command'),
+  /** Contenu publié à modifier (identifiant d'URL ou code) ; absent : nouveau contenu. */
+  from: z.string().trim().max(80).optional(),
+  /** Ancien nom du champ, accepté pour les fiches. */
+  fromSlug: z.string().trim().max(80).optional(),
+});
 export const ReviewDecisionSchema = z
   .object({ decision: z.enum(['approve', 'request_changes']), comment: z.string().trim().max(4000).default('') })
   .refine((d) => d.decision === 'approve' || d.comment.length > 0, {
@@ -327,6 +425,34 @@ export const ReviewDecisionSchema = z
     path: ['comment'],
   });
 
+/** Résultat d'une simulation de règles de diagnostic sur les cas de référence. */
+export interface SimulationCaseDto {
+  name: string;
+  expected: { code: string; label: string };
+  before: { top: string | null; expectedRank: number | null; expectedProbability: number };
+  after: { top: string | null; expectedRank: number | null; expectedProbability: number };
+  /** La bonne cause était première et ne l'est plus. */
+  regression: boolean;
+  /** La bonne cause n'était pas première et le devient. */
+  improvement: boolean;
+}
+export interface SimulationDto {
+  cases: SimulationCaseDto[];
+  regressions: number;
+  improvements: number;
+}
+
+export interface ContentPublishedV1 {
+  kind: ContentKind;
+  /** Identifiant de la cible (uuid, ou code pour une cause). */
+  targetId: string;
+  key: string;
+  revisionId: string;
+  authorId: string;
+  reviewerId: string;
+  isNew: boolean;
+}
+/** Conservé pour les consommateurs de kb.command.published.v1. */
 export interface CommandPublishedV1 {
   commandId: string;
   slug: string;

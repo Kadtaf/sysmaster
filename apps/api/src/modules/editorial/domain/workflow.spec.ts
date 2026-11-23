@@ -1,5 +1,6 @@
 import type { CommandContent } from '@sysmaster/contracts';
-import { assertCan, contentIssues, EditorialError, permissions } from './editorial';
+import { commandIssues as contentIssues } from './command-rules';
+import { assertCan, EditorialError, permissions } from './workflow';
 
 const complete = (over: Partial<CommandContent> = {}): CommandContent => ({
   slug: 'linux-ls', name: 'ls', platform: 'linux', shell: 'bash',

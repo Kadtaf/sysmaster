@@ -2,8 +2,8 @@ import { INestApplication } from '@nestjs/common';
 import type { CommandContent } from '@sysmaster/contracts';
 import { Pool } from 'pg';
 import request from 'supertest';
-import { EditorialRepository } from '../src/modules/editorial/application/ports';
-import { contentIssues } from '../src/modules/editorial/domain/editorial';
+import { CommandKindAdapter } from '../src/modules/editorial/infrastructure/command-kind.adapter';
+import { commandIssues } from '../src/modules/editorial/domain/command-rules';
 import { createTestApp, newIdentity } from './helpers/test-app';
 
 const describeDb = process.env.DATABASE_URL ? describe : describe.skip;
@@ -45,11 +45,11 @@ describeDb('Back-office éditorial (e2e)', () => {
   });
 
   it('toutes les fiches publiées de démo respectent la règle P-1', async () => {
-    const repo = app.get(EditorialRepository);
+    const repo = app.get(CommandKindAdapter);
     const slugs = await repo.publishedSlugs();
     for (const s of slugs) {
-      const { content } = (await repo.publishedContent(s))!;
-      expect({ slug: s, issues: contentIssues(content, slugs) }).toEqual({ slug: s, issues: [] });
+      const { content } = (await repo.published(s))!;
+      expect({ slug: s, issues: commandIssues(content, slugs) }).toEqual({ slug: s, issues: [] });
     }
   });
 

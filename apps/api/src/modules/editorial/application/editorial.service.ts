@@ -1,61 +1,80 @@
-import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
-import type { CommandContent, RevisionDto, RevisionStatus, RevisionSummaryDto } from '@sysmaster/contracts';
+import {
+  BadRequestException, ConflictException, ForbiddenException, Inject, Injectable, NotFoundException, UnprocessableEntityException,
+} from '@nestjs/common';
+import type { ContentKind, RevisionDto, RevisionStatus, RevisionSummaryDto, SimulationDto } from '@sysmaster/contracts';
 import type { AuthenticatedUser } from '../../iam/domain/identity';
 import { hasAnyRole } from '../../iam/domain/identity';
-import { assertCan, canCreate, canRead, contentIssues, EditorialError, permissions } from '../domain/editorial';
-import { EditorialRepository, OpenRevisionExistsError, RevisionRecord, SlugTakenError } from './ports';
+import { assertCan, canCreate, canRead, EditorialError, permissions } from '../domain/workflow';
+import {
+  CONTENT_KIND_ADAPTERS, ContentKindAdapter, KeyTakenError, OpenRevisionExistsError, RevisionRecord, RevisionRepository, Schema,
+} from './ports';
 
-export const blankContent = (): CommandContent => ({
-  slug: '', name: '', platform: 'linux', shell: null, summary: '', history: null, internals: null, syntax: '',
-  why: '', whenToUse: '', context: null, riskLevel: 'none', risks: [], difficulty: 'beginner', requiresAdmin: false,
-  bestPractices: [], commonErrors: [], parameters: [], examples: [], alternatives: [], sources: [],
-});
+export function parse<T>(schema: Schema<T>, body: unknown): T {
+  const parsed = schema.safeParse(body);
+  if (!parsed.success) {
+    throw new BadRequestException({
+      message: 'Données invalides',
+      issues: parsed.error.issues.map((i) => ({ field: i.path.join('.'), message: i.message })),
+    });
+  }
+  return parsed.data;
+}
 
 /**
- * Cas d'utilisation du back-office éditorial. Les règles (qui peut quoi, quand une fiche est
- * publiable) sont dans le domaine ; ce service orchestre et traduit les refus en réponses HTTP.
+ * Cas d'utilisation du back-office éditorial, communs à tous les types de contenu. Les règles
+ * (qui peut quoi, quand un contenu est publiable) sont dans le domaine et dans les adaptateurs ;
+ * ce service orchestre et traduit les refus en réponses HTTP.
  */
 @Injectable()
 export class EditorialService {
-  constructor(private readonly repo: EditorialRepository) {}
+  private readonly kinds: Map<ContentKind, ContentKindAdapter>;
 
-  async list(user: AuthenticatedUser, status?: RevisionStatus): Promise<RevisionSummaryDto[]> {
+  constructor(
+    private readonly repo: RevisionRepository,
+    @Inject(CONTENT_KIND_ADAPTERS) adapters: ContentKindAdapter[],
+  ) {
+    this.kinds = new Map(adapters.map((a) => [a.kind, a]));
+  }
+
+  async list(user: AuthenticatedUser, filter: { status?: RevisionStatus; kind?: ContentKind }): Promise<RevisionSummaryDto[]> {
     // Un relecteur voit tout ; un auteur ne voit que ses propres révisions.
     const reviewer = hasAnyRole(user, ['reviewer', 'admin']);
     if (!reviewer && !canCreate(user)) throw new ForbiddenException('Réservé aux auteurs, relecteurs et administrateurs.');
-    return this.repo.list({ status, authorId: reviewer ? undefined : user.id });
+    return this.repo.list({ ...filter, authorId: reviewer ? undefined : user.id });
   }
 
   async get(id: string, user: AuthenticatedUser): Promise<RevisionDto> {
-    const r = await this.load(id, user);
-    return this.toDto(r, user);
+    return this.toDto(await this.load(id, user), user);
   }
 
-  async create(user: AuthenticatedUser, fromSlug?: string): Promise<RevisionDto> {
-    if (!canCreate(user)) throw new ForbiddenException('Seuls les auteurs et les administrateurs rédigent des fiches.');
-    let commandId: string | null = null;
-    let content = blankContent();
-    if (fromSlug) {
-      const existing = await this.repo.publishedContent(fromSlug);
-      if (!existing) throw new NotFoundException(`Aucune fiche publiée « ${fromSlug} ».`);
-      ({ commandId, content } = existing);
+  async create(user: AuthenticatedUser, kind: ContentKind, from?: string): Promise<RevisionDto> {
+    if (!canCreate(user)) throw new ForbiddenException('Seuls les auteurs et les administrateurs rédigent des contenus.');
+    const adapter = this.adapter(kind);
+    let targetId: string | null = null;
+    let content = adapter.blank();
+    if (from) {
+      const existing = await adapter.published(from);
+      if (!existing) throw new NotFoundException(`Aucun(e) ${adapter.noun} publié(e) « ${from} ».`);
+      ({ targetId, content } = existing);
     }
     try {
-      const id = await this.repo.create(user.id, commandId, content);
+      const id = await this.repo.create(kind, user.id, targetId, content);
       return this.get(id, user);
     } catch (err) {
       if (err instanceof OpenRevisionExistsError) {
-        throw new ConflictException('Une révision de cette fiche est déjà en cours : terminez-la ou retirez-la d’abord.');
+        throw new ConflictException(`Une révision de ce contenu est déjà en cours : terminez-la ou retirez-la d’abord.`);
       }
       throw err;
     }
   }
 
-  async save(id: string, user: AuthenticatedUser, content: CommandContent): Promise<RevisionDto> {
+  async save(id: string, user: AuthenticatedUser, body: unknown): Promise<RevisionDto> {
     const r = await this.load(id, user);
     this.guard(() => assertCan(permissions(r, user).edit, r, user, 'edit'));
-    if (r.commandId && content.slug !== r.content.slug) {
-      throw new BadRequestException('L’identifiant d’URL d’une fiche publiée ne change pas : les liens existants casseraient.');
+    const adapter = this.adapter(r.kind);
+    const content = parse(adapter.schema, body);
+    if (r.targetId && adapter.key(content) !== adapter.key(r.content)) {
+      throw new BadRequestException('L’identifiant d’un contenu publié ne change pas : les liens et l’historique existants casseraient.');
     }
     await this.repo.saveContent(id, content);
     return this.get(id, user);
@@ -64,12 +83,17 @@ export class EditorialService {
   async submit(id: string, user: AuthenticatedUser): Promise<RevisionDto> {
     const r = await this.load(id, user);
     this.guard(() => assertCan(permissions(r, user).submit, r, user, 'submit'));
-    const issues = contentIssues(r.content, await this.repo.publishedSlugs());
-    if (issues.length) {
-      throw new UnprocessableEntityException({ message: 'La fiche n’est pas encore complète.', issues });
-    }
+    const issues = await this.adapter(r.kind).issues(r.content, r.targetId);
+    if (issues.length) throw new UnprocessableEntityException({ message: 'Le contenu n’est pas encore publiable.', issues });
     await this.repo.transition(id, 'in_review', user.id, 'submitted', null);
     return this.get(id, user);
+  }
+
+  async simulate(id: string, user: AuthenticatedUser): Promise<SimulationDto> {
+    const r = await this.load(id, user);
+    const adapter = this.adapter(r.kind);
+    if (!adapter.simulate) throw new NotFoundException('Pas de simulation pour ce type de contenu.');
+    return adapter.simulate(r.content);
   }
 
   async review(id: string, user: AuthenticatedUser, decision: 'approve' | 'request_changes', comment: string): Promise<RevisionDto> {
@@ -77,16 +101,26 @@ export class EditorialService {
     this.guard(() => assertCan(permissions(r, user).review, r, user, 'review'));
     if (decision === 'request_changes') {
       await this.repo.transition(id, 'changes_requested', user.id, 'changes_requested', comment);
-    } else {
-      // Revérifié au moment de publier : une alternative a pu être retirée entre-temps.
-      const issues = contentIssues(r.content, await this.repo.publishedSlugs());
-      if (issues.length) throw new UnprocessableEntityException({ message: 'La fiche n’est plus publiable en l’état.', issues });
-      try {
-        await this.repo.publish(r, user.id, comment || null);
-      } catch (err) {
-        if (err instanceof SlugTakenError) throw new ConflictException(`L’identifiant « ${r.content.slug} » est déjà utilisé par une autre fiche.`);
-        throw err;
+      return this.get(id, user);
+    }
+    const adapter = this.adapter(r.kind);
+    // Revérifié au moment de publier : une dépendance (fiche, cours, symptôme) a pu changer entre-temps.
+    const issues = await adapter.issues(r.content, r.targetId);
+    if (issues.length) throw new UnprocessableEntityException({ message: 'Le contenu n’est plus publiable en l’état.', issues });
+    if (adapter.simulate && !comment) {
+      const sim = await adapter.simulate(r.content);
+      if (sim.regressions > 0) {
+        throw new UnprocessableEntityException({
+          message: `Cette modification fait perdre la première place à la bonne cause dans ${sim.regressions} cas de référence. Approuver reste possible, mais expliquez pourquoi dans le commentaire.`,
+          issues: sim.cases.filter((c) => c.regression).map((c) => ({ field: 'simulation', message: c.name })),
+        });
       }
+    }
+    try {
+      await this.repo.publish(r, user.id, comment || null, adapter);
+    } catch (err) {
+      if (err instanceof KeyTakenError) throw new ConflictException(`« ${adapter.key(r.content)} » est déjà utilisé par un autre contenu.`);
+      throw err;
     }
     return this.get(id, user);
   }
@@ -96,6 +130,12 @@ export class EditorialService {
     this.guard(() => assertCan(permissions(r, user).withdraw, r, user, 'withdraw'));
     await this.repo.transition(id, 'withdrawn', user.id, 'withdrawn', null);
     return this.get(id, user);
+  }
+
+  private adapter(kind: ContentKind): ContentKindAdapter {
+    const a = this.kinds.get(kind);
+    if (!a) throw new BadRequestException(`Type de contenu inconnu : ${kind}`);
+    return a;
   }
 
   private async load(id: string, user: AuthenticatedUser): Promise<RevisionRecord> {
@@ -118,20 +158,22 @@ export class EditorialService {
   }
 
   private async toDto(r: RevisionRecord, user: AuthenticatedUser): Promise<RevisionDto> {
+    const adapter = this.adapter(r.kind);
     return {
       id: r.id,
-      commandSlug: r.content.slug,
-      name: r.content.name,
+      kind: r.kind,
+      key: adapter.key(r.content),
+      title: adapter.title(r.content),
       isNew: r.isNew,
       status: r.status,
       author: r.authorName,
       updatedAt: r.updatedAt,
       content: r.content,
-      issues: contentIssues(r.content, await this.repo.publishedSlugs()),
+      issues: await adapter.issues(r.content, r.targetId),
       reviewer: r.reviewerName,
       reviewComment: r.reviewComment,
       can: permissions(r, user),
       history: r.history,
-    };
+    } as RevisionDto;
   }
 }
