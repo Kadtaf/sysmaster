@@ -1,8 +1,10 @@
 import { Controller, Get, Module } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { Database } from '../../shared/database.module';
+import { Public } from '../iam/interface/auth.decorators';
 
 @ApiTags('health')
+@Public()
 @Controller('health')
 export class HealthController {
   constructor(private readonly db: Database) {}

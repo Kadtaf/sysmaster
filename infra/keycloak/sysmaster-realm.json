@@ -1,0 +1,171 @@
+{
+  "realm": "sysmaster",
+  "enabled": true,
+  "displayName": "SysMaster",
+  "registrationAllowed": true,
+  "registrationEmailAsUsername": true,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": true,
+  "rememberMe": true,
+  "verifyEmail": false,
+  "editUsernameAllowed": false,
+  "bruteForceProtected": true,
+  "failureFactor": 10,
+  "permanentLockout": false,
+  "sslRequired": "external",
+  "passwordPolicy": "length(12) and notUsername and notEmail and passwordHistory(3)",
+  "accessTokenLifespan": 300,
+  "ssoSessionIdleTimeout": 1800,
+  "ssoSessionMaxLifespan": 36000,
+  "revokeRefreshToken": true,
+  "refreshTokenMaxReuse": 0,
+  "internationalizationEnabled": true,
+  "supportedLocales": ["fr", "en"],
+  "defaultLocale": "fr",
+  "otpPolicyType": "totp",
+  "otpPolicyAlgorithm": "HmacSHA1",
+  "otpPolicyDigits": 6,
+  "otpPolicyPeriod": 30,
+  "otpPolicyLookAheadWindow": 1,
+  "webAuthnPolicyRpEntityName": "SysMaster",
+  "webAuthnPolicyUserVerificationRequirement": "preferred",
+  "webAuthnPolicyPasswordlessRpEntityName": "SysMaster",
+  "webAuthnPolicyPasswordlessUserVerificationRequirement": "required",
+  "webAuthnPolicyPasswordlessRequireResidentKey": "Yes",
+  "webAuthnPolicyPasswordlessPasskeysEnabled": true,
+  "roles": {
+    "realm": [
+      { "name": "offline_access", "description": "${role_offline-access}" },
+      { "name": "uma_authorization", "description": "${role_uma_authorization}" },
+      { "name": "learner", "description": "Apprenant" },
+      { "name": "mentor", "description": "Mentor" },
+      { "name": "author", "description": "Auteur de contenus" },
+      { "name": "reviewer", "description": "Relecteur technique" },
+      { "name": "moderator", "description": "Modérateur communauté" },
+      { "name": "support", "description": "Support client" },
+      { "name": "admin", "description": "Administrateur plateforme" },
+      { "name": "super_admin", "description": "Super administrateur" },
+      {
+        "name": "default-roles-sysmaster",
+        "description": "Rôles attribués à chaque nouveau compte",
+        "composite": true,
+        "composites": { "realm": ["learner", "offline_access", "uma_authorization"] }
+      }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "sysmaster-web",
+      "name": "SysMaster Web",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "secret": "${SYSMASTER_WEB_CLIENT_SECRET:dev-only-web-secret}",
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "implicitFlowEnabled": false,
+      "serviceAccountsEnabled": false,
+      "redirectUris": ["${SYSMASTER_WEB_URL:http://localhost:3000}/*"],
+      "webOrigins": ["${SYSMASTER_WEB_URL:http://localhost:3000}"],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "${SYSMASTER_WEB_URL:http://localhost:3000}/*"
+      },
+      "protocolMappers": [
+        {
+          "name": "audience-sysmaster-api",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": {
+            "included.custom.audience": "sysmaster-api",
+            "access.token.claim": "true",
+            "id.token.claim": "false"
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "sysmaster-e2e",
+      "name": "Tests automatisés (développement et CI uniquement, à supprimer en production)",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": true,
+      "protocolMappers": [
+        {
+          "name": "audience-sysmaster-api",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": {
+            "included.custom.audience": "sysmaster-api",
+            "access.token.claim": "true",
+            "id.token.claim": "false"
+          }
+        }
+      ]
+    }
+  ],
+  "identityProviders": [
+    {
+      "alias": "google",
+      "providerId": "google",
+      "displayName": "Google",
+      "enabled": false,
+      "trustEmail": true,
+      "firstBrokerLoginFlowAlias": "first broker login",
+      "config": { "clientId": "${GOOGLE_CLIENT_ID:a-configurer}", "clientSecret": "${GOOGLE_CLIENT_SECRET:a-configurer}", "syncMode": "IMPORT" }
+    },
+    {
+      "alias": "microsoft",
+      "providerId": "microsoft",
+      "displayName": "Microsoft",
+      "enabled": false,
+      "trustEmail": true,
+      "firstBrokerLoginFlowAlias": "first broker login",
+      "config": { "clientId": "${MICROSOFT_CLIENT_ID:a-configurer}", "clientSecret": "${MICROSOFT_CLIENT_SECRET:a-configurer}", "syncMode": "IMPORT" }
+    },
+    {
+      "alias": "github",
+      "providerId": "github",
+      "displayName": "GitHub",
+      "enabled": false,
+      "trustEmail": false,
+      "firstBrokerLoginFlowAlias": "first broker login",
+      "config": { "clientId": "${GITHUB_CLIENT_ID:a-configurer}", "clientSecret": "${GITHUB_CLIENT_SECRET:a-configurer}", "syncMode": "IMPORT" }
+    }
+  ],
+  "users": [
+    {
+      "username": "admin@sysmaster.local",
+      "email": "admin@sysmaster.local",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Admin",
+      "lastName": "SysMaster",
+      "credentials": [{ "type": "password", "value": "Demo-SysMaster-2026!", "temporary": false }],
+      "realmRoles": ["default-roles-sysmaster", "admin"]
+    },
+    {
+      "username": "alice@sysmaster.local",
+      "email": "alice@sysmaster.local",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Alice",
+      "lastName": "Martin",
+      "credentials": [{ "type": "password", "value": "Demo-SysMaster-2026!", "temporary": false }],
+      "realmRoles": ["default-roles-sysmaster"]
+    },
+    {
+      "username": "mentor@sysmaster.local",
+      "email": "mentor@sysmaster.local",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Nadia",
+      "lastName": "Mentor",
+      "credentials": [{ "type": "password", "value": "Demo-SysMaster-2026!", "temporary": false }],
+      "realmRoles": ["default-roles-sysmaster", "mentor"]
+    }
+  ]
+}

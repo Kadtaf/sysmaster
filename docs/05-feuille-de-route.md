@@ -43,7 +43,7 @@ Les durées sont indicatives et supposent une équipe dédiée ; avec un dévelo
 
 ## Phase 2 — Comptes, académie, gamification
 
-- Keycloak : e-mail, Google, Microsoft, GitHub, Apple, 2FA, passkeys ; rôles et organisations.
+- ✅ Keycloak : e-mail, Google, Microsoft, GitHub (Apple via extension), 2FA, passkeys ; rôles synchronisés, garde API « fermé par défaut », page Mon compte ([06-authentification.md](06-authentification.md)). Organisations et SSO SAML : avec les licences (Phase 5).
 - Académie complète : parcours, leçons, progression, test de positionnement, recommandations simples.
 - Éditeur de contenu et workflow de relecture (back-office).
 - Bus NATS + relais outbox ; projecteurs CQRS ; gamification (XP, niveaux, badges, séries, classements Redis).

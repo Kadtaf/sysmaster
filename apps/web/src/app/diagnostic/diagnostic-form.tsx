@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
+import { useSession } from 'next-auth/react';
 import { Loader2 } from 'lucide-react';
 import type { AnalyzeResponse, SymptomDto } from '@sysmaster/contracts';
 import { RiskBadge } from '@/components/risk-badge';
@@ -12,6 +13,7 @@ import { publicApiBase } from '@/lib/api';
 const EXAMPLE = 'Mon PC redémarre seul, surtout quand je joue, et les ventilateurs font beaucoup de bruit.';
 
 export function DiagnosticForm() {
+  const { data: session } = useSession();
   const [description, setDescription] = useState('');
   const [evidence, setEvidence] = useState('');
   const [symptoms, setSymptoms] = useState<SymptomDto[]>([]);
@@ -35,7 +37,11 @@ export function DiagnosticForm() {
     try {
       const res = await fetch(`${publicApiBase}/diagnostic/analyze`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          // Connecté : le diagnostic rejoint l'historique de l'utilisateur. Anonyme : il reste possible.
+          ...(session?.accessToken ? { Authorization: `Bearer ${session.accessToken}` } : {}),
+        },
         body: JSON.stringify({ platform: 'windows', description, symptoms: allSelected, evidence: evidence || undefined }),
       });
       const body = await res.json();

@@ -2,9 +2,11 @@ import { Controller, Get, Param, Query } from '@nestjs/common';
 import { QueryBus } from '@nestjs/cqrs';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { CommandDetail, CommandSummary } from '@sysmaster/contracts';
+import { Public } from '../../iam/interface/auth.decorators';
 import { GetCommandQuery, SearchCommandsQuery } from '../application/queries';
 
 @ApiTags('knowledge-base')
+@Public()
 @Controller('kb/commands')
 export class KnowledgeController {
   constructor(private readonly queries: QueryBus) {}

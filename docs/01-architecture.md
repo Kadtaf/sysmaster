@@ -549,7 +549,7 @@ flowchart LR
 | ADR-005 | Outbox + NATS JetStream, CloudEvents | Accepté |
 | ADR-006 | CQRS sans Event Sourcing généralisé (sauf XP et examens) | Accepté |
 | ADR-007 | Qdrant comme base vectorielle derrière un port `VectorStore` | Accepté |
-| ADR-008 | Keycloak (OIDC) pour l'identité, passkeys et SSO | Proposé |
+| ADR-008 | Keycloak (OIDC) pour l'identité, passkeys et SSO ([détails](06-authentification.md)) | Accepté (Phase 2) |
 | ADR-009 | Moteur de déduction à base de règles probabilistes, LLM limité à l'extraction et l'explication | Accepté |
 | ADR-010 | Labs macOS/iOS simulés (contrainte de licence Apple) | Accepté |
 | ADR-011 | SQL explicite (`pg`) plutôt qu'un ORM dans le cœur, migrations SQL versionnées | Accepté |
