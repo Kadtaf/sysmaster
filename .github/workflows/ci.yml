@@ -54,6 +54,23 @@ jobs:
           KEYCLOAK_E2E_URL: http://localhost:8080
       - run: pnpm build
 
+  helm:
+    name: Chart Helm
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.16.4
+      - name: Lint et validation des manifestes rendus
+        run: |
+          curl -sSfL https://github.com/yannh/kubeconform/releases/download/v0.6.7/kubeconform-linux-amd64.tar.gz | tar xz kubeconform
+          for values in values.yaml values-staging.yaml; do
+            helm lint infra/helm/sysmaster -f infra/helm/sysmaster/$values
+            helm template ci infra/helm/sysmaster -f infra/helm/sysmaster/$values --set image.tag=ci \
+              | ./kubeconform -strict -summary -ignore-missing-schemas -kubernetes-version 1.30.0
+          done
+
   docker:
     name: Images Docker
     needs: verify

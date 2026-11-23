@@ -1,8 +1,10 @@
 import { INestApplication } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { requestContext } from './shared/observability/request-context.middleware';
 
 /** Configuration commune à main.ts et aux tests end-to-end. */
 export function configureApp(app: INestApplication) {
+  app.use(requestContext);
   app.setGlobalPrefix('api/v1');
   app.enableCors({ origin: (process.env.CORS_ORIGINS ?? 'http://localhost:3000').split(',') });
   const doc = SwaggerModule.createDocument(

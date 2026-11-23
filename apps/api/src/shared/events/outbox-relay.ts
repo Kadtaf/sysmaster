@@ -2,6 +2,7 @@ import { Injectable, Logger, OnApplicationBootstrap, OnApplicationShutdown } fro
 import { Database } from '../database.module';
 import { EventRegistry } from './event-registry';
 import { StoredEvent } from './events';
+import { outboxDelivered } from '../observability/metrics';
 
 export const MAX_ATTEMPTS = 10;
 
@@ -85,16 +86,18 @@ export class OutboxRelay implements OnApplicationBootstrap, OnApplicationShutdow
           }
         }
         if (errors.length) {
-          await tx.query(
+          const row = await tx.query<{ attempts: number }>(
             // Attente exponentielle : 2 s, 4 s, 8 s… (≈ 17 min au 10e essai).
             `UPDATE platform.outbox_events
                 SET attempts = attempts + 1, last_error = $2,
                     next_attempt_at = now() + make_interval(secs => power(2, attempts + 1))
-              WHERE id = $1`,
+              WHERE id = $1 RETURNING attempts`,
             [event.id, errors.join(' | ').slice(0, 2000)],
           );
+          outboxDelivered.inc({ outcome: row.rows[0].attempts >= MAX_ATTEMPTS ? 'dead_letter' : 'retry' });
         } else {
           await tx.query(`UPDATE platform.outbox_events SET published_at = now() WHERE id = $1`, [event.id]);
+          outboxDelivered.inc({ outcome: 'published' });
         }
       }
       // Les événements en échec sont repoussés (next_attempt_at) : le lot suivant ne les reprend pas.

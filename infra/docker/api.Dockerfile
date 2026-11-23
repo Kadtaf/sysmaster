@@ -15,10 +15,11 @@ COPY infra/scripts infra/scripts
 RUN pnpm --filter @sysmaster/contracts build && pnpm --filter @sysmaster/api build
 
 FROM base AS runtime
-ENV NODE_ENV=production
+ARG APP_VERSION=dev
+ENV NODE_ENV=production APP_VERSION=$APP_VERSION
 COPY --from=build /repo /repo
 USER node
 WORKDIR /repo/apps/api
-EXPOSE 4000
-HEALTHCHECK --interval=15s --timeout=3s --retries=5 CMD wget -qO- http://localhost:4000/api/v1/health || exit 1
+EXPOSE 4000 9464
+HEALTHCHECK --interval=15s --timeout=3s --retries=5 CMD wget -qO- http://localhost:4000/api/v1/health/live || exit 1
 CMD ["node", "dist/main.js"]

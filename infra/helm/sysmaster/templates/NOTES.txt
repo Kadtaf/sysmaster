@@ -1,0 +1,8 @@
+SysMaster {{ include "sysmaster.tag" . }} déployé dans « {{ .Release.Namespace }} ».
+
+Vérifier :
+  kubectl -n {{ .Release.Namespace }} rollout status deploy/{{ include "sysmaster.fullname" . }}-api
+  curl -s {{ .Values.publicUrl }}/api/v1/health
+
+Revenir à la version précédente (le schéma de base reste celui de la nouvelle version) :
+  helm -n {{ .Release.Namespace }} rollback {{ .Release.Name }}

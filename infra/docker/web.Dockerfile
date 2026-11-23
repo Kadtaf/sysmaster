@@ -16,7 +16,8 @@ RUN pnpm --filter @sysmaster/contracts build && pnpm --filter @sysmaster/web bui
 
 # Sortie « standalone » de Next.js : image minimale sans node_modules complets
 FROM node:22-alpine AS runtime
-ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0
+ARG APP_VERSION=dev
+ENV APP_VERSION=$APP_VERSION NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0
 WORKDIR /app
 COPY --from=build /repo/apps/web/.next/standalone ./
 COPY --from=build /repo/apps/web/.next/static ./apps/web/.next/static

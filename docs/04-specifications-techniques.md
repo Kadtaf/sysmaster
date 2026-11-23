@@ -171,9 +171,22 @@ Règles dans `apps/api/src/modules/gamification/domain/rules.ts`, testées unita
 |---|---|---|
 | local | développement | `docker compose up` |
 | preview | une instance par pull request | Phase 2 (Vercel pour le web + namespace Kubernetes éphémère) |
-| staging | recette | automatique sur `main` |
+| staging | recette | automatique sur `main` (`.github/workflows/cd.yml`, chart `infra/helm/sysmaster`), dès que le cluster est configuré |
 | production | utilisateurs | manuel (tag), déploiement progressif (canary) |
 
 ## 9. Variables d'environnement
 
 Voir [`.env.example`](../.env.example). Principales : `DATABASE_URL`, `REDIS_URL`, `QDRANT_URL`, `API_PORT`, `NEXT_PUBLIC_API_URL`, `CORS_ORIGINS`, et pour l'identité `OIDC_ISSUER`, `OIDC_AUDIENCE`, `OIDC_JWKS_URL`, `NEXTAUTH_URL`, `NEXTAUTH_SECRET`, `KEYCLOAK_ISSUER`, `KEYCLOAK_INTERNAL_ISSUER`, `KEYCLOAK_CLIENT_ID`, `KEYCLOAK_CLIENT_SECRET`.
+
+Exploitation : `LOG_FORMAT=json` (une ligne JSON par message), `METRICS_PORT` (métriques Prometheus sur `/metrics`, 9464 par défaut, 0 pour désactiver), `APP_VERSION` (renvoyée par `/health`, posée par l'image), `OUTBOX_RELAY_INTERVAL_MS`.
+
+## 10. Observabilité
+
+| Signal | Où | Pourquoi |
+|---|---|---|
+| Sondes | `/api/v1/health/live` (processus), `/api/v1/health/ready` (base), `/healthz` (front) | « live » ne touche pas la base : une panne de Postgres retire les pods du trafic sans les redémarrer en boucle |
+| Journaux | sortie standard, JSON ; chaque requête a un `x-request-id` (repris du client s'il est sain) | retrouver une requête précise à partir de ce que voit l'utilisateur |
+| Métriques | `http_request_duration_seconds{method,route,status}`, `outbox_pending_events`, `outbox_dead_letter_events`, `outbox_oldest_pending_seconds`, `outbox_events_processed_total{outcome}`, métriques Node.js | le label `route` est le motif (`/kb/commands/:slug`), jamais l'URL, pour borner le nombre de séries |
+| Alertes | `PrometheusRule` du chart : 5xx > 5 %, p95 > 1 s, lettre morte, outbox en retard, API indisponible | chacune donne la première chose à vérifier |
+
+Les traces distribuées (OpenTelemetry) attendent la Phase 3, quand l'appel au service IA rendra le chemin d'une requête multi-services.

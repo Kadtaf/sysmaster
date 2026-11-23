@@ -141,12 +141,52 @@ UPDATE platform.outbox_events
 | `401` sur toutes les routes protégées | `OIDC_ISSUER` ne correspond pas à l'émetteur des jetons (souvent `localhost` d'un côté et le nom du conteneur de l'autre) | Voir [06](06-authentification.md) : émetteur public et émetteur interne |
 | La soumission d'une fiche renvoie `422` | La fiche ne respecte pas encore la règle P-1 | La réponse liste les manques, et l'éditeur les affiche aussi |
 
-## 7. Pas encore livré
+## 7. Déploiement de test (Kubernetes)
+
+**Pourquoi** : vérifier chaque version de `main` dans des conditions proches de la production avant de la proposer aux utilisateurs. **Comment** : la CD (`.github/workflows/cd.yml`) construit les images `ghcr.io/kadtaf/sysmaster-api` et `sysmaster-web`, étiquetées `sha-<commit>`, puis installe le chart `infra/helm/sysmaster`.
+
+Ordre d'un déploiement :
+
+1. un Job applique les migrations (hook Helm `pre-upgrade`). S'il échoue, rien d'autre ne change et l'ancienne version continue de servir ;
+2. les pods sont remplacés un par un ; un pod ne reçoit du trafic que si `/health/ready` répond ;
+3. si l'ensemble n'est pas prêt en 10 minutes, Helm revient automatiquement à la version précédente (`--atomic`) ;
+4. un test de fumée vérifie que `/api/v1/health` annonce bien la nouvelle version.
+
+**Ce qu'il faut fournir une fois** (le chart n'installe ni Postgres ni Keycloak, qui doivent être sauvegardés indépendamment de l'application) :
+
+| Élément | Où | Contenu |
+|---|---|---|
+| Cluster Kubernetes avec un contrôleur ingress NGINX et cert-manager | votre hébergeur | — |
+| Postgres 16 | service géré conseillé | une base vide ; les migrations s'appliquent seules |
+| Keycloak | chart Bitnami ou service géré | royaume importé depuis `infra/keycloak/sysmaster-realm.json`, URL de redirection du client web = `https://<hôte>/*` |
+| Secret `sysmaster-secrets` dans le namespace `sysmaster-staging` | `kubectl` | `DATABASE_URL`, `NEXTAUTH_SECRET`, `KEYCLOAK_CLIENT_SECRET` |
+| Secret GitHub `STAGING_KUBECONFIG` | environnement GitHub « staging » | kubeconfig d'un compte limité à ce namespace |
+| Variables GitHub `STAGING_HOST`, `STAGING_OIDC_ISSUER` | même environnement | ex. `test.sysmaster.fr`, `https://auth.sysmaster.fr/realms/sysmaster` |
+
+Créer le secret applicatif (risque faible : il n'écrit que dans ce namespace ; ne le collez jamais dans un ticket) :
+
+```bash
+kubectl create namespace sysmaster-staging
+kubectl -n sysmaster-staging create secret generic sysmaster-secrets \
+  --from-literal=DATABASE_URL='postgres://…' \
+  --from-literal=NEXTAUTH_SECRET="$(openssl rand -base64 32)" \
+  --from-literal=KEYCLOAK_CLIENT_SECRET='…'
+```
+
+Sans `STAGING_KUBECONFIG`, la CD publie les images et s'arrête là, avec une note dans le résumé du workflow.
+
+**Revenir en arrière** : `helm -n sysmaster-staging rollback sysmaster`. Le code revient, **pas le schéma de la base**. C'est pourquoi chaque migration doit rester compatible avec la version précédente du code : on ajoute une colonne dans une version, on la rend obligatoire dans la suivante.
+
+**Surveiller** (métriques et alertes : voir [04 §10](04-specifications-techniques.md)) :
+
+- `SysmasterOutboxLettreMorte` : suivre « Rejouer une lettre morte » (§4) ;
+- `SysmasterApiErreurs5xx` : chercher les lignes `"level":"error"` du contexte `HTTP`, puis suivre le `requestId` ;
+- `SysmasterApiIndisponible` : `kubectl -n sysmaster-staging describe pod -l app.kubernetes.io/component=api`. Une sonde ready en échec signifie presque toujours que la base est injoignable.
+
+## 8. Pas encore livré
 
 Ces sujets sont prévus dans la [feuille de route](05-feuille-de-route.md) :
 
-- édition des leçons et des parcours dans le back-office (aujourd'hui par migration SQL) ;
-- édition des règles de diagnostic, avec simulation avant publication ;
 - modération ;
 - tableau de bord d'organisation ;
-- déploiement Kubernetes et observabilité.
+- production (promotion manuelle des images testées, déploiement progressif) et traces OpenTelemetry.

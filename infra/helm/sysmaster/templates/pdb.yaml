@@ -1,0 +1,17 @@
+{{- if .Values.podDisruptionBudget.enabled }}
+{{- range $component := list "api" "web" }}
+---
+# Garde au moins un pod pendant les maintenances de nœuds (drain).
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "sysmaster.fullname" $ }}-{{ $component }}
+  labels:
+    {{- include "sysmaster.labels" $ | nindent 4 }}
+spec:
+  minAvailable: {{ $.Values.podDisruptionBudget.minAvailable }}
+  selector:
+    matchLabels:
+      {{- include "sysmaster.selector" (dict "root" $ "component" $component) | nindent 6 }}
+{{- end }}
+{{- end }}
