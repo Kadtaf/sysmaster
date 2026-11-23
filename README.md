@@ -59,6 +59,7 @@ Les tests de bout en bout de l'API (`apps/api/test`) s'exécutent quand `DATABAS
 1. **Diagnostic** : `/diagnostic`, cliquez « Utiliser l'exemple », analysez. Ajoutez ensuite `Event ID 41 Kernel-Power` dans le journal : l'alimentation passe devant la surchauffe, et l'explication dit pourquoi.
 2. **Commande critique** : `/commandes/linux-rm-rf`. La commande reste masquée tant que les risques ne sont pas dépliés, et il n'y a pas de bouton copier.
 3. **Fiche complète** : `/commandes/linux-systemctl` (paramètres, cas réel, erreurs fréquentes, alternatives, sources).
+4. **Académie et gamification** : connectez-vous (`alice@sysmaster.local`), validez « systemctl : démarrer, arrêter, activer », puis ouvrez `/tableau-de-bord` : XP, badge « Premier pas », compétence en progression. `/classement` montre les noms abrégés et permet de s'en retirer.
 
 ## Structure
 

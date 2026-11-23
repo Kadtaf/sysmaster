@@ -183,4 +183,77 @@ export interface LessonCompletedV1 {
   lessonId: string;
   courseId: string;
   completedAt: string;
+  /** Durée estimée de la leçon (les consommateurs n'ont pas à lire le schéma learning). */
+  estMinutes: number | null;
+}
+
+export interface PathCompletedV1 {
+  userId: string;
+  pathId: string;
+}
+
+// --- Gamification et tableau de bord (Phase 2) ---
+
+export interface BadgeDto {
+  code: string;
+  name: string;
+  description: string;
+  icon: string;
+  rarity: 'common' | 'rare' | 'epic' | 'legendary' | string;
+  earnedAt: string | null;
+}
+
+export interface GamificationProfileDto {
+  totalXp: number;
+  level: number;
+  levelTitle: string;
+  /** Seuil d'XP du niveau actuel. */
+  currentLevelXp: number;
+  nextLevel: { level: number; title: string; minXp: number } | null;
+  streakDays: number;
+  longestStreak: number;
+  lessonsCompleted: number;
+  diagnosticsCompleted: number;
+  pathsCompleted: number;
+  showInLeaderboard: boolean;
+  badges: BadgeDto[];
+  recentXp: { amount: number; reason: string; at: string }[];
+}
+
+export interface LeaderboardEntryDto {
+  position: number;
+  /** Nom abrégé (« Alice M. ») : jamais l'e-mail ni le nom complet. */
+  name: string;
+  totalXp: number;
+  level: number;
+  isMe: boolean;
+}
+
+export interface LeaderboardDto {
+  top: LeaderboardEntryDto[];
+  me: LeaderboardEntryDto | null;
+}
+
+export interface SkillProgressDto {
+  code: string;
+  name: string;
+  platform: Platform;
+  totalLessons: number;
+  completedLessons: number;
+  pct: number;
+}
+
+export interface RecommendationDto {
+  kind: 'start' | 'continue';
+  text: string;
+  href: string;
+}
+
+export interface DashboardDto {
+  gamification: GamificationProfileDto;
+  enrollments: EnrollmentDto[];
+  skills: SkillProgressDto[];
+  strengths: SkillProgressDto[];
+  weaknesses: SkillProgressDto[];
+  recommendations: RecommendationDto[];
 }

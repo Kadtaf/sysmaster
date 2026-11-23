@@ -1,8 +1,8 @@
 import { Injectable } from '@nestjs/common';
-import type { EnrollmentDto, LearningPathSummary, LessonCompletedV1 } from '@sysmaster/contracts';
+import type { EnrollmentDto, LearningPathSummary, LessonCompletedV1, PathCompletedV1 } from '@sysmaster/contracts';
 import type { PoolClient } from 'pg';
 import { Database } from '../../../shared/database.module';
-import { AcademyRepository, CourseOutline, PathRecord } from '../application/ports';
+import { AcademyRepository, CourseOutline, NextLesson, PathRecord, SkillProgress } from '../application/ports';
 import { progressPct } from '../domain/progression';
 
 const DIFFICULTY_ORDER = `array_position(ARRAY['beginner','intermediate','advanced','expert'], p.difficulty::text)`;
@@ -114,6 +114,48 @@ export class PgAcademyRepository extends AcademyRepository {
     };
   }
 
+  async skillProgress(userId: string): Promise<SkillProgress[]> {
+    const { rows } = await this.db.query<Record<string, any>>(
+      `WITH scope AS (
+         SELECT DISTINCT l.id FROM learning.lessons l
+           JOIN learning.modules m ON m.id = l.module_id
+           JOIN learning.path_courses pc ON pc.course_id = m.course_id
+          WHERE NOT EXISTS (SELECT 1 FROM learning.enrollments WHERE user_id = $1)
+             OR pc.path_id IN (SELECT path_id FROM learning.enrollments WHERE user_id = $1)
+       )
+       SELECT s.code, s.name, s.platform::text AS platform,
+              count(DISTINCT ls.lesson_id)::int AS total,
+              count(DISTINCT lp.lesson_id)::int AS done
+         FROM skills.skills s
+         JOIN learning.lesson_skills ls ON ls.skill_id = s.id AND ls.lesson_id IN (SELECT id FROM scope)
+         LEFT JOIN learning.lesson_progress lp
+           ON lp.lesson_id = ls.lesson_id AND lp.user_id = $1 AND lp.status = 'completed'
+        GROUP BY s.id ORDER BY s.name`,
+      [userId],
+    );
+    return rows.map((r) => ({ code: r.code, name: r.name, platform: r.platform, totalLessons: r.total, completedLessons: r.done }));
+  }
+
+  async nextLessons(userId: string): Promise<NextLesson[]> {
+    const { rows } = await this.db.query<Record<string, any>>(
+      `SELECT DISTINCT ON (e.path_id)
+              p.slug AS path_slug, p.title AS path_title, co.slug AS course_slug, l.slug AS lesson_slug, l.title AS lesson_title
+         FROM learning.enrollments e
+         JOIN learning.learning_paths p ON p.id = e.path_id
+         JOIN learning.path_courses pc ON pc.path_id = e.path_id
+         JOIN learning.courses co ON co.id = pc.course_id
+         JOIN learning.modules m ON m.course_id = co.id
+         JOIN learning.lessons l ON l.module_id = m.id
+         LEFT JOIN learning.lesson_progress lp ON lp.lesson_id = l.id AND lp.user_id = e.user_id AND lp.status = 'completed'
+        WHERE e.user_id = $1 AND e.completed_at IS NULL AND lp.lesson_id IS NULL
+        ORDER BY e.path_id, pc.position, m.position, l.position`,
+      [userId],
+    );
+    return rows.map((r) => ({
+      pathSlug: r.path_slug, pathTitle: r.path_title, courseSlug: r.course_slug, lessonSlug: r.lesson_slug, lessonTitle: r.lesson_title,
+    }));
+  }
+
   async findLessonContent(lessonId: string) {
     const { rows } = await this.db.query<{ content_md: string | null; objectives: string[] }>(
       'SELECT content_md, objectives FROM learning.lessons WHERE id = $1',
@@ -174,7 +216,14 @@ export class PgAcademyRepository extends AcademyRepository {
       if (!rows.length) return { alreadyCompleted: true };
 
       await this.recomputeProgress(tx, userId);
-      const event: LessonCompletedV1 = { userId, lessonId, courseId, completedAt: rows[0].completed_at.toISOString() };
+      const minutes = await tx.query<{ est_minutes: number | null }>('SELECT est_minutes FROM learning.lessons WHERE id = $1', [lessonId]);
+      const event: LessonCompletedV1 = {
+        userId,
+        lessonId,
+        courseId,
+        completedAt: rows[0].completed_at.toISOString(),
+        estMinutes: minutes.rows[0]?.est_minutes ?? null,
+      };
       await tx.query(
         `INSERT INTO platform.outbox_events (aggregate, aggregate_id, type, payload)
          VALUES ('learning.lesson_progress', $1, 'learning.lesson.completed.v1', $2)`,
@@ -184,8 +233,12 @@ export class PgAcademyRepository extends AcademyRepository {
     });
   }
 
-  /** Progression de chaque parcours de l'utilisateur = leçons validées / leçons du parcours. */
-  private async recomputeProgress(tx: PoolClient, userId: string) {
+  /**
+   * Progression de chaque parcours de l'utilisateur = leçons validées / leçons du parcours.
+   * Un parcours qui passe à 100 % publie learning.path.completed.v1 (une seule fois), que ce soit
+   * en validant une leçon ou en s'inscrivant à un parcours dont toutes les leçons sont déjà faites.
+   */
+  private async recomputeProgress(tx: PoolClient, userId: string): Promise<void> {
     const { rows } = await tx.query<{ path_id: string; total: number; done: number }>(
       `SELECT e.path_id, count(l.id)::int AS total,
               count(lp.lesson_id) FILTER (WHERE lp.status = 'completed')::int AS done
@@ -200,13 +253,24 @@ export class PgAcademyRepository extends AcademyRepository {
     );
     for (const r of rows) {
       const pct = progressPct(r.total, r.done);
-      await tx.query(
-        `UPDATE learning.enrollments
+      const updated = await tx.query<{ was_completed: boolean }>(
+        `UPDATE learning.enrollments e
             SET progress_pct = $3::numeric,
-                completed_at = CASE WHEN $3::numeric >= 100 THEN coalesce(completed_at, now()) ELSE NULL END
-          WHERE user_id = $1 AND path_id = $2`,
+                completed_at = CASE WHEN $3::numeric >= 100 THEN coalesce(e.completed_at, now()) ELSE NULL END
+           FROM (SELECT completed_at IS NOT NULL AS was_completed FROM learning.enrollments
+                  WHERE user_id = $1 AND path_id = $2 FOR UPDATE) old
+          WHERE e.user_id = $1 AND e.path_id = $2
+          RETURNING old.was_completed`,
         [userId, r.path_id, pct],
       );
+      if (pct >= 100 && updated.rows[0] && !updated.rows[0].was_completed) {
+        const event: PathCompletedV1 = { userId, pathId: r.path_id };
+        await tx.query(
+          `INSERT INTO platform.outbox_events (aggregate, aggregate_id, type, payload)
+           VALUES ('learning.enrollment', $1, 'learning.path.completed.v1', $2)`,
+          [r.path_id, JSON.stringify(event)],
+        );
+      }
     }
   }
 }

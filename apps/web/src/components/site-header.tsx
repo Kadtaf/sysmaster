@@ -6,6 +6,7 @@ const links = [
   { href: '/parcours', label: 'Parcours' },
   { href: '/commandes', label: 'Base de connaissances' },
   { href: '/diagnostic', label: 'Diagnostic' },
+  { href: '/classement', label: 'Classement' },
 ];
 
 export function SiteHeader() {

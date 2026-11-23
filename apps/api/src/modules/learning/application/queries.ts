@@ -2,7 +2,7 @@ import { NotFoundException } from '@nestjs/common';
 import { IQueryHandler, QueryHandler } from '@nestjs/cqrs';
 import type { CourseDetail, EnrollmentDto, LearningPathDetail, LearningPathSummary, LessonDetail } from '@sysmaster/contracts';
 import { lessonStates } from '../domain/progression';
-import { AcademyRepository, flattenLessons } from './ports';
+import { AcademyRepository, flattenLessons, NextLesson, SkillProgress } from './ports';
 
 export class ListPathsQuery {}
 
@@ -110,5 +110,29 @@ export class MyEnrollmentsHandler implements IQueryHandler<MyEnrollmentsQuery, E
   constructor(private readonly repo: AcademyRepository) {}
   execute({ userId }: MyEnrollmentsQuery) {
     return this.repo.enrollmentsOf(userId);
+  }
+}
+
+export class SkillProgressQuery {
+  constructor(readonly userId: string) {}
+}
+
+@QueryHandler(SkillProgressQuery)
+export class SkillProgressHandler implements IQueryHandler<SkillProgressQuery, SkillProgress[]> {
+  constructor(private readonly repo: AcademyRepository) {}
+  execute({ userId }: SkillProgressQuery) {
+    return this.repo.skillProgress(userId);
+  }
+}
+
+export class NextLessonsQuery {
+  constructor(readonly userId: string) {}
+}
+
+@QueryHandler(NextLessonsQuery)
+export class NextLessonsHandler implements IQueryHandler<NextLessonsQuery, NextLesson[]> {
+  constructor(private readonly repo: AcademyRepository) {}
+  execute({ userId }: NextLessonsQuery) {
+    return this.repo.nextLessons(userId);
   }
 }
