@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { signIn, signOut, useSession } from 'next-auth/react';
 import { useEffect } from 'react';
-import { LogIn, LogOut, UserRound } from 'lucide-react';
+import { LayoutDashboard, LogIn, LogOut, UserRound } from 'lucide-react';
 import { Button, buttonVariants } from '@/components/ui/button';
 
 export async function federatedSignOut() {
@@ -31,6 +31,9 @@ export function AuthButton() {
   }
   return (
     <div className="flex items-center gap-2">
+      <Link href="/tableau-de-bord" className={buttonVariants({ variant: 'ghost', size: 'sm' })}>
+        <LayoutDashboard className="size-4" aria-hidden /> <span className="hidden sm:inline">Tableau de bord</span>
+      </Link>
       <Link href="/compte" className={buttonVariants({ variant: 'ghost', size: 'sm' })}>
         <UserRound className="size-4" aria-hidden /> {session.user?.name ?? 'Mon compte'}
       </Link>

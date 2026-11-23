@@ -22,3 +22,16 @@ export async function apiPost<T>(path: string, accessToken: string | undefined, 
   if (!res.ok) throw new ApiError(res.status, json);
   return json as T;
 }
+
+/** PUT authentifié depuis le navigateur (réponse 204 attendue). */
+export async function apiPut(path: string, accessToken: string | undefined, body: unknown): Promise<void> {
+  const res = await fetch(`${publicApiBase}${path}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+    },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new ApiError(res.status, await res.json().catch(() => ({})));
+}

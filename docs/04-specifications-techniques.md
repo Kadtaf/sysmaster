@@ -69,6 +69,9 @@ Préfixe `/api/v1`. Documentation OpenAPI générée sur `/api/docs`. Authentifi
 | GET | `/diagnostic/symptoms?platform=` | Symptômes connus |
 | POST | `/diagnostic/analyze` | Analyse : `{ platform, description?, symptoms?, evidence? }` → hypothèses classées. Anonyme ou connecté (la session rejoint alors l'historique) |
 | GET | `/me` | Profil, rôles et droits de l'utilisateur connecté (jeton requis) |
+| GET | `/me/dashboard` | Tableau de bord : XP, niveau, série, badges, parcours, compétences, points forts et faibles, recommandations |
+| GET | `/gamification/leaderboard?limit=` | Classement (noms abrégés) ; si connecté, `me` donne votre rang |
+| PUT | `/me/leaderboard-visibility` | `{ visible: boolean }` : apparaître ou non dans le classement (204) |
 | GET | `/admin/users` | Liste des utilisateurs (rôles `admin` ou `support`) |
 
 Exemple de réponse `POST /diagnostic/analyze` :
@@ -109,6 +112,22 @@ confiance = p1 × (1 − p2/p1) pondérée par le nombre de symptômes (saturati
 - **Questions de clarification** : le moteur choisit les symptômes non observés qui séparent le mieux les deux meilleures hypothèses (différence de vraisemblance maximale).
 - **Explications** : pour chaque cause, les facteurs qui ont le plus pesé, en langage naturel.
 - Code : `apps/api/src/modules/diagnostic/domain/deduction-engine.ts`, testé unitairement.
+
+## 4 bis. Gamification (implémentée)
+
+Règles dans `apps/api/src/modules/gamification/domain/rules.ts`, testées unitairement, appliquées par le consommateur d'événements (jamais par l'action de l'utilisateur elle-même) :
+
+| Activité | XP |
+|---|---|
+| Leçon validée | 10 + durée estimée en minutes, plafonné à 50 |
+| Diagnostic mené à terme (connecté) | 15 |
+| Parcours terminé | 200 |
+
+- **Niveaux** : table `gamification.levels` (Curieux 0 XP → Maître système 12 000 XP).
+- **Série** : jours consécutifs d'activité, calculés à la date du fuseau de l'utilisateur ; record conservé.
+- **Badges** : critères déclaratifs en JSON (`lessons_completed`, `diagnostics_completed`, `paths_completed`, `streak_days`). Un badge à critère inconnu n'est jamais attribué (il attend sa fonctionnalité, par exemple les labs).
+- **Classement** : vue `gamification.leaderboard`, nom abrégé (« Alice M. »), retrait possible sans perte d'XP.
+- La vitesse ne rapporte rien : aucune règle ne dépend du temps passé ou de la rapidité.
 
 ## 5. Sécurité applicative
 

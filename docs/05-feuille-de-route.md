@@ -46,8 +46,8 @@ Les durées sont indicatives et supposent une équipe dédiée ; avec un dévelo
 - ✅ Keycloak : e-mail, Google, Microsoft, GitHub (Apple via extension), 2FA, passkeys ; rôles synchronisés, garde API « fermé par défaut », page Mon compte ([06-authentification.md](06-authentification.md)). Organisations et SSO SAML : avec les licences (Phase 5).
 - ✅ Académie : parcours, cours, leçons (9 leçons de démo rédigées), inscription, validation dans l'ordre, progression. ⏳ Test de positionnement et recommandations.
 - Éditeur de contenu et workflow de relecture (back-office).
-- Bus NATS + relais outbox ; projecteurs CQRS ; gamification (XP, niveaux, badges, séries, classements Redis).
-- Tableau de bord apprenant et organisation.
+- ✅ Relais outbox (lots, idempotence, reprise avec attente exponentielle, lettre morte) ; gamification (XP, niveaux, badges, séries, classement avec retrait possible). ⏳ Bus NATS quand un service sera extrait ; classement en cache Redis si le volume l'exige.
+- ✅ Tableau de bord apprenant (niveau, série, badges, compétences, points forts et faibles, recommandations). ⏳ Tableau de bord d'organisation (avec les organisations, Phase 5).
 - GraphQL BFF, OpenSearch pour la recherche.
 - Maquettes UX/UI complètes (Figma) et design system documenté.
 - CD vers staging (Kubernetes + Helm), observabilité OpenTelemetry.

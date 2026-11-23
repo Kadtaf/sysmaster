@@ -33,7 +33,27 @@ export interface CourseOutline {
   modules: { title: string; lessons: OutlineLesson[] }[];
 }
 
+export interface SkillProgress {
+  code: string;
+  name: string;
+  platform: Platform;
+  totalLessons: number;
+  completedLessons: number;
+}
+
+export interface NextLesson {
+  pathSlug: string;
+  pathTitle: string;
+  courseSlug: string;
+  lessonSlug: string;
+  lessonTitle: string;
+}
+
 export abstract class AcademyRepository {
+  /** Compétences travaillées par les leçons des parcours suivis (toutes si aucun parcours). */
+  abstract skillProgress(userId: string): Promise<SkillProgress[]>;
+  /** Pour chaque parcours en cours : la prochaine leçon à valider. */
+  abstract nextLessons(userId: string): Promise<NextLesson[]>;
   abstract listPaths(): Promise<LearningPathSummary[]>;
   abstract findPath(slug: string): Promise<PathRecord | null>;
   abstract findCourseOutline(by: { slug: string } | { lessonId: string }): Promise<CourseOutline | null>;

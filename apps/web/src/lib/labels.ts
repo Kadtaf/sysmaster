@@ -24,3 +24,13 @@ export const lessonTypeLabel: Record<string, string> = {
   quiz: 'Quiz',
   case_study: 'Étude de cas',
 };
+
+export const xpReasonLabel: Record<string, string> = {
+  'lesson.completed': 'Leçon validée',
+  'diagnostic.completed': 'Diagnostic mené à terme',
+  'path.completed': 'Parcours terminé',
+};
+
+export const rarityLabel: Record<string, string> = {
+  common: 'Courant', rare: 'Rare', epic: 'Épique', legendary: 'Légendaire',
+};

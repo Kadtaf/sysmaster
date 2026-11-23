@@ -99,6 +99,8 @@ Règles :
 
 ### 2.8 Gamification — Phase 2
 
+> **Livré (PR gamification)** : XP sur leçons, diagnostics et parcours terminés, niveaux, badges, séries, classement anonymisé avec retrait, page `/classement`. Reste à faire : défis hebdomadaires, classements amis et organisation, XP communauté et labs.
+
 XP (leçons, labs, diagnostics clos, aide en communauté), niveaux (Curieux → Maître système), badges (dont « Lire avant d'exécuter »), séries quotidiennes, défis hebdomadaires, classements (global, amis, organisation). **Règle** : l'XP ne récompense jamais la vitesse de copie ; un lab résolu sans indice rapporte plus.
 
 ### 2.9 Communauté — Phase 5
@@ -106,6 +108,8 @@ XP (leçons, labs, diagnostics clos, aide en communauté), niveaux (Curieux → 
 Forum par catégorie, Q&R avec réponse acceptée, partage de labs et de scripts (P-5), mentorat (mise en relation mentor/apprenant), groupes d'étude, modération (signalements, rôles), suggestion IA de questions similaires avant publication.
 
 ### 2.10 Tableaux de bord — Phase 2
+
+> **Livré** : tableau de bord apprenant `/tableau-de-bord` (niveau, série, badges, parcours, carte des compétences, points forts / faibles, recommandations à base de règles). Reste à faire : radar, objectifs personnalisés, historique de diagnostics, tableau de bord d'organisation.
 
 Apprenant : progression par parcours, carte des compétences (radar), points forts / faibles, recommandations IA, objectifs personnalisés, historique de diagnostics.
 Organisation : progression des membres, compétences de l'équipe, rapports exportables.
