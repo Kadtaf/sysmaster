@@ -234,6 +234,21 @@ export class PgAcademyRepository extends AcademyRepository {
   }
 
   /**
+   * Recalcule la progression des inscrits quand le contenu d'un cours ou d'un parcours change
+   * (leçon ajoutée ou retirée, cours ajouté au parcours). Appelé par le consommateur d'événements.
+   */
+  async recomputeEnrolled(tx: PoolClient, target: { courseId: string } | { pathId: string }): Promise<number> {
+    const { rows } = await tx.query<{ user_id: string }>(
+      'courseId' in target
+        ? `SELECT DISTINCT e.user_id FROM learning.enrollments e JOIN learning.path_courses pc ON pc.path_id = e.path_id WHERE pc.course_id = $1`
+        : `SELECT DISTINCT user_id FROM learning.enrollments WHERE path_id = $1`,
+      ['courseId' in target ? target.courseId : target.pathId],
+    );
+    for (const r of rows) await this.recomputeProgress(tx, r.user_id);
+    return rows.length;
+  }
+
+  /**
    * Progression de chaque parcours de l'utilisateur = leçons validées / leçons du parcours.
    * Un parcours qui passe à 100 % publie learning.path.completed.v1 (une seule fois), que ce soit
    * en validant une leçon ou en s'inscrivant à un parcours dont toutes les leçons sont déjà faites.

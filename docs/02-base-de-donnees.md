@@ -100,7 +100,8 @@ erDiagram
 | `skills` | skills, prerequisites, user_skill_scores |
 | `learning` | careers, learning_paths, courses, path_courses, modules, lessons, lesson_skills, enrollments, lesson_progress, user_goals, dashboard_progress (vue matérialisée) |
 | `kb` | commands (recherche plein texte + trigrammes), command_parameters, command_examples, command_alternatives, concepts, sources, command_sources, command_links |
-| `diagnostic` | symptoms, causes, rules, evidence_patterns, sessions, session_symptoms, attachments, hypotheses, probe_devices |
+| `editorial` | revisions (une par modification de contenu : fiche, cours, parcours ou cause ; une seule ouverte par cible), revision_events |
+| `diagnostic` | symptoms, causes, rules, evidence_patterns, reference_cases (cas rejoués avant publication d'une cause), sessions, session_symptoms, attachments, hypotheses, probe_devices |
 | `labs` | lab_templates, fault_scenarios, validators, instances |
 | `assessment` | questions, question_skills, quizzes, quiz_questions, attempts, certifications, certificates |
 | `gamification` | xp_ledger (partitionnée), user_stats, levels, badges, user_badges, challenges, challenge_participants, leaderboard (vue) |

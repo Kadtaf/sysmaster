@@ -134,7 +134,7 @@ Web (Phase 1), puis Android, iOS, iPadOS (React Native + Expo, logique partagée
 
 ### 2.13 Back-office — Phase 2+
 
-> **Livré** : workflow éditorial des fiches commandes (§2.3). Reste à faire : leçons et parcours, règles de diagnostic avec simulation, sources RAG, modération, organisations, remboursements.
+> **Livré** : workflow éditorial commun aux fiches commandes (§2.3), aux cours et leçons, aux parcours et aux causes de diagnostic. Une cause modifiée est rejouée sur des cas de référence avant publication, et une régression doit être justifiée par le relecteur. Reste à faire : sources RAG, modération, organisations, remboursements.
 
 Gestion des contenus, règles de diagnostic (avec simulation avant publication), sources RAG, modération, utilisateurs, organisations, remboursements, tableaux de bord métier.
 

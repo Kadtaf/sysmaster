@@ -9,7 +9,7 @@ import pg from 'pg';
 const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const args = new Set(process.argv.slice(2));
 const url = process.env.DATABASE_URL ?? 'postgres://sysmaster:sysmaster@localhost:5432/sysmaster';
-const SCHEMAS = ['platform','iam','skills','learning','kb','diagnostic','labs','assessment','gamification','community','billing','ai','notification'];
+const SCHEMAS = ['platform','iam','skills','learning','kb','diagnostic','labs','assessment','gamification','community','billing','ai','notification','editorial'];
 
 const client = new pg.Client({ connectionString: url });
 await client.connect();

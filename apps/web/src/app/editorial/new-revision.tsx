@@ -3,15 +3,18 @@
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { useState, useTransition } from 'react';
-import type { RevisionDto } from '@sysmaster/contracts';
+import { CONTENT_KINDS, type ContentKind, type RevisionDto } from '@sysmaster/contracts';
 import { Button } from '@/components/ui/button';
 import { Card, CardDescription, CardTitle } from '@/components/ui/card';
 import { apiRequest } from '@/lib/client-api';
+import { contentKindMeta } from '@/lib/labels';
 
 export function NewRevision() {
   const { data: session } = useSession();
   const router = useRouter();
   const [slug, setSlug] = useState('');
+  const [kind, setKind] = useState<ContentKind>('command');
+  const meta = contentKindMeta[kind];
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -19,7 +22,7 @@ export function NewRevision() {
     startTransition(async () => {
       setError(null);
       try {
-        const r = await apiRequest<RevisionDto>('POST', '/editorial/revisions', session?.accessToken, fromSlug ? { fromSlug } : {});
+        const r = await apiRequest<RevisionDto>('POST', '/editorial/revisions', session?.accessToken, { kind, ...(fromSlug ? { from: fromSlug } : {}) });
         router.push(`/editorial/${r.id}`);
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Création impossible');
@@ -30,7 +33,13 @@ export function NewRevision() {
     <Card className="space-y-4">
       <CardTitle>Contribuer</CardTitle>
       <div className="flex flex-wrap items-end gap-3">
-        <Button disabled={pending} onClick={() => create()}>Nouvelle fiche</Button>
+        <label className="text-sm">
+          <span className="block text-muted-foreground">Type de contenu</span>
+          <select value={kind} onChange={(e) => setKind(e.target.value as ContentKind)} className="mt-1 rounded-md border bg-background px-3 py-2 text-sm">
+            {CONTENT_KINDS.map((k) => <option key={k} value={k}>{contentKindMeta[k].label}</option>)}
+          </select>
+        </label>
+        <Button disabled={pending} onClick={() => create()}>{meta.newLabel}</Button>
         <form
           className="flex flex-wrap items-end gap-2"
           onSubmit={(e) => {
@@ -39,18 +48,20 @@ export function NewRevision() {
           }}
         >
           <label className="text-sm">
-            <span className="block text-muted-foreground">ou modifier la fiche</span>
+            <span className="block text-muted-foreground">ou modifier l’existant</span>
             <input
               value={slug}
               onChange={(e) => setSlug(e.target.value)}
-              placeholder="linux-systemctl"
+              placeholder={meta.placeholder}
               className="mt-1 w-56 rounded-md border bg-background px-3 py-2 font-mono text-sm"
             />
           </label>
           <Button type="submit" variant="outline" disabled={pending || !slug.trim()}>Proposer une modification</Button>
         </form>
       </div>
-      <CardDescription>L&apos;identifiant est la fin de l&apos;adresse de la fiche : /commandes/<strong>linux-systemctl</strong>.</CardDescription>
+      <CardDescription>
+        L&apos;identifiant est la fin de l&apos;adresse (par exemple {meta.href(meta.placeholder)}) ; pour une cause de diagnostic, c&apos;est son code.
+      </CardDescription>
       {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
     </Card>
   );

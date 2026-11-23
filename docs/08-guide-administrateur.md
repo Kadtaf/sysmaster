@@ -63,14 +63,29 @@ Règles garanties par l'API (et pas seulement par l'interface) :
 
 ```sql
 SELECT r.id, r.status, e.action, u.display_name, e.comment, e.created_at
-  FROM kb.command_revisions r
-  JOIN kb.revision_events e ON e.revision_id = r.id
+  FROM editorial.revisions r
+  JOIN editorial.revision_events e ON e.revision_id = r.id
   JOIN iam.users u ON u.id = e.actor_id
- WHERE r.content->>'slug' = 'linux-systemctl'
+ WHERE r.kind = 'command' AND r.content->>'slug' = 'linux-systemctl'
  ORDER BY e.created_at;
 ```
 
-Cette requête est en lecture seule et sans risque. Le journal d'audit global est dans `platform.audit_log` (action `kb.command.published`).
+Cette requête est en lecture seule et sans risque. Le journal d'audit global est dans `platform.audit_log` (actions `kb.command.published`, `learning.course.published`, etc.).
+
+**Cours, parcours et causes de diagnostic** suivent le même circuit (brouillon, relecture par une autre personne, publication en une transaction), avec leurs propres règles avant soumission :
+
+- **Cours** : chaque leçon a un identifiant d'URL unique, au moins un objectif et un contenu. Une leçon renommée ou déplacée garde sa progression, car elle est reconnue par son identifiant d'URL. **Supprimer une leçon qu'un apprenant a déjà validée est refusé** : masquez-la plutôt dans un module « Archives ». À la publication, la progression des inscrits est recalculée.
+- **Parcours** : au moins un cours publié, dans l'ordre conseillé.
+- **Causes de diagnostic** : chaque règle « symptôme → cause » est justifiée, chaque étape du plan d'action dit **pourquoi**, et la première étape n'est jamais risquée (on observe avant d'agir). Les motifs de journaux doivent être des expressions régulières valides.
+
+**Simulation avant publication.** Pour une cause, l'éditeur rejoue les cas de référence (`diagnostic.reference_cases`) avec la base actuelle puis avec le brouillon. Une **régression** signifie qu'un cas trouvait la bonne cause en tête et ne la trouve plus. Le relecteur ne peut approuver une régression qu'en expliquant pourquoi dans son commentaire. Pour ajouter un cas de référence (lecture seule pour les apprenants, sans risque) :
+
+```sql
+INSERT INTO diagnostic.reference_cases (name, platform, description, symptoms, evidence, expected_cause)
+VALUES ('Mon cas', 'windows', 'Description telle qu''un utilisateur l''écrirait', '{}', NULL, 'overheating');
+```
+
+Pourquoi : un cas de référence fige un diagnostic qu'on sait juste ; toute modification future des règles sera vérifiée contre lui.
 
 ## 4. Événements (outbox)
 
