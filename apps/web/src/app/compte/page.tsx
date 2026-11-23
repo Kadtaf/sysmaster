@@ -1,4 +1,7 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
+import type { EnrollmentDto } from '@sysmaster/contracts';
+import { ProgressBar } from '@/components/progress-bar';
 import { redirect } from 'next/navigation';
 import { getServerSession } from 'next-auth';
 import { ExternalLink } from 'lucide-react';
@@ -32,8 +35,12 @@ export default async function AccountPage() {
   if (!session?.accessToken) redirect('/connexion?callbackUrl=/compte');
 
   let me: Me | null;
+  let enrollments: EnrollmentDto[] | null;
   try {
-    me = await apiGet<Me>('/me', session.accessToken);
+    [me, enrollments] = await Promise.all([
+      apiGet<Me>('/me', session.accessToken),
+      apiGet<EnrollmentDto[]>('/me/learning', session.accessToken),
+    ]);
   } catch (e) {
     if (e instanceof ApiUnavailableError) return <ApiUnavailable />;
     throw e;
@@ -52,6 +59,24 @@ export default async function AccountPage() {
         <p className="mt-4 text-xs text-muted-foreground">
           Membre depuis le {new Date(me.createdAt).toLocaleDateString('fr-FR', { dateStyle: 'long' })}
         </p>
+      </Card>
+
+      <Card>
+        <CardTitle>Mes parcours</CardTitle>
+        {enrollments?.length ? (
+          <ul className="mt-4 space-y-4">
+            {enrollments.map((e) => (
+              <li key={e.pathSlug}>
+                <Link href={`/parcours/${e.pathSlug}`} className="font-medium hover:underline">{e.pathTitle}</Link>
+                <div className="mt-1"><ProgressBar value={e.progressPct} label={e.completedAt ? 'Terminé' : 'Progression'} /></div>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <CardDescription>
+            Aucun parcours pour l&apos;instant. <Link href="/parcours" className="text-primary hover:underline">Choisir un parcours</Link>
+          </CardDescription>
+        )}
       </Card>
 
       <Card>

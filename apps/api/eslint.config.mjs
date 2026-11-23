@@ -8,6 +8,7 @@ export default tseslint.config(
     rules: {
       // Les adaptateurs SQL manipulent des lignes non typées : toléré, mais pas dans le domaine.
       '@typescript-eslint/no-explicit-any': 'off',
+      '@typescript-eslint/no-unused-vars': ['error', { ignoreRestSiblings: true, argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
     },
   },
   {

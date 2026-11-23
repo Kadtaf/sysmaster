@@ -39,6 +39,8 @@ Règle qui s'applique à **toutes** les fonctionnalités affichant une commande,
 
 ### 2.2 Académie (Learning) — Phase 2
 
+> **Livré (PR académie)** : parcours, cours, leçons Markdown, inscription, validation **dans l'ordre** (une leçon verrouillée indique laquelle faire d'abord), progression par parcours, événement `learning.lesson.completed.v1`. Les leçons restent **lisibles sans compte** ; seule la validation exige une connexion. Reste à faire : test de positionnement, recommandations, prérequis entre cours (graphe de compétences).
+
 - 6 carrières cibles : technicien, administrateur système, ingénieur systèmes, cloud, cybersécurité, DevOps.
 - Parcours → cours → modules → leçons (lecture, vidéo, interactif, lab, quiz, étude de cas).
 - Progression **progressive** : une leçon peut exiger des compétences préalables (graphe `skills.prerequisites`). Un test de positionnement permet de sauter ce qui est déjà maîtrisé.

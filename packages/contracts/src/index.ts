@@ -109,3 +109,78 @@ export interface DiagnosticSessionCompletedV1 {
   topCause: string | null;
   confidence: number;
 }
+
+// ---------- Académie (Phase 2) ----------
+export type LessonStatus = 'completed' | 'available' | 'locked';
+export type LessonType = 'reading' | 'video' | 'interactive' | 'lab' | 'quiz' | 'case_study';
+
+export interface EnrollmentDto {
+  pathSlug: string;
+  pathTitle: string;
+  progressPct: number;
+  startedAt: string;
+  completedAt: string | null;
+}
+
+export interface PathCourseDto {
+  slug: string;
+  title: string;
+  summary: string;
+  platform: Platform;
+  difficulty: Difficulty;
+  isPremium: boolean;
+  lessonCount: number;
+  completedCount: number;
+}
+
+export interface LearningPathDetail extends LearningPathSummary {
+  courses: PathCourseDto[];
+  /** null si l'utilisateur n'est pas connecté ou pas inscrit. */
+  enrollment: EnrollmentDto | null;
+}
+
+export interface LessonRef {
+  id: string;
+  slug: string;
+  title: string;
+  type: LessonType;
+  estMinutes: number | null;
+  /** null pour un visiteur anonyme : la progression n'existe que pour un compte. */
+  status: LessonStatus | null;
+}
+
+export interface CourseDetail {
+  slug: string;
+  title: string;
+  summary: string;
+  platform: Platform;
+  difficulty: Difficulty;
+  isPremium: boolean;
+  modules: { title: string; lessons: LessonRef[] }[];
+}
+
+export interface LessonDetail extends LessonRef {
+  courseSlug: string;
+  courseTitle: string;
+  moduleTitle: string;
+  contentMd: string;
+  objectives: string[];
+  blockedBy: { slug: string; title: string } | null;
+  previous: { slug: string; title: string } | null;
+  next: { slug: string; title: string } | null;
+}
+
+export interface CompleteLessonResult {
+  lessonId: string;
+  alreadyCompleted: boolean;
+  next: { slug: string; title: string } | null;
+  enrollments: EnrollmentDto[];
+}
+
+// Événement
+export interface LessonCompletedV1 {
+  userId: string;
+  lessonId: string;
+  courseId: string;
+  completedAt: string;
+}
