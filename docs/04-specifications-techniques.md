@@ -58,6 +58,12 @@ Préfixe `/api/v1`. Documentation OpenAPI générée sur `/api/docs`. Authentifi
 |---|---|---|
 | GET | `/health` | État de l'API et de la base |
 | GET | `/learning/paths` | Liste des parcours publiés |
+| GET | `/learning/paths/:slug` | Parcours, cours et, si connecté, progression et inscription |
+| POST | `/learning/paths/:slug/enroll` | Inscription (connecté, idempotent) |
+| GET | `/learning/courses/:slug` | Plan du cours ; si connecté, état de chaque leçon (`completed`, `available`, `locked`) |
+| GET | `/learning/courses/:course/lessons/:lesson` | Contenu Markdown, objectifs, leçons voisines, blocage éventuel |
+| POST | `/learning/lessons/:id/complete` | Valide une leçon (connecté). **409** avec `blockedBy` si la précédente n'est pas validée. Publie `learning.lesson.completed.v1` |
+| GET | `/me/learning` | Parcours suivis et progression |
 | GET | `/kb/commands?q=&platform=` | Recherche de fiches commandes |
 | GET | `/kb/commands/:slug` | Fiche complète (paramètres, exemples, alternatives, sources) |
 | GET | `/diagnostic/symptoms?platform=` | Symptômes connus |

@@ -15,3 +15,12 @@ export const riskMeta: Record<RiskLevel, { label: string; className: string }> =
   high: { label: 'Risque élevé', className: 'bg-orange-100 text-orange-900 dark:bg-orange-950 dark:text-orange-200' },
   critical: { label: 'Risque critique', className: 'bg-red-100 text-red-900 dark:bg-red-950 dark:text-red-200' },
 };
+
+export const lessonTypeLabel: Record<string, string> = {
+  reading: 'Lecture',
+  video: 'Vidéo',
+  interactive: 'Interactif',
+  lab: 'Pratique',
+  quiz: 'Quiz',
+  case_study: 'Étude de cas',
+};
