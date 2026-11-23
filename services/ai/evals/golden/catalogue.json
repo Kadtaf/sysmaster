@@ -1,0 +1,10 @@
+[
+ {"code": "after_bios_change", "label": "Après un changement de BIOS/UEFI ou d'overclocking"},
+ {"code": "after_driver_update", "label": "Problème apparu après une mise à jour de pilote ou de Windows"},
+ {"code": "bsod", "label": "Écran bleu avant le redémarrage"},
+ {"code": "loud_fans", "label": "Ventilateurs bruyants ou PC très chaud"},
+ {"code": "no_display_beep", "label": "Bips au démarrage ou pas d'affichage"},
+ {"code": "random_freeze", "label": "Gels aléatoires"},
+ {"code": "reboot_under_load", "label": "Redémarre pendant un jeu ou une tâche lourde"},
+ {"code": "unexpected_reboot", "label": "Le PC redémarre seul"}
+]

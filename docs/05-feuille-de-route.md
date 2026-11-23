@@ -61,7 +61,7 @@ Les durées sont indicatives et supposent une équipe dédiée ; avec un dévelo
 - NATS JetStream (ADR-013) : le relais outbox publie les événements de publication de contenu, que le service IA consomme pour réindexer le RAG.
 - Diagnostic : extraction de symptômes par LLM, analyse de captures (OCR + vision), analyse de logs (agent 10 + `evidence_patterns`).
 - Génération de quiz et d'exercices (relue avant publication).
-- Évaluation continue (golden sets), suivi des coûts, quotas par plan.
+- ✅ Évaluation continue : jeux de référence (assistant, extraction), contrôles déterministes en CI, évaluation avec le vrai modèle et juge par modèle via un workflow manuel. ⏳ Suivi des coûts, quotas par plan.
 
 ## Phase 4 — Labs virtuels et diagnostic avancé
 

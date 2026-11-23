@@ -1,0 +1,46 @@
+# Évaluation avec le vrai modèle : lancée à la main, car chaque exécution est facturée.
+name: Évaluation IA
+
+on:
+  workflow_dispatch:
+    inputs:
+      judge:
+        description: "Ajouter le juge par modèle (fidélité aux sources, pédagogie) — coût environ doublé"
+        type: boolean
+        default: false
+      effort:
+        description: "Effort du modèle pour les réponses"
+        type: choice
+        options: [low, medium, high]
+        default: medium
+
+permissions:
+  contents: read
+
+jobs:
+  eval:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/ai
+    env:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: 0.11.32
+          enable-cache: true
+          cache-dependency-glob: services/ai/uv.lock
+      - run: uv python install 3.12
+      - run: uv sync --locked
+      - name: Évaluation
+        run: uv run python -m evals.run --llm claude --effort "${{ inputs.effort }}" ${{ inputs.judge && '--judge' || '' }}
+      - name: Rapport
+        if: always()
+        run: cat evals/reports/*.md >> "$GITHUB_STEP_SUMMARY" || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: rapport-evaluation
+          path: services/ai/evals/reports/

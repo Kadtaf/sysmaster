@@ -76,6 +76,9 @@ jobs:
       - run: uv run ruff format --check .
       # Les tests utilisent un faux modèle et un faux client HTTP : aucune clé, aucun appel réseau.
       - run: uv run pytest -q
+      # Jeux de référence avec le modèle factice : routage, recherche et garde-fous (seuils dans evals/thresholds.toml).
+      - name: Évaluation hors ligne
+        run: uv run python -m evals.run --llm fake
 
   helm:
     name: Chart Helm

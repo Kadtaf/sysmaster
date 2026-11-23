@@ -1,0 +1,1315 @@
+[
+ {
+  "slug": "docker-logs",
+  "name": "docker logs",
+  "platform": "docker",
+  "riskLevel": "none",
+  "summary": "Affiche la sortie standard et d'erreur d'un conteneur.",
+  "syntax": "docker logs [--tail N] [-f] [--since 10m] <conteneur>",
+  "why": "Un conteneur qui redémarre en boucle explique presque toujours pourquoi dans ses journaux.",
+  "whenToUse": "Quand un conteneur s'arrête, redémarre ou répond mal.",
+  "context": "Accès au démon Docker (groupe docker ou sudo).",
+  "risks": [
+   {
+    "text": "Lecture seule. Les journaux peuvent contenir des secrets (jetons, mots de passe) : attention avant de les copier dans un ticket ou un forum.",
+    "level": "none"
+   }
+  ],
+  "parameters": [],
+  "examples": [
+   {
+    "title": "Conteneur qui redémarre en boucle",
+    "code": "docker logs --tail 100 api",
+    "explanation": "Les 100 dernières lignes contiennent généralement l'erreur fatale.",
+    "isRealCase": false
+   }
+  ]
+ },
+ {
+  "slug": "linux-chmod",
+  "name": "chmod",
+  "platform": "linux",
+  "riskLevel": "medium",
+  "summary": "Modifie les droits de lecture, d’écriture et d’exécution d’un fichier ou d’un répertoire.",
+  "syntax": "chmod [options] mode fichier…   (mode : u+x, g-w, o=r ou 750)",
+  "why": "Les droits décident qui peut lire un secret, modifier une configuration ou lancer un script. Un script sans x ne s’exécute pas ; une clé SSH lisible par tous est refusée par ssh.",
+  "whenToUse": "Pour rendre un script exécutable, protéger un fichier sensible ou corriger un « Permission denied » dont la cause est comprise. Si c’est le propriétaire qui est faux, utiliser chown.",
+  "context": "Seul le propriétaire du fichier (ou root) peut en changer les droits.",
+  "risks": [
+   {
+    "text": "chmod 777 rend un fichier modifiable par n’importe quel utilisateur ou service compromis : porte ouverte à l’injection de code.",
+    "level": "medium"
+   },
+   {
+    "text": "chmod -R sur un mauvais chemin change d’un coup les droits de milliers de fichiers ; il n’existe pas d’annulation.",
+    "level": "medium"
+   }
+  ],
+  "parameters": [
+   {
+    "flag": "u+x / g-w / o=",
+    "description": "Ajoute, retire ou fixe un droit pour le propriétaire (u), le groupe (g), les autres (o).",
+    "riskLevel": "low"
+   },
+   {
+    "flag": "750",
+    "description": "Notation octale : 7=rwx, 5=r-x, 0=--- (propriétaire, groupe, autres).",
+    "riskLevel": "low"
+   },
+   {
+    "flag": "-R",
+    "description": "Récursif : s’applique à tout le contenu du répertoire.",
+    "riskLevel": "medium"
+   },
+   {
+    "flag": "--reference=fichier",
+    "description": "Copie les droits d’un fichier de référence.",
+    "riskLevel": "low"
+   }
+  ],
+  "examples": [
+   {
+    "title": "Rendre un script exécutable par son propriétaire seulement",
+    "code": "chmod u+x deploy.sh && ls -l deploy.sh",
+    "explanation": "u+x n’ajoute que l’exécution pour le propriétaire ; ls -l permet de vérifier le résultat.",
+    "isRealCase": false
+   },
+   {
+    "title": "Protéger un fichier de secrets",
+    "code": "chmod 600 /etc/monapp/secrets.env",
+    "explanation": "Lecture et écriture pour le propriétaire, rien pour les autres. Vérifier ensuite que le service tourne bien sous ce propriétaire.",
+    "isRealCase": true
+   }
+  ]
+ },
+ {
+  "slug": "linux-chown",
+  "name": "chown",
+  "platform": "linux",
+  "riskLevel": "high",
+  "summary": "Change le propriétaire et le groupe d’un fichier ou d’un répertoire.",
+  "syntax": "sudo chown [options] utilisateur[:groupe] fichier…",
+  "why": "Un service tourne sous un compte dédié (www-data, postgres). S’il ne possède pas ses fichiers, il ne peut ni les lire ni écrire ses journaux, et il échoue souvent avec un message peu clair.",
+  "whenToUse": "Après avoir copié des fichiers en root pour un service, ou restauré une sauvegarde. Si le propriétaire est bon mais les droits insuffisants, utiliser chmod.",
+  "context": "Nécessite root (sudo). Le compte et le groupe doivent exister (id nom pour vérifier).",
+  "risks": [
+   {
+    "text": "Donner un fichier sensible à un service exposé lui permet de le modifier en cas de compromission.",
+    "level": "medium"
+   },
+   {
+    "text": "chown -R sur / ou /usr casse sudo, ssh et de nombreux services : le système peut devenir inutilisable.",
+    "level": "high"
+   }
+  ],
+  "parameters": [
+   {
+    "flag": "user:group",
+    "description": "Nouveau propriétaire et groupe ; :group seul ne change que le groupe.",
+    "riskLevel": "medium"
+   },
+   {
+    "flag": "-R",
+    "description": "Récursif sur tout le contenu.",
+    "riskLevel": "high"
+   },
+   {
+    "flag": "--from=ancien",
+    "description": "Ne change que les fichiers appartenant à ce propriétaire : limite les dégâts d’un -R.",
+    "riskLevel": "low"
+   },
+   {
+    "flag": "-h",
+    "description": "Agit sur le lien symbolique lui-même, pas sur sa cible.",
+    "riskLevel": "low"
+   }
+  ],
+  "examples": [
+   {
+    "title": "Rendre le dossier d’upload à son service web",
+    "code": "ls -ld /srv/site/uploads\nsudo chown -R www-data:www-data /srv/site/uploads",
+    "explanation": "Le service web (www-data) doit pouvoir écrire les fichiers envoyés. On vérifie le chemin avant le -R.",
+    "isRealCase": true
+   }
+  ]
+ },
+ {
+  "slug": "linux-df",
+  "name": "df",
+  "platform": "linux",
+  "riskLevel": "none",
+  "summary": "Affiche l’espace utilisé et disponible sur chaque système de fichiers monté.",
+  "syntax": "df [-h] [-i] [chemin]",
+  "why": "Un disque plein fait échouer des services sans message clair : base de données en lecture seule, journaux qui ne s’écrivent plus, mises à jour impossibles. df dit en une seconde si c’est le cas.",
+  "whenToUse": "Dès qu’un service échoue de façon inexpliquée, ou qu’on voit « No space left on device ». Pour savoir quel dossier occupe la place, enchaîner avec du.",
+  "context": "Aucun droit particulier.",
+  "risks": [
+   {
+    "text": "Lecture seule.",
+    "level": "none"
+   }
+  ],
+  "parameters": [
+   {
+    "flag": "-h",
+    "description": "Tailles lisibles (Go, Mo).",
+    "riskLevel": "none"
+   },
+   {
+    "flag": "-i",
+    "description": "Affiche les inodes au lieu des blocs.",
+    "riskLevel": "none"
+   },
+   {
+    "flag": "-T",
+    "description": "Affiche le type de système de fichiers (ext4, xfs, tmpfs…).",
+    "riskLevel": "none"
+   }
+  ],
+  "examples": [
+   {
+    "title": "Un service PostgreSQL refuse d’écrire",
+    "code": "df -h /var/lib/postgresql\ndf -i /var/lib/postgresql",
+    "explanation": "On vérifie la partition qui contient les données, en blocs puis en inodes. Si elle est pleine, du dira quoi nettoyer.",
+    "isRealCase": true
+   }
+  ]
+ },
+ {
+  "slug": "linux-dig",
+  "name": "dig",
+  "platform": "linux",
+  "riskLevel": "none",
+  "summary": "Interroge des serveurs DNS et affiche leur réponse détaillée.",
+  "syntax": "dig [@serveur] nom [type] [+short]",
+  "why": "Beaucoup de « pannes réseau » sont des pannes de résolution de noms. dig sépare les deux : si dig répond mais que l’application échoue, le problème est ailleurs.",
+  "whenToUse": "Quand un site « ne marche pas » alors que l’adresse IP répond, après un changement d’enregistrement DNS, ou pour comparer deux serveurs DNS.",
+  "context": "Paquet dnsutils (Debian, Ubuntu) ou bind-utils (Red Hat). Aucun droit particulier.",
+  "risks": [
+   {
+    "text": "Lecture seule.",
+    "level": "none"
+   }
+  ],
+  "parameters": [
+   {
+    "flag": "@serveur",
+    "description": "Interroge ce serveur au lieu du résolveur configuré.",
+    "riskLevel": "none"
+   },
+   {
+    "flag": "A / AAAA / MX / TXT",
+    "description": "Type d’enregistrement demandé.",
+    "riskLevel": "none"
+   },
+   {
+    "flag": "+short",
+    "description": "Seulement la réponse.",
+    "riskLevel": "none"
+   },
+   {
+    "flag": "+trace",
+    "description": "Suit la résolution depuis les serveurs racine : montre où elle casse.",
+    "riskLevel": "none"
+   }
+  ],
+  "examples": [
+   {
+    "title": "Le site répond par son IP mais pas par son nom",
+    "code": "dig intranet.exemple.fr\ndig @1.1.1.1 intranet.exemple.fr",
+    "explanation": "Si le résolveur interne répond et pas le public, c’est un nom interne normal. Si aucun ne répond, l’enregistrement manque.",
+    "isRealCase": true
+   }
+  ]
+ },
+ {
+  "slug": "linux-du",
+  "name": "du",
+  "platform": "linux",
+  "riskLevel": "low",
+  "summary": "Calcule l’espace disque occupé par des fichiers et des dossiers.",
+  "syntax": "du [-sh] [--max-depth=N] chemin…",
+  "why": "Après df, qui dit quelle partition est pleine, du dit quel dossier est responsable. On peut alors nettoyer la vraie cause au lieu de supprimer au hasard.",
+  "whenToUse": "Pour descendre dossier par dossier jusqu’à la source d’un disque plein. Pour l’état global des partitions, df.",
+  "context": "Il faut le droit de lire les dossiers parcourus : utilisez sudo pour les dossiers système, sinon les totaux seront sous-estimés.",
+  "risks": [
+   {
+    "text": "Lecture seule.",
+    "level": "none"
+   },
+   {
+    "text": "Sur une très grosse arborescence ou un partage réseau, du peut charger fortement les disques pendant plusieurs minutes.",
+    "level": "low"
+   }
+  ],
+  "parameters": [
+   {
+    "flag": "-s",
+    "description": "Un seul total par argument.",
+    "riskLevel": "none"
+   },
+   {
+    "flag": "-h",
+    "description": "Tailles lisibles.",
+    "riskLevel": "none"
+   },
+   {
+    "flag": "--max-depth=1",
+    "description": "Un total par sous-dossier direct.",
+    "riskLevel": "none"
+   },
+   {
+    "flag": "-x",
+    "description": "Reste sur le même système de fichiers.",
+    "riskLevel": "none"
+   }
+  ],
+  "examples": [
+   {
+    "title": "Trouver le dossier qui remplit /var",
+    "code": "sudo du -xh --max-depth=1 /var | sort -h | tail",
+    "explanation": "Les plus gros dossiers apparaissent en bas. On recommence sur le plus gros jusqu’à trouver la cause, souvent des journaux ou un cache.",
+    "isRealCase": true
+   }
+  ]
+ },
+ {
+  "slug": "linux-find",
+  "name": "find",
+  "platform": "linux",
+  "riskLevel": "high",
+  "summary": "Cherche des fichiers dans une arborescence selon leur nom, leur type, leur taille, leur date ou leurs droits.",
+  "syntax": "find [chemin…] [tests] [actions]",
+  "why": "Retrouver un fichier de configuration, les gros fichiers qui remplissent un disque ou les fichiers modifiés juste avant une panne, sans tout parcourir à la main.",
+  "whenToUse": "Pour une recherche par critères (taille, date, nom). Pour lister un seul dossier, ls suffit. Pour chercher du texte dans des fichiers, utiliser grep -r.",
+  "context": "Disponible partout. Les dossiers que vous ne pouvez pas lire produisent des erreurs « Permission denied » sans arrêter la recherche.",
+  "risks": [
+   {
+    "text": "Sans action, find ne fait que lister.",
+    "level": "none"
+   },
+   {
+    "text": "Avec -delete ou -exec rm, find supprime tout ce qui correspond, sans corbeille. Un test mal placé (par exemple -delete avant -name) supprime tout le chemin parcouru.",
+    "level": "high"
+   }
+  ],
+  "parameters": [
+   {
+    "flag": "-name motif",
+    "description": "Nom correspondant au motif (sensible à la casse ; -iname pour l’ignorer).",
+    "riskLevel": "none"
+   },
+   {
+    "flag": "-type f|d",
+    "description": "Seulement les fichiers (f) ou les répertoires (d).",
+    "riskLevel": "none"
+   },
+   {
+    "flag": "-size +100M",
+    "description": "Fichiers de plus de 100 Mio (- pour « moins de »).",
+    "riskLevel": "none"
+   },
+   {
+    "flag": "-mtime -1",
+    "description": "Modifiés il y a moins d’un jour (+7 : il y a plus de 7 jours).",
+    "riskLevel": "none"
+   },
+   {
+    "flag": "-xdev",
+    "description": "Ne descend pas dans les autres systèmes de fichiers montés.",
+    "riskLevel": "none"
+   },
+   {
+    "flag": "-exec cmd {} +",
+    "description": "Exécute une commande sur les fichiers trouvés. Le risque est celui de la commande lancée.",
+    "riskLevel": "medium"
+   },
+   {
+    "flag": "-delete",
+    "description": "Supprime les entrées trouvées, définitivement.",
+    "riskLevel": "high"
+   }
+  ],
+  "examples": [
+   {
+    "title": "Trouver ce qui remplit la partition racine",
+    "code": "sudo find / -xdev -type f -size +500M -exec ls -lh {} + 2>/dev/null",
+    "explanation": "-xdev reste sur la partition concernée ; ls -lh affiche taille et date des gros fichiers pour décider quoi faire.",
+    "isRealCase": true
+   },
+   {
+    "title": "Purger des journaux applicatifs de plus de 30 jours, en deux temps",
+    "code": "find /var/log/monapp -name \"*.log.gz\" -mtime +30 -print\n# relire la liste, puis :\nfind /var/log/monapp -name \"*.log.gz\" -mtime +30 -delete",
+    "explanation": "La première commande montre exactement ce qui serait supprimé. La seconde ne change que l’action, placée en dernier.",
+    "isRealCase": false
+   }
+  ]
+ },
+ {
+  "slug": "linux-ip",
+  "name": "ip",
+  "platform": "linux",
+  "riskLevel": "high",
+  "summary": "Affiche et modifie la configuration réseau : interfaces, adresses, routes et voisins.",
+  "syntax": "ip [-br] [-c] address|link|route [show|add|del] …",
+  "why": "Un problème réseau commence par trois questions : l’interface est-elle active, a-t-elle une adresse, et par où part le trafic ? ip y répond.",
+  "whenToUse": "En lecture, pour tout diagnostic réseau. En écriture, pour un essai temporaire ; la configuration permanente se fait dans l’outil de la distribution.",
+  "context": "La lecture ne demande aucun droit ; toute modification demande root.",
+  "risks": [
+   {
+    "text": "Les commandes show sont en lecture seule.",
+    "level": "none"
+   },
+   {
+    "text": "ip link set down, ip addr del ou ip route del sur l’interface par laquelle vous êtes connecté coupent votre session SSH : il faut alors un accès console.",
+    "level": "high"
+   }
+  ],
+  "parameters": [
+   {
+    "flag": "-br a",
+    "description": "Une ligne par interface : état et adresses.",
+    "riskLevel": "none"
+   },
+   {
+    "flag": "route",
+    "description": "Table de routage ; la ligne default indique la passerelle.",
+    "riskLevel": "none"
+   },
+   {
+    "flag": "route get 1.1.1.1",
+    "description": "Par quelle interface et quelle passerelle partirait un paquet vers cette adresse.",
+    "riskLevel": "none"
+   },
+   {
+    "flag": "link set dev X down",
+    "description": "Désactive une interface.",
+    "riskLevel": "high"
+   },
+   {
+    "flag": "addr add/del",
+    "description": "Ajoute ou retire une adresse (temporaire).",
+    "riskLevel": "high"
+   }
+  ],
+  "examples": [
+   {
+    "title": "Le serveur ne joint plus Internet",
+    "code": "ip -br a\nip route\nip route get 1.1.1.1",
+    "explanation": "On vérifie dans l’ordre : interface UP avec une adresse, présence d’une route par défaut, puis le chemin réellement choisi.",
+    "isRealCase": true
+   }
+  ]
+ },
+ {
+  "slug": "linux-journalctl",
+  "name": "journalctl",
+  "platform": "linux",
+  "riskLevel": "none",
+  "summary": "Interroge le journal de systemd (journald) : messages du noyau, des services et du démarrage.",
+  "syntax": "journalctl [-u unité] [-p err] [-b [-1]] [--since \"1 hour ago\"] [-f]",
+  "why": "Les journaux expliquent la cause réelle d'une panne : sans eux, on devine.",
+  "whenToUse": "Dès qu'un service échoue, après un redémarrage inattendu (journalctl -b -1) ou pour suivre un problème en direct.",
+  "context": "Membre du groupe systemd-journal ou adm, ou sudo.",
+  "risks": [
+   {
+    "text": "Lecture seule. Attention : les options --vacuum-size et --vacuum-time, elles, suppriment des journaux.",
+    "level": "none"
+   }
+  ],
+  "parameters": [
+   {
+    "flag": "-b -1",
+    "description": "Journal du démarrage précédent (utile après un redémarrage inattendu).",
+    "riskLevel": "none"
+   },
+   {
+    "flag": "-p err",
+    "description": "Uniquement les messages de priorité erreur ou plus grave.",
+    "riskLevel": "none"
+   }
+  ],
+  "examples": [
+   {
+    "title": "Pourquoi le serveur a-t-il redémarré ?",
+    "code": "journalctl -b -1 -p warning --no-pager | tail -50",
+    "explanation": "Montre les derniers avertissements avant le redémarrage précédent.",
+    "isRealCase": true
+   }
+  ]
+ },
+ {
+  "slug": "linux-kill",
+  "name": "kill",
+  "platform": "linux",
+  "riskLevel": "high",
+  "summary": "Envoie un signal à un processus, le plus souvent pour lui demander de s’arrêter.",
+  "syntax": "kill [-signal] PID…",
+  "why": "Arrêter un programme bloqué ou demander à un service de relire sa configuration (SIGHUP), sans redémarrer la machine.",
+  "whenToUse": "Pour un processus qui n’est pas géré par systemd. Pour un service, préférer systemctl stop ou restart, qui respecte ses dépendances et le relance si nécessaire.",
+  "context": "On ne peut signaler que ses propres processus ; root peut signaler tous les processus.",
+  "risks": [
+   {
+    "text": "SIGTERM arrête le programme : les utilisateurs connectés perdent leur session.",
+    "level": "medium"
+   },
+   {
+    "text": "SIGKILL (-9) empêche tout nettoyage : fichiers temporaires, verrous et écritures en cours peuvent rester incohérents, jusqu’à corrompre une base de données.",
+    "level": "high"
+   }
+  ],
+  "parameters": [
+   {
+    "flag": "-15 / -TERM",
+    "description": "Demande d’arrêt propre (signal par défaut).",
+    "riskLevel": "medium"
+   },
+   {
+    "flag": "-1 / -HUP",
+    "description": "Beaucoup de services relisent leur configuration à la réception de ce signal.",
+    "riskLevel": "low"
+   },
+   {
+    "flag": "-9 / -KILL",
+    "description": "Arrêt immédiat par le noyau, sans nettoyage.",
+    "riskLevel": "high"
+   },
+   {
+    "flag": "-l",
+    "description": "Liste les signaux disponibles.",
+    "riskLevel": "none"
+   }
+  ],
+  "examples": [
+   {
+    "title": "Arrêter proprement un script resté bloqué",
+    "code": "pgrep -a rapport.py\nkill 48211\nsleep 5; ps -p 48211 || echo \"arrêté\"",
+    "explanation": "On identifie le PID, on demande l’arrêt, puis on vérifie. Ce n’est que si le processus est toujours là qu’on envisage -9.",
+    "isRealCase": false
+   }
+  ]
+ },
+ {
+  "slug": "linux-ls",
+  "name": "ls",
+  "platform": "linux",
+  "riskLevel": "none",
+  "summary": "Liste le contenu d’un répertoire, avec au besoin les droits, le propriétaire, la taille et la date.",
+  "syntax": "ls [options] [chemin…]",
+  "why": "Avant de modifier, copier ou supprimer quoi que ce soit, il faut voir ce qui est réellement là, et à qui cela appartient. La plupart des erreurs « fichier introuvable » ou « permission refusée » se comprennent en une ligne de ls -l.",
+  "whenToUse": "Avant toute manipulation de fichiers, pour vérifier un chemin, un propriétaire ou des droits. Pour chercher un fichier dans une arborescence, préférez find ; pour l’espace occupé, du.",
+  "context": "Tout shell POSIX. Aucun droit particulier : il faut seulement le droit de lecture (r) et de traversée (x) sur le répertoire listé.",
+  "risks": [
+   {
+    "text": "Lecture seule : ne modifie rien.",
+    "level": "none"
+   }
+  ],
+  "parameters": [
+   {
+    "flag": "-l",
+    "description": "Format long : type, droits, nombre de liens, propriétaire, groupe, taille, date.",
+    "riskLevel": "none"
+   },
+   {
+    "flag": "-a",
+    "description": "Affiche aussi les fichiers cachés, dont . et ..",
+    "riskLevel": "none"
+   },
+   {
+    "flag": "-h",
+    "description": "Tailles lisibles par un humain (avec -l).",
+    "riskLevel": "none"
+   },
+   {
+    "flag": "-t",
+    "description": "Trie par date de modification, le plus récent d’abord.",
+    "riskLevel": "none"
+   },
+   {
+    "flag": "-d",
+    "description": "Affiche le répertoire lui-même plutôt que son contenu (utile avec -l pour voir ses droits).",
+    "riskLevel": "none"
+   }
+  ],
+  "examples": [
+   {
+    "title": "Voir les fichiers récents d’un dossier de journaux",
+    "code": "ls -lht /var/log | head",
+    "explanation": "Les fichiers modifiés en dernier apparaissent en premier : c’est là que se trouve l’incident en cours.",
+    "isRealCase": true
+   },
+   {
+    "title": "Comprendre un « Permission denied »",
+    "code": "ls -ld /srv/app /srv/app/config.yml",
+    "explanation": "Montre les droits du dossier et du fichier : il faut x sur le dossier pour atteindre le fichier, et r sur le fichier pour le lire.",
+    "isRealCase": false
+   }
+  ]
+ },
+ {
+  "slug": "linux-ps",
+  "name": "ps",
+  "platform": "linux",
+  "riskLevel": "none",
+  "summary": "Affiche les processus en cours : identifiant (PID), propriétaire, consommation CPU et mémoire, commande lancée.",
+  "syntax": "ps aux   |   ps -eo pid,user,%cpu,%mem,cmd --sort=-%cpu",
+  "why": "Savoir ce qui tourne réellement : un service est-il lancé, sous quel compte, et qui consomme le processeur ou la mémoire ?",
+  "whenToUse": "Quand une machine est lente, pour vérifier qu’un service tourne, ou trouver le PID à arrêter. Pour suivre l’évolution dans le temps, utiliser top ou htop.",
+  "context": "Aucun droit particulier pour lire la liste ; certains détails des processus d’autres utilisateurs peuvent être masqués (option hidepid de /proc).",
+  "risks": [
+   {
+    "text": "Lecture seule. Attention seulement à ne pas copier publiquement une sortie qui contiendrait des mots de passe passés en arguments.",
+    "level": "none"
+   }
+  ],
+  "parameters": [
+   {
+    "flag": "aux",
+    "description": "Tous les processus de tous les utilisateurs, avec CPU et mémoire (syntaxe BSD).",
+    "riskLevel": "none"
+   },
+   {
+    "flag": "-ef",
+    "description": "Tous les processus avec le PID parent (syntaxe System V), utile pour voir qui a lancé quoi.",
+    "riskLevel": "none"
+   },
+   {
+    "flag": "-o colonnes",
+    "description": "Choisit les colonnes affichées.",
+    "riskLevel": "none"
+   },
+   {
+    "flag": "--sort=-%cpu",
+    "description": "Trie par CPU décroissant.",
+    "riskLevel": "none"
+   }
+  ],
+  "examples": [
+   {
+    "title": "Les cinq processus qui consomment le plus de mémoire",
+    "code": "ps aux --sort=-%mem | head -6",
+    "explanation": "La colonne RSS est la mémoire physique réellement utilisée, en Kio. C’est la première chose à regarder quand le noyau tue des processus (OOM).",
+    "isRealCase": true
+   }
+  ]
+ },
+ {
+  "slug": "linux-rm-rf",
+  "name": "rm -rf",
+  "platform": "linux",
+  "riskLevel": "critical",
+  "summary": "Supprime récursivement et sans confirmation des fichiers et répertoires.",
+  "syntax": "rm -rf <chemin>",
+  "why": "Utile pour nettoyer des répertoires temporaires ou des artefacts de build volumineux.",
+  "whenToUse": "Uniquement quand le chemin est vérifié et qu'une sauvegarde existe ou que les données sont jetables.",
+  "context": "Toujours avec un chemin absolu vérifié, jamais avec une variable non contrôlée.",
+  "risks": [
+   {
+    "text": "Suppression définitive sans corbeille. Une variable vide (rm -rf $DIR/) peut viser la racine.",
+    "level": "critical"
+   }
+  ],
+  "parameters": [],
+  "examples": [
+   {
+    "title": "Supprimer un répertoire de build, prudemment",
+    "code": "ls -ld ./build\nrm -rf -- ./build",
+    "explanation": "On vérifie d'abord ce que désigne le chemin. Le chemin est relatif et explicite, et « -- » empêche qu'un nom commençant par un tiret soit lu comme une option.",
+    "isRealCase": false
+   }
+  ]
+ },
+ {
+  "slug": "linux-ss",
+  "name": "ss",
+  "platform": "linux",
+  "riskLevel": "low",
+  "summary": "Liste les sockets : ports en écoute et connexions établies, avec le processus associé.",
+  "syntax": "ss [-t] [-u] [-l] [-n] [-p] [filtre]",
+  "why": "Répondre à « mon service écoute-t-il vraiment ? », « sur quelle adresse ? » et « qui occupe déjà ce port ? ».",
+  "whenToUse": "Quand un service ne répond pas, qu’un démarrage échoue avec « Address already in use », ou pour compter les connexions vers une base.",
+  "context": "Lecture sans droit ; l’option -p (processus) ne montre ceux des autres utilisateurs qu’avec sudo.",
+  "risks": [
+   {
+    "text": "Lecture seule.",
+    "level": "none"
+   },
+   {
+    "text": "L’option -K ferme des connexions : à ne pas utiliser sans raison précise.",
+    "level": "low"
+   }
+  ],
+  "parameters": [
+   {
+    "flag": "-t / -u",
+    "description": "TCP / UDP.",
+    "riskLevel": "none"
+   },
+   {
+    "flag": "-l",
+    "description": "Seulement les sockets en écoute.",
+    "riskLevel": "none"
+   },
+   {
+    "flag": "-n",
+    "description": "Adresses et ports en chiffres, sans résolution de noms (plus rapide et sans ambiguïté).",
+    "riskLevel": "none"
+   },
+   {
+    "flag": "-p",
+    "description": "Processus propriétaire de chaque socket.",
+    "riskLevel": "none"
+   },
+   {
+    "flag": "-K",
+    "description": "Ferme les sockets correspondant au filtre (root).",
+    "riskLevel": "low"
+   }
+  ],
+  "examples": [
+   {
+    "title": "« Address already in use » au démarrage de nginx",
+    "code": "sudo ss -tlnp 'sport = :80'",
+    "explanation": "Montre quel processus occupe déjà le port 80 (souvent une autre instance ou Apache).",
+    "isRealCase": true
+   }
+  ]
+ },
+ {
+  "slug": "linux-systemctl",
+  "name": "systemctl",
+  "platform": "linux",
+  "riskLevel": "medium",
+  "summary": "Pilote systemd : démarrer, arrêter, activer et inspecter les services et autres unités.",
+  "syntax": "systemctl [start|stop|restart|reload|enable|disable|status|is-failed] <unité>",
+  "why": "C'est l'interface standard pour gérer les services : la connaître évite de lancer des processus à la main qui ne survivent pas au redémarrage.",
+  "whenToUse": "Pour démarrer un service, le rendre persistant au démarrage ou comprendre pourquoi il a échoué.",
+  "context": "Serveur ou poste Linux avec systemd, droits root (sudo) pour modifier l'état.",
+  "risks": [
+   {
+    "text": "stop ou restart sur un service distant (sshd, réseau) peut couper votre propre accès.",
+    "level": "medium"
+   }
+  ],
+  "parameters": [
+   {
+    "flag": "enable --now",
+    "description": "Active au démarrage et démarre immédiatement.",
+    "riskLevel": "low"
+   },
+   {
+    "flag": "mask",
+    "description": "Empêche totalement le démarrage de l'unité, même en dépendance.",
+    "riskLevel": "medium"
+   }
+  ],
+  "examples": [
+   {
+    "title": "Comprendre un service en échec",
+    "code": "systemctl status nginx",
+    "explanation": "Affiche l'état, le PID, et les dernières lignes de journal : c'est le point de départ.",
+    "isRealCase": false
+   },
+   {
+    "title": "Cas réel : nginx ne redémarre pas après une modification",
+    "code": "sudo nginx -t && sudo systemctl reload nginx",
+    "explanation": "On valide la configuration avant de recharger : un reload sur une configuration invalide est refusé, un restart couperait le service.",
+    "isRealCase": true
+   }
+  ]
+ },
+ {
+  "slug": "linux-tar",
+  "name": "tar",
+  "platform": "linux",
+  "riskLevel": "medium",
+  "summary": "Regroupe des fichiers dans une archive (souvent compressée) ou en extrait le contenu.",
+  "syntax": "tar -czf archive.tar.gz chemin…   |   tar -xzf archive.tar.gz -C destination",
+  "why": "Sauvegarder une configuration avant de la modifier, ou déplacer une arborescence en conservant droits et propriétaires.",
+  "whenToUse": "Avant toute modification importante d’un dossier de configuration, ou pour transférer un ensemble de fichiers. Pour une vraie stratégie de sauvegarde (incrémentale, chiffrée), utiliser un outil dédié.",
+  "context": "Aucun droit particulier, sauf pour lire des fichiers système ou restaurer les propriétaires d’origine (root).",
+  "risks": [
+   {
+    "text": "Créer une archive lit seulement les fichiers.",
+    "level": "low"
+   },
+   {
+    "text": "Extraire écrase sans prévenir les fichiers de même nom dans la destination. Une archive venue d’ailleurs peut contenir des chemins inattendus.",
+    "level": "medium"
+   }
+  ],
+  "parameters": [
+   {
+    "flag": "-c / -x / -t",
+    "description": "Créer, extraire ou lister.",
+    "riskLevel": "medium"
+   },
+   {
+    "flag": "-z / -J / --zstd",
+    "description": "Compression gzip, xz ou zstd.",
+    "riskLevel": "none"
+   },
+   {
+    "flag": "-f fichier",
+    "description": "Nom de l’archive (obligatoire en pratique).",
+    "riskLevel": "none"
+   },
+   {
+    "flag": "-C dossier",
+    "description": "Se place dans ce dossier avant d’agir.",
+    "riskLevel": "low"
+   },
+   {
+    "flag": "-p",
+    "description": "Conserve les droits exacts à l’extraction.",
+    "riskLevel": "low"
+   }
+  ],
+  "examples": [
+   {
+    "title": "Sauvegarder la configuration nginx avant de la modifier",
+    "code": "sudo tar -czf ~/nginx-$(date +%F).tar.gz /etc/nginx\ntar -tzf ~/nginx-$(date +%F).tar.gz | head",
+    "explanation": "Une archive datée permet de revenir en arrière en une commande ; la liste vérifie qu’elle contient bien les fichiers.",
+    "isRealCase": true
+   }
+  ]
+ },
+ {
+  "slug": "linux-trash-put",
+  "name": "trash-put",
+  "platform": "linux",
+  "riskLevel": "low",
+  "summary": "Déplace des fichiers dans la corbeille au lieu de les supprimer définitivement.",
+  "syntax": "trash-put <chemin>… | trash-list | trash-restore | trash-empty [jours]",
+  "why": "Une suppression se regrette souvent dans la minute qui suit. Passer par la corbeille laisse le temps de vérifier avant que ce soit définitif.",
+  "whenToUse": "Pour tout nettoyage manuel, surtout de données qui ne sont pas jetables. rm reste pertinent pour des artefacts régénérables (build, cache) dans un script.",
+  "context": "Paquet trash-cli (apt install trash-cli). Fonctionne sans droits particuliers sur ses propres fichiers.",
+  "risks": [
+   {
+    "text": "Les fichiers restent sur le disque : l'espace n'est libéré qu'au vidage de la corbeille.",
+    "level": "low"
+   }
+  ],
+  "parameters": [
+   {
+    "flag": "-v",
+    "description": "Affiche chaque fichier déplacé, pour vérifier ce qui a été fait.",
+    "riskLevel": "none"
+   }
+  ],
+  "examples": [
+   {
+    "title": "Mettre à la corbeille puis restaurer",
+    "code": "trash-put -v rapport.pdf\ntrash-restore",
+    "explanation": "Le fichier quitte le dossier mais reste récupérable ; trash-restore propose la liste et remet le fichier à sa place d'origine.",
+    "isRealCase": false
+   }
+  ]
+ },
+ {
+  "slug": "windows-bcdedit",
+  "name": "bcdedit",
+  "platform": "windows",
+  "riskLevel": "critical",
+  "summary": "Affiche et modifie la configuration de démarrage de Windows (magasin BCD).",
+  "syntax": "bcdedit [/enum] [/export fichier] [/import fichier] [/set {id} option valeur]",
+  "why": "Comprendre et corriger un démarrage : entrée manquante, mode sans échec bloqué, options de débogage, double démarrage.",
+  "whenToUse": "En lecture (/enum) pour comprendre un démarrage. En écriture, seulement après avoir exporté le magasin et quand la réparation automatique de WinRE a échoué.",
+  "context": "Invite de commandes en administrateur, ou depuis l’environnement de récupération (WinRE).",
+  "risks": [
+   {
+    "text": "/enum est en lecture seule.",
+    "level": "none"
+   },
+   {
+    "text": "Une option erronée (par exemple /set safeboot) peut enfermer le poste dans un mode de démarrage inattendu.",
+    "level": "high"
+   },
+   {
+    "text": "Supprimer ou corrompre l’entrée {bootmgr} ou {current} rend Windows indémarrable ; seule une restauration du magasin ou une réparation depuis un support d’installation le relance.",
+    "level": "critical"
+   }
+  ],
+  "parameters": [
+   {
+    "flag": "/enum [all]",
+    "description": "Liste les entrées de démarrage.",
+    "riskLevel": "none"
+   },
+   {
+    "flag": "/export fichier",
+    "description": "Sauvegarde le magasin.",
+    "riskLevel": "none"
+   },
+   {
+    "flag": "/import fichier",
+    "description": "Remplace le magasin par une sauvegarde.",
+    "riskLevel": "high"
+   },
+   {
+    "flag": "/set {id} option valeur",
+    "description": "Modifie une option de démarrage.",
+    "riskLevel": "high"
+   },
+   {
+    "flag": "/delete {id}",
+    "description": "Supprime une entrée de démarrage.",
+    "riskLevel": "critical"
+   }
+  ],
+  "examples": [
+   {
+    "title": "Sortir d’un mode sans échec bloqué",
+    "code": "bcdedit /export C:\\bcd-sauvegarde\nbcdedit /enum {current}\nbcdedit /deletevalue {current} safeboot",
+    "explanation": "On sauvegarde, on vérifie que l’option safeboot est bien présente, puis on la retire. Les autres options ne sont pas touchées.",
+    "isRealCase": true
+   }
+  ]
+ },
+ {
+  "slug": "windows-chkdsk",
+  "name": "chkdsk",
+  "platform": "windows",
+  "riskLevel": "high",
+  "summary": "Vérifie la cohérence d’un système de fichiers NTFS et, sur demande, répare les erreurs logiques et repère les secteurs défectueux.",
+  "syntax": "chkdsk [volume:] [/scan] [/f] [/r] [/spotfix]",
+  "why": "Des fichiers qui disparaissent, des erreurs « fichier ou répertoire endommagé » ou un démarrage qui s’arrête sur une erreur disque peuvent venir d’une incohérence du système de fichiers.",
+  "whenToUse": "Après une coupure de courant, sur un message de corruption ou un événement Ntfs dans le journal. Si le disque lui-même est en train de mourir (bruits, SMART en alerte), sauvegarder d’abord : /r le sollicite fortement.",
+  "context": "Invite de commandes en administrateur. Le volume système ne peut pas être réparé à chaud : la réparation est programmée au prochain redémarrage.",
+  "risks": [
+   {
+    "text": "/scan analyse sans rien modifier.",
+    "level": "none"
+   },
+   {
+    "text": "/f peut supprimer des fichiers trop endommagés (récupérés dans found.000) et rend le volume indisponible pendant la réparation.",
+    "level": "medium"
+   },
+   {
+    "text": "/r lit tout le disque : sur un disque mécanique défaillant, cela peut durer des heures et précipiter la panne avant la sauvegarde.",
+    "level": "high"
+   }
+  ],
+  "parameters": [
+   {
+    "flag": "/scan",
+    "description": "Analyse en ligne, sans réparer.",
+    "riskLevel": "none"
+   },
+   {
+    "flag": "/spotfix",
+    "description": "Corrige rapidement les erreurs déjà repérées par /scan.",
+    "riskLevel": "medium"
+   },
+   {
+    "flag": "/f",
+    "description": "Corrige les erreurs du système de fichiers.",
+    "riskLevel": "medium"
+   },
+   {
+    "flag": "/r",
+    "description": "Inclut /f et recherche les secteurs défectueux (long).",
+    "riskLevel": "high"
+   }
+  ],
+  "examples": [
+   {
+    "title": "Erreur Ntfs 55 dans le journal Système",
+    "code": "chkdsk C: /scan\nchkdsk C: /spotfix",
+    "explanation": "L’analyse confirme la corruption sans rien toucher ; /spotfix corrige seulement les points trouvés, avec une indisponibilité de quelques secondes au redémarrage.",
+    "isRealCase": true
+   }
+  ]
+ },
+ {
+  "slug": "windows-dism-restorehealth",
+  "name": "DISM /RestoreHealth",
+  "platform": "windows",
+  "riskLevel": "low",
+  "summary": "Répare le magasin de composants Windows (WinSxS) à partir de Windows Update ou d'une source locale.",
+  "syntax": "DISM /Online /Cleanup-Image /RestoreHealth [/Source:wim:D:\\sources\\install.wim:1 /LimitAccess]",
+  "why": "SFC répare depuis le magasin : si celui-ci est corrompu, SFC ne peut rien faire. DISM répare la source.",
+  "whenToUse": "Quand SFC signale des fichiers qu'il n'a pas pu réparer.",
+  "context": "Administrateur, connexion Internet ou image d'installation de la même version.",
+  "risks": [
+   {
+    "text": "Peut durer longtemps ; une interruption laisse le magasin dans un état incohérent.",
+    "level": "low"
+   }
+  ],
+  "parameters": [],
+  "examples": [
+   {
+    "title": "Réparer le magasin puis les fichiers système",
+    "code": "DISM /Online /Cleanup-Image /RestoreHealth\nsfc /scannow",
+    "explanation": "DISM répare d'abord le magasin de composants (la référence) ; SFC peut ensuite restaurer les fichiers système à partir d'une référence saine.",
+    "isRealCase": true
+   }
+  ]
+ },
+ {
+  "slug": "windows-get-winevent",
+  "name": "Get-WinEvent",
+  "platform": "windows",
+  "riskLevel": "none",
+  "summary": "Lit les journaux d’événements Windows depuis PowerShell, avec des filtres précis.",
+  "syntax": "Get-WinEvent -FilterHashtable @{LogName='System'; Level=1,2; StartTime=(Get-Date).AddDays(-1)}",
+  "why": "Lire les journaux sans interface graphique, à distance ou dans un script, et ne garder que les événements utiles au diagnostic.",
+  "whenToUse": "Pour un diagnostic à distance, sur plusieurs postes, ou pour extraire un extrait à joindre à un diagnostic. Pour une première exploration, l’Observateur d’événements reste plus confortable.",
+  "context": "PowerShell. Le journal Sécurité exige les droits d’administrateur ; Système et Application sont lisibles par tous.",
+  "risks": [
+   {
+    "text": "Lecture seule. Les journaux peuvent contenir des noms d’utilisateurs et de machines : relisez avant de les partager.",
+    "level": "none"
+   }
+  ],
+  "parameters": [
+   {
+    "flag": "LogName",
+    "description": "Journal : System, Application, Security, ou un journal Applications et services.",
+    "riskLevel": "none"
+   },
+   {
+    "flag": "Level",
+    "description": "1 critique, 2 erreur, 3 avertissement, 4 information.",
+    "riskLevel": "none"
+   },
+   {
+    "flag": "Id",
+    "description": "Identifiant d’événement (41, 6008, 1074…).",
+    "riskLevel": "none"
+   },
+   {
+    "flag": "-MaxEvents N",
+    "description": "Ne renvoie que les N plus récents.",
+    "riskLevel": "none"
+   },
+   {
+    "flag": "-ComputerName",
+    "description": "Lit les journaux d’un autre poste (droits et pare-feu nécessaires).",
+    "riskLevel": "none"
+   }
+  ],
+  "examples": [
+   {
+    "title": "Redémarrages inattendus de la dernière semaine",
+    "code": "Get-WinEvent -FilterHashtable @{LogName='System'; Id=41,6008,1074; StartTime=(Get-Date).AddDays(-7)} |\n  Select-Object TimeCreated, Id, ProviderName, Message | Format-List",
+    "explanation": "41 et 6008 signalent un arrêt brutal ; 1074 un arrêt demandé (par exemple Windows Update). Les dates permettent de faire le lien avec l’activité.",
+    "isRealCase": true
+   }
+  ]
+ },
+ {
+  "slug": "windows-ipconfig",
+  "name": "ipconfig",
+  "platform": "windows",
+  "riskLevel": "medium",
+  "summary": "Affiche la configuration IP des cartes réseau et gère le cache DNS et les baux DHCP.",
+  "syntax": "ipconfig [/all] [/release] [/renew] [/flushdns] [/displaydns]",
+  "why": "Savoir en dix secondes si le poste a une adresse valide, une passerelle et des serveurs DNS. Une adresse en 169.254.x.x signifie qu’aucun serveur DHCP n’a répondu.",
+  "whenToUse": "Au tout début d’un diagnostic réseau, et après un changement de réseau ou de DNS. Pour des modifications durables, utiliser les paramètres réseau ou PowerShell (Set-NetIPAddress).",
+  "context": "Invite de commandes ou PowerShell. La lecture ne demande aucun droit ; /release, /renew et /flushdns fonctionnent sans droits d’administrateur sur les versions récentes.",
+  "risks": [
+   {
+    "text": "ipconfig et ipconfig /all sont en lecture seule.",
+    "level": "none"
+   },
+   {
+    "text": "/flushdns oblige seulement à refaire les résolutions DNS : sans danger.",
+    "level": "low"
+   },
+   {
+    "text": "/release coupe immédiatement le réseau de la carte : en bureau à distance, vous perdez la session jusqu’au /renew, que vous ne pourrez plus lancer.",
+    "level": "medium"
+   }
+  ],
+  "parameters": [
+   {
+    "flag": "/all",
+    "description": "Configuration complète : DHCP, DNS, passerelle, adresse MAC, bail.",
+    "riskLevel": "none"
+   },
+   {
+    "flag": "/flushdns",
+    "description": "Vide le cache DNS local.",
+    "riskLevel": "low"
+   },
+   {
+    "flag": "/displaydns",
+    "description": "Affiche le cache DNS local.",
+    "riskLevel": "none"
+   },
+   {
+    "flag": "/renew",
+    "description": "Redemande une adresse au serveur DHCP.",
+    "riskLevel": "low"
+   },
+   {
+    "flag": "/release",
+    "description": "Rend l’adresse DHCP : la carte n’a plus d’adresse.",
+    "riskLevel": "medium"
+   }
+  ],
+  "examples": [
+   {
+    "title": "Le poste « n’a plus Internet »",
+    "code": "ipconfig /all",
+    "explanation": "On lit l’adresse IPv4 (169.254 = pas de DHCP), la passerelle par défaut (vide = pas de route) et les serveurs DNS.",
+    "isRealCase": true
+   },
+   {
+    "title": "Un site a changé d’adresse mais le poste va encore sur l’ancienne",
+    "code": "ipconfig /flushdns\nnslookup intranet.exemple.fr",
+    "explanation": "On vide le cache local, puis on vérifie la nouvelle réponse DNS.",
+    "isRealCase": false
+   }
+  ]
+ },
+ {
+  "slug": "windows-nslookup",
+  "name": "nslookup",
+  "platform": "windows",
+  "riskLevel": "none",
+  "summary": "Interroge un serveur DNS pour connaître l’adresse d’un nom (ou le nom d’une adresse).",
+  "syntax": "nslookup [-type=A|MX|TXT] nom [serveur]",
+  "why": "Distinguer une panne réseau d’une panne de résolution de noms, et vérifier ce que répond chaque serveur DNS.",
+  "whenToUse": "Quand un ping par IP fonctionne mais pas par nom, après une modification DNS, ou pour vérifier les enregistrements d’un domaine Active Directory.",
+  "context": "Aucun droit particulier.",
+  "risks": [
+   {
+    "text": "Lecture seule.",
+    "level": "none"
+   }
+  ],
+  "parameters": [
+   {
+    "flag": "-type=MX",
+    "description": "Type d’enregistrement (A, AAAA, MX, TXT, SRV…).",
+    "riskLevel": "none"
+   },
+   {
+    "flag": "serveur",
+    "description": "Interroge ce serveur DNS au lieu de celui configuré.",
+    "riskLevel": "none"
+   }
+  ],
+  "examples": [
+   {
+    "title": "Les postes ne trouvent plus le contrôleur de domaine",
+    "code": "nslookup -type=SRV _ldap._tcp.dc._msdcs.exemple.local",
+    "explanation": "Les postes trouvent les contrôleurs de domaine par ces enregistrements SRV ; s’ils manquent, l’ouverture de session échoue.",
+    "isRealCase": true
+   }
+  ]
+ },
+ {
+  "slug": "windows-ping",
+  "name": "ping",
+  "platform": "windows",
+  "riskLevel": "none",
+  "summary": "Vérifie qu’une machine répond sur le réseau et mesure le temps d’aller-retour.",
+  "syntax": "ping [-n nombre] [-t] [-4|-6] destination",
+  "why": "Séparer les couches d’un problème : la passerelle répond-elle ? une IP publique ? un nom ? Chaque réponse élimine une famille de causes.",
+  "whenToUse": "Dans l’ordre : passerelle, puis IP publique (1.1.1.1), puis un nom. Pour savoir où le trajet s’arrête, utiliser tracert.",
+  "context": "Aucun droit particulier. Le pare-feu Windows bloque par défaut les réponses ping entrantes : un poste Windows peut ne pas répondre tout en étant joignable.",
+  "risks": [
+   {
+    "text": "Envoie seulement quelques petits paquets.",
+    "level": "none"
+   }
+  ],
+  "parameters": [
+   {
+    "flag": "-n N",
+    "description": "Envoie N paquets (4 par défaut).",
+    "riskLevel": "none"
+   },
+   {
+    "flag": "-t",
+    "description": "Envoie en continu jusqu’à Ctrl+C.",
+    "riskLevel": "none"
+   },
+   {
+    "flag": "-4 / -6",
+    "description": "Force IPv4 ou IPv6.",
+    "riskLevel": "none"
+   }
+  ],
+  "examples": [
+   {
+    "title": "Méthode par couches",
+    "code": "ping 192.168.1.1\nping 1.1.1.1\nping www.exemple.fr",
+    "explanation": "Passerelle OK mais 1.1.1.1 KO : problème chez le fournisseur ou la box. 1.1.1.1 OK mais le nom KO : problème DNS.",
+    "isRealCase": true
+   }
+  ]
+ },
+ {
+  "slug": "windows-sfc",
+  "name": "sfc",
+  "platform": "windows",
+  "riskLevel": "low",
+  "summary": "Vérifie l'intégrité des fichiers système protégés de Windows et remplace les versions corrompues.",
+  "syntax": "sfc /scannow | sfc /verifyonly | sfc /scanfile=<chemin>",
+  "why": "Des fichiers système corrompus provoquent écrans bleus, plantages d'applications intégrées ou fonctionnalités manquantes. SFC est la première vérification non destructive.",
+  "whenToUse": "Après un écran bleu inexpliqué, une mise à jour interrompue ou des erreurs d'applications Windows natives.",
+  "context": "Invite de commandes en tant qu'administrateur. Si SFC échoue à réparer, exécuter d'abord DISM /RestoreHealth.",
+  "risks": [
+   {
+    "text": "Remplace des fichiers système : une modification volontaire de fichier système (personnalisation) sera annulée.",
+    "level": "low"
+   }
+  ],
+  "parameters": [
+   {
+    "flag": "/scannow",
+    "description": "Analyse et répare tous les fichiers protégés.",
+    "riskLevel": "low"
+   },
+   {
+    "flag": "/verifyonly",
+    "description": "Analyse sans rien modifier.",
+    "riskLevel": "none"
+   }
+  ],
+  "examples": [
+   {
+    "title": "Vérifier sans modifier",
+    "code": "sfc /verifyonly",
+    "explanation": "Permet de constater l'état avant toute réparation.",
+    "isRealCase": false
+   }
+  ]
+ },
+ {
+  "slug": "windows-taskkill",
+  "name": "taskkill",
+  "platform": "windows",
+  "riskLevel": "high",
+  "summary": "Arrête un ou plusieurs processus par leur PID ou leur nom.",
+  "syntax": "taskkill /pid PID [/t] [/f]   |   taskkill /im nom.exe [/f]",
+  "why": "Fermer une application figée sans redémarrer le poste.",
+  "whenToUse": "Quand une application ne répond plus. Pour un service Windows, préférer l’arrêt du service (Stop-Service ou services.msc), qui prévient ses dépendances.",
+  "context": "On peut arrêter ses propres processus ; les processus système et ceux des autres utilisateurs demandent les droits d’administrateur.",
+  "risks": [
+   {
+    "text": "Le travail non enregistré dans l’application est perdu.",
+    "level": "medium"
+   },
+   {
+    "text": "/f sur un processus système (csrss.exe, wininit.exe, lsass.exe) provoque un écran bleu ou un redémarrage immédiat. /im arrête toutes les instances du même nom, y compris celles d’autres utilisateurs en bureau à distance.",
+    "level": "high"
+   }
+  ],
+  "parameters": [
+   {
+    "flag": "/pid PID",
+    "description": "Processus à arrêter.",
+    "riskLevel": "medium"
+   },
+   {
+    "flag": "/im nom",
+    "description": "Toutes les instances portant ce nom.",
+    "riskLevel": "high"
+   },
+   {
+    "flag": "/t",
+    "description": "Arrête aussi les processus enfants.",
+    "riskLevel": "medium"
+   },
+   {
+    "flag": "/f",
+    "description": "Force l’arrêt immédiat.",
+    "riskLevel": "high"
+   }
+  ],
+  "examples": [
+   {
+    "title": "Fermer un Excel figé",
+    "code": "tasklist /fi \"imagename eq EXCEL.EXE\"\ntaskkill /pid 7744",
+    "explanation": "On cible le PID de l’instance figée ; si elle ne se ferme pas au bout de quelques secondes, on ajoute /f en sachant que les modifications non enregistrées sont perdues.",
+    "isRealCase": false
+   }
+  ]
+ },
+ {
+  "slug": "windows-tasklist",
+  "name": "tasklist",
+  "platform": "windows",
+  "riskLevel": "none",
+  "summary": "Liste les processus en cours avec leur identifiant (PID), leur mémoire et, au besoin, les services qu’ils hébergent.",
+  "syntax": "tasklist [/svc] [/v] [/fi \"filtre\"]",
+  "why": "Identifier ce qui tourne, et surtout quel service se cache derrière un svchost.exe qui consomme trop.",
+  "whenToUse": "Pour une vue rapide en ligne de commande ou à distance (/s). Le Gestionnaire des tâches reste plus confortable en local.",
+  "context": "Aucun droit particulier pour ses propres processus ; administrateur pour voir les détails de tous.",
+  "risks": [
+   {
+    "text": "Lecture seule.",
+    "level": "none"
+   }
+  ],
+  "parameters": [
+   {
+    "flag": "/svc",
+    "description": "Services hébergés par chaque processus.",
+    "riskLevel": "none"
+   },
+   {
+    "flag": "/v",
+    "description": "Détails : utilisateur, temps CPU, titre de fenêtre.",
+    "riskLevel": "none"
+   },
+   {
+    "flag": "/fi \"filtre\"",
+    "description": "Filtre (ex. \"memusage gt 500000\" en Ko).",
+    "riskLevel": "none"
+   }
+  ],
+  "examples": [
+   {
+    "title": "Un svchost consomme 2 Go de mémoire",
+    "code": "tasklist /svc /fi \"pid eq 3120\"",
+    "explanation": "Montre les services de ce processus ; on peut ensuite redémarrer le seul service fautif plutôt que la machine.",
+    "isRealCase": true
+   }
+  ]
+ },
+ {
+  "slug": "windows-tracert",
+  "name": "tracert",
+  "platform": "windows",
+  "riskLevel": "none",
+  "summary": "Affiche les routeurs traversés jusqu’à une destination et le temps de réponse de chacun.",
+  "syntax": "tracert [-d] [-h sauts] destination",
+  "why": "Quand ping échoue, savoir si le problème est sur le réseau local, chez le fournisseur ou près de la destination.",
+  "whenToUse": "Après un ping en échec ou très lent vers une destination distante. Pour un problème de nom, utiliser nslookup.",
+  "context": "Aucun droit particulier. Des étoiles (*) sur une ligne isolée sont normales : certains routeurs ne répondent pas à ces paquets.",
+  "risks": [
+   {
+    "text": "Lecture seule ; génère un trafic très faible.",
+    "level": "none"
+   }
+  ],
+  "parameters": [
+   {
+    "flag": "-d",
+    "description": "N’affiche pas les noms des routeurs (beaucoup plus rapide).",
+    "riskLevel": "none"
+   },
+   {
+    "flag": "-h N",
+    "description": "Nombre maximal de sauts (30 par défaut).",
+    "riskLevel": "none"
+   }
+  ],
+  "examples": [
+   {
+    "title": "Le serveur d’une agence ne répond plus",
+    "code": "tracert -d 10.20.0.15",
+    "explanation": "Si tout s’arrête après la passerelle locale, regarder le lien VPN ou inter-sites ; si tout s’arrête juste avant le serveur, regarder son pare-feu.",
+    "isRealCase": true
+   }
+  ]
+ }
+]

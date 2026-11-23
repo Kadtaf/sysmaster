@@ -22,7 +22,9 @@ DOMAINS = {
     "windows": re.compile(r"\b(windows|powershell|cmd|registre|bcdedit|chkdsk|sfc|dism|ipconfig|winre|event ?viewer|observateur)\b"),
     "linux": re.compile(r"\b(linux|ubuntu|debian|fedora|bash|systemd|systemctl|journalctl|chmod|chown|apt|dnf|sudo)\b"),
     "docker": re.compile(r"\b(docker|conteneur|container|image docker|compose|kubernetes|k8s)\b"),
-    "network": re.compile(r"\b(reseau|dns|dhcp|ip|ping|routeur|wifi|passerelle|vpn|pare-feu|firewall|port)\b"),
+    "network": re.compile(
+        r"\b(reseaux?|dns|dhcp|ip|ping|routeurs?|paquets?|traceroute|tracert|wifi|passerelle|vpn|pare-feu|firewall|ports?)\b"
+    ),
 }
 PLATFORM_DOMAIN = {"windows": "windows", "linux": "linux", "docker": "docker", "network": "network"}
 
