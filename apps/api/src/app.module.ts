@@ -5,12 +5,13 @@ import { EventsModule } from './shared/events/events.module';
 import { EditorialModule } from './modules/editorial/editorial.module';
 import { GamificationModule } from './modules/gamification/gamification.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
+import { ObservabilityModule } from './shared/observability/observability.module';
 import { HealthModule } from './modules/health/health.module';
 import { KnowledgeModule } from './modules/knowledge/knowledge.module';
 import { DiagnosticModule } from './modules/diagnostic/diagnostic.module';
 import { LearningModule } from './modules/learning/learning.module';
 
 @Module({
-  imports: [DatabaseModule, EventsModule, IamModule, HealthModule, LearningModule, KnowledgeModule, DiagnosticModule, GamificationModule, DashboardModule, EditorialModule],
+  imports: [DatabaseModule, EventsModule, ObservabilityModule, IamModule, HealthModule, LearningModule, KnowledgeModule, DiagnosticModule, GamificationModule, DashboardModule, EditorialModule],
 })
 export class AppModule {}

@@ -1,0 +1,113 @@
+name: CD
+
+# Chaque commit sur main produit des images versionnées par SHA, puis les déploie sur
+# l'environnement de test si un cluster est configuré. La production (plus tard) sera une
+# promotion manuelle de ces mêmes images : ce qui est testé est exactement ce qui part.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: cd-main
+  cancel-in-progress: false   # ne jamais interrompre un déploiement en cours
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io/kadtaf
+
+jobs:
+  images:
+    name: Images (GHCR)
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.meta.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: meta
+        run: echo "tag=sha-${GITHUB_SHA::12}" >> "$GITHUB_OUTPUT"
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Image API
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: infra/docker/api.Dockerfile
+          push: true
+          build-args: APP_VERSION=${{ steps.meta.outputs.tag }}
+          tags: ${{ env.REGISTRY }}/sysmaster-api:${{ steps.meta.outputs.tag }},${{ env.REGISTRY }}/sysmaster-api:main
+          cache-from: type=gha,scope=api
+          cache-to: type=gha,scope=api,mode=max
+      - name: Image Web
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: infra/docker/web.Dockerfile
+          push: true
+          # Chemin relatif : le navigateur appelle l'API sur la même origine (l'ingress route /api/v1).
+          # La même image sert donc dans tous les environnements.
+          build-args: |
+            APP_VERSION=${{ steps.meta.outputs.tag }}
+            NEXT_PUBLIC_API_URL=/api/v1
+          tags: ${{ env.REGISTRY }}/sysmaster-web:${{ steps.meta.outputs.tag }},${{ env.REGISTRY }}/sysmaster-web:main
+          cache-from: type=gha,scope=web
+          cache-to: type=gha,scope=web,mode=max
+
+  staging:
+    name: Déploiement de test
+    needs: images
+    runs-on: ubuntu-latest
+    environment:
+      name: staging
+      url: https://${{ vars.STAGING_HOST }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Cluster configuré ?
+        id: ready
+        env:
+          KUBE_CONFIG: ${{ secrets.STAGING_KUBECONFIG }}
+        run: |
+          if [ -z "$KUBE_CONFIG" ] || [ -z "${{ vars.STAGING_HOST }}" ]; then
+            echo "::notice::Pas de secret STAGING_KUBECONFIG ou de variable STAGING_HOST : images publiées, déploiement ignoré (voir docs/08 §7)."
+            echo "go=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "go=true" >> "$GITHUB_OUTPUT"
+          fi
+      - if: steps.ready.outputs.go == 'true'
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.16.4
+      - name: Helm upgrade (migrations puis déploiement progressif ; annulation automatique en cas d'échec)
+        if: steps.ready.outputs.go == 'true'
+        env:
+          KUBE_CONFIG: ${{ secrets.STAGING_KUBECONFIG }}
+        run: |
+          umask 077
+          printf '%s' "$KUBE_CONFIG" > "$RUNNER_TEMP/kubeconfig"
+          export KUBECONFIG="$RUNNER_TEMP/kubeconfig"
+          helm upgrade --install sysmaster infra/helm/sysmaster \
+            --namespace sysmaster-staging --create-namespace \
+            -f infra/helm/sysmaster/values-staging.yaml \
+            --set image.tag=${{ needs.images.outputs.tag }} \
+            --set ingress.host=${{ vars.STAGING_HOST }} \
+            --set publicUrl=https://${{ vars.STAGING_HOST }} \
+            --set oidc.issuer=${{ vars.STAGING_OIDC_ISSUER }} \
+            --atomic --wait --timeout 10m
+      - name: Test de fumée
+        if: steps.ready.outputs.go == 'true'
+        run: |
+          for i in $(seq 1 20); do
+            body=$(curl -sf "https://${{ vars.STAGING_HOST }}/api/v1/health") && break
+            sleep 5
+          done
+          echo "$body"
+          echo "$body" | grep -q '"version":"${{ needs.images.outputs.tag }}"'
+          curl -sf "https://${{ vars.STAGING_HOST }}/healthz" >/dev/null
+          curl -sf "https://${{ vars.STAGING_HOST }}/api/v1/kb/commands" >/dev/null

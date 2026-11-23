@@ -1,0 +1,68 @@
+# Valeurs par défaut, prudentes. Un environnement les surcharge (voir values-staging.yaml).
+# Postgres et Keycloak ne sont PAS installés par ce chart : en test comme en production, on
+# utilise des services gérés ou des charts dédiés, sauvegardés indépendamment de l'application.
+
+image:
+  registry: ghcr.io/kadtaf
+  tag: ""            # vide : appVersion du chart. La CD passe le SHA du commit.
+  pullPolicy: IfNotPresent
+imagePullSecrets: []
+
+# Secret Kubernetes existant (jamais dans Git) contenant :
+#   DATABASE_URL, NEXTAUTH_SECRET, KEYCLOAK_CLIENT_SECRET
+existingSecret: sysmaster-secrets
+
+publicUrl: https://sysmaster.example.com   # URL vue par le navigateur (front et API sur le même hôte)
+
+oidc:
+  issuer: https://auth.example.com/realms/sysmaster   # vu par le navigateur et inscrit dans les jetons
+  internalIssuer: ""                                  # facultatif : même royaume joint par le réseau interne
+  audience: sysmaster-api
+  webClientId: sysmaster-web
+
+api:
+  replicas: 2
+  port: 4000
+  metricsPort: 9464
+  logFormat: json
+  outboxRelayIntervalMs: 1000
+  extraEnv: {}
+  resources:
+    requests: { cpu: 100m, memory: 256Mi }
+    limits: { memory: 512Mi }
+
+web:
+  replicas: 2
+  port: 3000
+  extraEnv: {}
+  resources:
+    requests: { cpu: 100m, memory: 256Mi }
+    limits: { memory: 512Mi }
+
+migrations:
+  enabled: true
+  # Données de démo : utile en test, jamais en production (le script refuse --reset en production, pas --seed).
+  seed: false
+  backoffLimit: 1
+  activeDeadlineSeconds: 600
+
+ingress:
+  enabled: true
+  className: nginx
+  host: sysmaster.example.com
+  annotations: {}
+  tls:
+    enabled: true
+    secretName: sysmaster-tls
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+monitoring:
+  # Nécessitent les CRD du Prometheus Operator (kube-prometheus-stack).
+  serviceMonitor:
+    enabled: false
+    interval: 30s
+  prometheusRule:
+    enabled: false

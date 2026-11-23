@@ -1,0 +1,81 @@
+{{- $name := printf "%s-api" (include "sysmaster.fullname" .) -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "sysmaster.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+spec:
+  replicas: {{ .Values.api.replicas }}
+  revisionHistoryLimit: 5
+  selector:
+    matchLabels:
+      {{- include "sysmaster.selector" (dict "root" . "component" "api") | nindent 6 }}
+  strategy:
+    rollingUpdate: { maxUnavailable: 0, maxSurge: 1 }
+  template:
+    metadata:
+      labels:
+        {{- include "sysmaster.labels" . | nindent 8 }}
+        app.kubernetes.io/component: api
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      automountServiceAccountToken: false
+      # Laisse le relais outbox finir son lot avant l'arrêt (enableShutdownHooks).
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: api
+          image: "{{ .Values.image.registry }}/sysmaster-api:{{ include "sysmaster.tag" . }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- include "sysmaster.containerSecurity" . | nindent 10 }}
+          ports:
+            - { name: http, containerPort: {{ .Values.api.port }} }
+            - { name: metrics, containerPort: {{ .Values.api.metricsPort }} }
+          env:
+            {{- include "sysmaster.apiEnv" . | nindent 12 }}
+            - { name: API_PORT, value: {{ .Values.api.port | quote }} }
+            - { name: METRICS_PORT, value: {{ .Values.api.metricsPort | quote }} }
+            - { name: LOG_FORMAT, value: {{ .Values.api.logFormat | quote }} }
+            - { name: OUTBOX_RELAY_INTERVAL_MS, value: {{ .Values.api.outboxRelayIntervalMs | quote }} }
+            - { name: CORS_ORIGINS, value: {{ .Values.publicUrl | quote }} }
+            - { name: OIDC_ISSUER, value: {{ .Values.oidc.issuer | quote }} }
+            - { name: OIDC_AUDIENCE, value: {{ .Values.oidc.audience | quote }} }
+            {{- with .Values.oidc.internalIssuer }}
+            - { name: OIDC_JWKS_URL, value: {{ printf "%s/protocol/openid-connect/certs" . | quote }} }
+            {{- end }}
+            {{- range $k, $v := .Values.api.extraEnv }}
+            - { name: {{ $k }}, value: {{ $v | quote }} }
+            {{- end }}
+          startupProbe:
+            httpGet: { path: /api/v1/health/live, port: http }
+            periodSeconds: 2
+            failureThreshold: 30
+          livenessProbe:
+            httpGet: { path: /api/v1/health/live, port: http }
+            periodSeconds: 10
+          readinessProbe:
+            httpGet: { path: /api/v1/health/ready, port: http }
+            periodSeconds: 5
+            failureThreshold: 2
+          resources: {{- toYaml .Values.api.resources | nindent 12 }}
+          volumeMounts:
+            - { name: tmp, mountPath: /tmp }
+      volumes:
+        - { name: tmp, emptyDir: {} }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "sysmaster.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+spec:
+  selector:
+    {{- include "sysmaster.selector" (dict "root" . "component" "api") | nindent 4 }}
+  ports:
+    - { name: http, port: 80, targetPort: http }
+    - { name: metrics, port: {{ .Values.api.metricsPort }}, targetPort: metrics }

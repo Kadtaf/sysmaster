@@ -1,0 +1,30 @@
+{{- if .Values.ingress.enabled }}
+# Un seul hôte : /api/v1 va à l'API, tout le reste au front (y compris /api/auth de NextAuth).
+# Le navigateur appelle donc l'API sur la même origine : pas de CORS, une seule image web par environnement.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "sysmaster.fullname" . }}
+  labels:
+    {{- include "sysmaster.labels" . | nindent 4 }}
+  {{- with .Values.ingress.annotations }}
+  annotations: {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  ingressClassName: {{ .Values.ingress.className }}
+  {{- if .Values.ingress.tls.enabled }}
+  tls:
+    - hosts: [{{ .Values.ingress.host | quote }}]
+      secretName: {{ .Values.ingress.tls.secretName }}
+  {{- end }}
+  rules:
+    - host: {{ .Values.ingress.host | quote }}
+      http:
+        paths:
+          - path: /api/v1
+            pathType: Prefix
+            backend: { service: { name: {{ include "sysmaster.fullname" . }}-api, port: { name: http } } }
+          - path: /
+            pathType: Prefix
+            backend: { service: { name: {{ include "sysmaster.fullname" . }}-web, port: { name: http } } }
+{{- end }}

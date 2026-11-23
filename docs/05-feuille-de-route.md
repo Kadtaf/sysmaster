@@ -33,7 +33,7 @@ Les durées sont indicatives et supposent une équipe dédiée ; avec un dévelo
 | 7. UX/UI | 🟡 principes + 5 écrans | `docs/03` §4, `apps/web` |
 | 8. Code source | 🟡 socle : KB en lecture, moteur de déduction v1, parcours | `apps/` |
 | 9. Docker Compose | ✅ Postgres, Redis, Qdrant, API, Web | `docker-compose.yml` |
-| 10. Pipeline CI/CD | 🟡 CI (lint, typecheck, tests, build, migrations) ; CD en Phase 2 | `.github/workflows/ci.yml` |
+| 10. Pipeline CI/CD | ✅ CI (lint, typecheck, tests, build, migrations, chart Helm) ; CD : images GHCR par commit et déploiement de test | `.github/workflows/ci.yml`, `cd.yml` |
 | 11. Documentation | ✅ pour ce périmètre | `docs/`, `README.md` |
 | 12. Scripts de déploiement | 🟡 migration et seed | `infra/scripts/` |
 | 13. Fichiers d'installation | 🟡 installation développeur | `README.md` |
@@ -50,7 +50,7 @@ Les durées sont indicatives et supposent une équipe dédiée ; avec un dévelo
 - ✅ Tableau de bord apprenant (niveau, série, badges, compétences, points forts et faibles, recommandations). ⏳ Tableau de bord d'organisation (avec les organisations, Phase 5).
 - GraphQL BFF, OpenSearch pour la recherche.
 - Maquettes UX/UI complètes (Figma) et design system documenté.
-- CD vers staging (Kubernetes + Helm), observabilité OpenTelemetry.
+- ✅ CD vers l'environnement de test (images GHCR versionnées par commit, chart Helm, migrations avant déploiement, annulation automatique, test de fumée) ; observabilité de base (journaux JSON, identifiant de requête, métriques Prometheus, alertes). ⏳ Cluster de test à fournir (voir docs/08 §7) ; traces OpenTelemetry en Phase 3.
 - **Contenu** : parcours technicien Windows et administrateur Linux complets, 150 fiches commandes.
 - ✅ Guides utilisateur et administrateur v1.
 

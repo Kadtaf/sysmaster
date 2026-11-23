@@ -1,0 +1,44 @@
+{{- if .Values.migrations.enabled }}
+# Migrations appliquées AVANT le déploiement des nouveaux pods (hook pre-install / pre-upgrade).
+# Si elles échouent, Helm s'arrête et la version en ligne continue de tourner.
+# Les migrations doivent donc rester compatibles avec la version précédente du code
+# (ajouter une colonne, puis la rendre obligatoire dans une version suivante).
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "sysmaster.fullname" . }}-migrate-{{ .Release.Revision }}
+  labels:
+    {{- include "sysmaster.labels" . | nindent 4 }}
+    app.kubernetes.io/component: migrate
+  annotations:
+    helm.sh/hook: pre-install,pre-upgrade
+    helm.sh/hook-weight: "0"
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: {{ .Values.migrations.backoffLimit }}
+  activeDeadlineSeconds: {{ .Values.migrations.activeDeadlineSeconds }}
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels:
+        {{- include "sysmaster.labels" . | nindent 8 }}
+        app.kubernetes.io/component: migrate
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: migrate
+          image: "{{ .Values.image.registry }}/sysmaster-api:{{ include "sysmaster.tag" . }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- include "sysmaster.containerSecurity" . | nindent 10 }}
+          workingDir: /repo
+          command: ["node", "infra/scripts/migrate.mjs"{{ if .Values.migrations.seed }}, "--seed"{{ end }}]
+          env:
+            {{- include "sysmaster.apiEnv" . | nindent 12 }}
+          resources:
+            requests: { cpu: 50m, memory: 128Mi }
+            limits: { memory: 256Mi }
+{{- end }}
