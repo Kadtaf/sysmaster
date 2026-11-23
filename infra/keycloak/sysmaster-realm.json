@@ -165,7 +165,7 @@
       "firstName": "Nadia",
       "lastName": "Mentor",
       "credentials": [{ "type": "password", "value": "Demo-SysMaster-2026!", "temporary": false }],
-      "realmRoles": ["default-roles-sysmaster", "mentor"]
+      "realmRoles": ["default-roles-sysmaster", "mentor", "author", "reviewer"]
     }
   ]
 }

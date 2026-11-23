@@ -52,7 +52,7 @@ sequenceDiagram
 |---|---|---|
 | `admin@sysmaster.local` | `Demo-SysMaster-2026!` | admin |
 | `alice@sysmaster.local` | `Demo-SysMaster-2026!` | learner |
-| `mentor@sysmaster.local` | `Demo-SysMaster-2026!` | mentor |
+| `mentor@sysmaster.local` | `Demo-SysMaster-2026!` | mentor, author, reviewer (rédige et relit les fiches) |
 
 Console Keycloak : http://localhost:8080/admin (`admin` / `admin` par défaut, variables `KC_BOOTSTRAP_ADMIN_*`).
 

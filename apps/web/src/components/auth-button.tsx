@@ -3,7 +3,8 @@
 import Link from 'next/link';
 import { signIn, signOut, useSession } from 'next-auth/react';
 import { useEffect } from 'react';
-import { LayoutDashboard, LogIn, LogOut, UserRound } from 'lucide-react';
+import { LayoutDashboard, LogIn, LogOut, PenLine, UserRound } from 'lucide-react';
+import { EDITORIAL_ROLES } from '@/lib/labels';
 import { Button, buttonVariants } from '@/components/ui/button';
 
 export async function federatedSignOut() {
@@ -31,6 +32,11 @@ export function AuthButton() {
   }
   return (
     <div className="flex items-center gap-2">
+      {session.user?.roles?.some((r) => EDITORIAL_ROLES.includes(r)) && (
+        <Link href="/editorial" className={buttonVariants({ variant: 'ghost', size: 'sm' })}>
+          <PenLine className="size-4" aria-hidden /> <span className="hidden sm:inline">Rédaction</span>
+        </Link>
+      )}
       <Link href="/tableau-de-bord" className={buttonVariants({ variant: 'ghost', size: 'sm' })}>
         <LayoutDashboard className="size-4" aria-hidden /> <span className="hidden sm:inline">Tableau de bord</span>
       </Link>

@@ -38,21 +38,21 @@ Les durées sont indicatives et supposent une équipe dédiée ; avec un dévelo
 | 12. Scripts de déploiement | 🟡 migration et seed | `infra/scripts/` |
 | 13. Fichiers d'installation | 🟡 installation développeur | `README.md` |
 | 14. Données de démonstration | ✅ minimales | `db/seeds/001_demo.sql` |
-| 15. Guide administrateur | ⏳ Phase 2 | |
-| 16. Guide utilisateur | ⏳ Phase 2 | |
+| 15. Guide administrateur | ✅ v1 (Phase 2) | `docs/08-guide-administrateur.md` |
+| 16. Guide utilisateur | ✅ v1 (Phase 2) | `docs/07-guide-utilisateur.md` |
 
 ## Phase 2 — Comptes, académie, gamification
 
 - ✅ Keycloak : e-mail, Google, Microsoft, GitHub (Apple via extension), 2FA, passkeys ; rôles synchronisés, garde API « fermé par défaut », page Mon compte ([06-authentification.md](06-authentification.md)). Organisations et SSO SAML : avec les licences (Phase 5).
 - ✅ Académie : parcours, cours, leçons (9 leçons de démo rédigées), inscription, validation dans l'ordre, progression. ⏳ Test de positionnement et recommandations.
-- Éditeur de contenu et workflow de relecture (back-office).
+- ✅ Back-office éditorial des fiches commandes : révisions, brouillon → relecture → publication, règle P-1 vérifiée avant soumission, quatre yeux, audit et événement `kb.command.published.v1`. ⏳ Édition des leçons, parcours et règles de diagnostic.
 - ✅ Relais outbox (lots, idempotence, reprise avec attente exponentielle, lettre morte) ; gamification (XP, niveaux, badges, séries, classement avec retrait possible). ⏳ Bus NATS quand un service sera extrait ; classement en cache Redis si le volume l'exige.
 - ✅ Tableau de bord apprenant (niveau, série, badges, compétences, points forts et faibles, recommandations). ⏳ Tableau de bord d'organisation (avec les organisations, Phase 5).
 - GraphQL BFF, OpenSearch pour la recherche.
 - Maquettes UX/UI complètes (Figma) et design system documenté.
 - CD vers staging (Kubernetes + Helm), observabilité OpenTelemetry.
 - **Contenu** : parcours technicien Windows et administrateur Linux complets, 150 fiches commandes.
-- Guides utilisateur et administrateur v1.
+- ✅ Guides utilisateur et administrateur v1.
 
 ## Phase 3 — Assistant IA multi-agents et RAG
 
