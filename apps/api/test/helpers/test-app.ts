@@ -1,7 +1,7 @@
 import 'reflect-metadata';
 import { randomUUID } from 'node:crypto';
 import { INestApplication } from '@nestjs/common';
-import { Test } from '@nestjs/testing';
+import { Test, TestingModuleBuilder } from '@nestjs/testing';
 import { createLocalJWKSet, exportJWK, generateKeyPair, SignJWT } from 'jose';
 import { AppModule } from '../../src/app.module';
 import { configureApp } from '../../src/bootstrap';
@@ -11,14 +11,12 @@ import { JoseTokenVerifier } from '../../src/modules/iam/infrastructure/jose-tok
 const ISSUER = 'http://test-idp/realms/sysmaster';
 
 /** Application de test avec un émetteur de jetons local (pas besoin de Keycloak). */
-export async function createTestApp() {
+export async function createTestApp(customize: (b: TestingModuleBuilder) => TestingModuleBuilder = (b) => b) {
   const keys = await generateKeyPair('RS256');
   const jwk = { ...(await exportJWK(keys.publicKey)), kid: 'test', alg: 'RS256', use: 'sig' };
   const verifier = new JoseTokenVerifier(createLocalJWKSet({ keys: [jwk] }), { issuer: ISSUER, audience: 'sysmaster-api' });
-  const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
-    .overrideProvider(TokenVerifier)
-    .useValue(verifier)
-    .compile();
+  const builder = Test.createTestingModule({ imports: [AppModule] }).overrideProvider(TokenVerifier).useValue(verifier);
+  const moduleRef = await customize(builder).compile();
   const app: INestApplication = configureApp(moduleRef.createNestApplication());
   await app.init();
 

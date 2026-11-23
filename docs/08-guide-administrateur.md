@@ -160,7 +160,7 @@ Ordre d'un déploiement :
 | Cluster Kubernetes avec un contrôleur ingress NGINX et cert-manager | votre hébergeur | — |
 | Postgres 16 | service géré conseillé | une base vide ; les migrations s'appliquent seules |
 | Keycloak | chart Bitnami ou service géré | royaume importé depuis `infra/keycloak/sysmaster-realm.json`, URL de redirection du client web = `https://<hôte>/*` |
-| Secret `sysmaster-secrets` dans le namespace `sysmaster-staging` | `kubectl` | `DATABASE_URL`, `NEXTAUTH_SECRET`, `KEYCLOAK_CLIENT_SECRET` |
+| Secret `sysmaster-secrets` dans le namespace `sysmaster-staging` | `kubectl` | `DATABASE_URL`, `NEXTAUTH_SECRET`, `KEYCLOAK_CLIENT_SECRET`, `AI_SERVICE_TOKEN` (et `ANTHROPIC_API_KEY` si `ai.llm=claude`) |
 | Secret GitHub `STAGING_KUBECONFIG` | environnement GitHub « staging » | kubeconfig d'un compte limité à ce namespace |
 | Variables GitHub `STAGING_HOST`, `STAGING_OIDC_ISSUER` | même environnement | ex. `test.sysmaster.fr`, `https://auth.sysmaster.fr/realms/sysmaster` |
 
@@ -171,8 +171,19 @@ kubectl create namespace sysmaster-staging
 kubectl -n sysmaster-staging create secret generic sysmaster-secrets \
   --from-literal=DATABASE_URL='postgres://…' \
   --from-literal=NEXTAUTH_SECRET="$(openssl rand -base64 32)" \
-  --from-literal=KEYCLOAK_CLIENT_SECRET='…'
+  --from-literal=KEYCLOAK_CLIENT_SECRET='…' \
+  --from-literal=AI_SERVICE_TOKEN="$(openssl rand -hex 32)"
 ```
+
+L'assistant tourne en mode factice en test (`values-staging.yaml`, `ai.llm: fake`) : aucune clé, aucun coût. Pour essayer le vrai modèle, ajoutez la clé au secret puis passez `--set ai.llm=claude` :
+
+```bash
+# Pourquoi patch et pas create : le secret existe déjà ; on ajoute une clé sans toucher aux autres.
+kubectl -n sysmaster-staging patch secret sysmaster-secrets --type merge \
+  -p "{\"stringData\":{\"ANTHROPIC_API_KEY\":\"$ANTHROPIC_API_KEY\"}}"
+```
+
+Risque : chaque question consomme des jetons facturés. Le quota par utilisateur (`ai.assistantDailyQuota`, 30 par défaut) borne la dépense ; le coût réel se lit dans `ai.agent_runs` (tokens d'entrée, de sortie et de cache par réponse).
 
 Sans `STAGING_KUBECONFIG`, la CD publie les images et s'arrête là, avec une note dans le résumé du workflow.
 

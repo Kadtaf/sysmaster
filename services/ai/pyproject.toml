@@ -1,0 +1,37 @@
+[project]
+name = "sysmaster-ai"
+version = "0.1.0"
+description = "Assistant pédagogique SysMaster : routage, réponse structurée et citée, garde-fous"
+requires-python = ">=3.12"
+dependencies = [
+    "anthropic>=1",
+    "fastapi>=0.165.0",
+    "httpx>=0.28.1",
+    "pydantic-settings>=2.16.3",
+    "uvicorn[standard]>=0.54.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.2.0",
+    "pytest-asyncio>=1.5.0",
+    "respx>=0.23.1",
+    "ruff>=0.17.6",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 140
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM"]
+# Textes de prompts et de contenu : les longues lignes sont voulues.
+# SIM905 : la liste de mots vides reste lisible sous forme de texte découpé.
+ignore = ["E501", "SIM905"]
+
+[tool.ruff.lint.flake8-bugbear]
+extend-immutable-calls = ["fastapi.Depends", "fastapi.Header"]

@@ -1,0 +1,52 @@
+import hmac
+import logging
+
+from fastapi import Depends, FastAPI, Header, HTTPException
+
+from app.config import Settings, settings
+from app.llm.claude import ClaudeLlm
+from app.llm.fake import FakeLlm
+from app.llm.port import Llm
+from app.orchestrator import ask
+from app.rag.retriever import CoreApiRetriever, Retriever
+from app.schemas import AskRequest, AskResponse
+
+logging.basicConfig(level=logging.INFO, format='{"level":"%(levelname)s","logger":"%(name)s","message":"%(message)s"}')
+log = logging.getLogger("sysmaster.ai")
+
+app = FastAPI(title="SysMaster AI", version="0.1.0", docs_url="/docs")
+
+
+def get_llm(cfg: Settings = Depends(settings)) -> Llm:
+    if cfg.ai_llm == "claude":
+        return ClaudeLlm(cfg.ai_model, cfg.ai_effort, cfg.ai_max_tokens)
+    return FakeLlm()
+
+
+def get_retriever(cfg: Settings = Depends(settings)) -> Retriever:
+    return CoreApiRetriever(cfg.core_api_url)
+
+
+def require_token(x_ai_token: str = Header(default=""), cfg: Settings = Depends(settings)) -> None:
+    """Le service n'est appelé que par l'API cœur, qui authentifie l'utilisateur et applique les quotas."""
+    if not hmac.compare_digest(x_ai_token, cfg.ai_service_token):
+        raise HTTPException(status_code=401, detail="Jeton de service invalide")
+
+
+@app.get("/health")
+def health(cfg: Settings = Depends(settings)) -> dict:
+    return {"status": "ok", "llm": cfg.ai_llm, "model": cfg.ai_model if cfg.ai_llm == "claude" else "fake"}
+
+
+@app.post("/v1/ask", response_model=AskResponse, response_model_by_alias=True, dependencies=[Depends(require_token)])
+async def ask_endpoint(req: AskRequest, llm: Llm = Depends(get_llm), retriever: Retriever = Depends(get_retriever)) -> AskResponse:
+    res = await ask(req, llm, retriever)
+    log.info(
+        "ask agent=%s domain=%s outcome=%s latency_ms=%s sources=%s",
+        res.agent,
+        res.domain,
+        res.outcome,
+        res.latency_ms,
+        len(res.answer.sources),
+    )
+    return res

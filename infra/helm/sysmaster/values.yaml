@@ -9,7 +9,8 @@ image:
 imagePullSecrets: []
 
 # Secret Kubernetes existant (jamais dans Git) contenant :
-#   DATABASE_URL, NEXTAUTH_SECRET, KEYCLOAK_CLIENT_SECRET
+#   DATABASE_URL, NEXTAUTH_SECRET, KEYCLOAK_CLIENT_SECRET,
+#   AI_SERVICE_TOKEN (si ai.enabled), ANTHROPIC_API_KEY (si ai.llm=claude)
 existingSecret: sysmaster-secrets
 
 publicUrl: https://sysmaster.example.com   # URL vue par le navigateur (front et API sur le même hôte)
@@ -29,6 +30,22 @@ api:
   extraEnv: {}
   resources:
     requests: { cpu: 100m, memory: 256Mi }
+    limits: { memory: 512Mi }
+
+# Assistant (services/ai). Appelé seulement par l'API cœur, jamais exposé.
+ai:
+  enabled: true
+  replicas: 2
+  llm: claude            # « fake » : réponses factices, sans clé ni coût (démonstration)
+  model: claude-opus-5-5
+  effort: medium
+  assistantDailyQuota: 30
+  timeoutMs: 90000
+  networkPolicy:
+    enabled: true
+  extraEnv: {}
+  resources:
+    requests: { cpu: 100m, memory: 192Mi }
     limits: { memory: 512Mi }
 
 web:

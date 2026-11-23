@@ -92,11 +92,27 @@ services:
       OIDC_ISSUER: http://localhost:8080/realms/sysmaster
       OIDC_JWKS_URL: http://keycloak:8080/realms/sysmaster/protocol/openid-connect/certs
       OIDC_AUDIENCE: sysmaster-api
+      AI_SERVICE_URL: http://ai:8000
+      AI_SERVICE_TOKEN: ${AI_SERVICE_TOKEN:-dev-only-ai-token}
+      ASSISTANT_DAILY_QUOTA: ${ASSISTANT_DAILY_QUOTA:-30}
     ports: ["4000:4000"]
     depends_on:
       migrate: { condition: service_completed_successfully }
       redis: { condition: service_healthy }
       keycloak: { condition: service_healthy }
+
+  ai:
+    # Assistant (FastAPI). Sans clé, AI_LLM=fake renvoie des réponses factices mais structurées :
+    # toute la chaîne (routage, RAG, garde-fous, interface) fonctionne sans coût.
+    build: { context: ., dockerfile: infra/docker/ai.Dockerfile }
+    environment:
+      AI_LLM: ${AI_LLM:-fake}
+      AI_MODEL: ${AI_MODEL:-claude-opus-5-5}
+      AI_EFFORT: ${AI_EFFORT:-medium}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      AI_SERVICE_TOKEN: ${AI_SERVICE_TOKEN:-dev-only-ai-token}
+      CORE_API_URL: http://api:4000/api/v1
+    # Pas de port publié : seul l'API cœur l'appelle.
 
   web:
     build:

@@ -92,11 +92,22 @@ Le lien **Rédaction** apparaît si vous avez le rôle *author*, *reviewer* ou *
 
 Personne ne relit sa propre révision, administrateurs compris. Un second regard est la raison d'être de la relecture.
 
-## 4. Ce qui arrive ensuite
+## 4. L'assistant
+
+Connecté, ouvrez **Assistant** et posez votre question (choisir la plateforme et votre niveau aide l'assistant à adapter la réponse).
+
+- Chaque étape dit **pourquoi**, **comment** et **quand** agir, avec son niveau de risque.
+- Une commande à risque élevé ou critique est **masquée** : dépliez « Risques à connaître » pour l'afficher. Une commande critique ne se copie pas : tapez-la vous-même en vérifiant chaque argument.
+- Les **sources** renvoient aux fiches de la base de connaissances. Une réponse marquée **« Non vérifiée »** ne s'appuie sur aucune fiche : vérifiez dans la documentation officielle avant d'agir.
+- L'assistant n'exécute jamais rien. Ne lui donnez ni mot de passe, ni clé, ni donnée personnelle.
+- Le nombre de questions par 24 heures est limité ; il reste affiché sous la zone de saisie. Vos conversations sont conservées dans la colonne de gauche.
+- Les pouces 👍 / 👎 sous une réponse nous aident à améliorer l'assistant.
+
+## 5. Ce qui arrive ensuite
 
 Les fonctions suivantes sont prévues dans la [feuille de route](05-feuille-de-route.md) :
 
-- l'assistant IA (Phase 3) ;
+- l'enrichissement de l'assistant (documentation officielle, réponses en continu, diagnostic à partir de journaux) ;
 - les labs pratiques (Phase 4) ;
 - les certifications, la communauté et les offres payantes (Phase 5) ;
 - les applications mobiles (Phase 6).
