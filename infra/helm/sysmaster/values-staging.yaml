@@ -5,6 +5,11 @@ api:
   extraEnv:
     # Plus bavard en test pour comprendre un comportement inattendu.
     NODE_OPTIONS: "--enable-source-maps"
+ai:
+  replicas: 1
+  # Sans clé d'API en test, l'assistant reste utilisable en mode factice. Passer à « claude »
+  # (et ajouter ANTHROPIC_API_KEY au secret) pour tester le vrai modèle.
+  llm: fake
 web:
   replicas: 1
 migrations:

@@ -228,7 +228,34 @@ Versionnement : `/api/v1/...` en REST ; évolution additive du schéma GraphQL a
 
 ### 8.1 Pourquoi un service Python séparé
 
-L'écosystème IA (embeddings, rerankers, parsing de documents, évaluation) est nettement plus riche en Python. Le cœur métier reste en TypeScript ; l'IA vit dans `services/ai` (FastAPI) derrière un contrat stable. **Arrive en Phase 3.**
+L'écosystème IA (embeddings, rerankers, parsing de documents, évaluation) est nettement plus riche en Python. Le cœur métier reste en TypeScript ; l'IA vit dans `services/ai` (FastAPI) derrière un contrat stable.
+
+**Socle livré (Phase 3, PR « assistant »)** :
+
+```mermaid
+sequenceDiagram
+  participant W as Web /assistant
+  participant C as API cœur (NestJS)
+  participant A as Service IA (FastAPI)
+  participant K as Base de connaissances (API cœur)
+  participant M as Claude
+  W->>C: POST /assistant/ask (jeton utilisateur)
+  C->>C: authentification, quota 24 h, propriété de la conversation, 4 derniers tours
+  C->>A: POST /v1/ask (x-ai-token)
+  A->>A: routeur : tuteur ou diagnosticien + domaine
+  A->>K: GET /kb/commands?q=… puis fiches
+  A->>M: prompt système (profil) + documents numérotés, sortie au schéma DraftAnswer
+  A->>A: garde-fous : risque relevé par motifs, citations filtrées, étapes sans « pourquoi » retirées
+  A-->>C: réponse structurée + usage
+  C->>C: ai.messages, ai.agent_runs (tokens, latence) dans une transaction
+  C-->>W: réponse, étapes, sources, questions restantes
+```
+
+- **Le cœur garde l'utilisateur** : le service IA ne voit ni jeton utilisateur ni base de données. Il est joignable seulement depuis l'API (service Kubernetes interne, `NetworkPolicy`, jeton partagé comparé en temps constant).
+- **Le modèle propose, le code décide** : le niveau de risque d'une commande est le maximum entre celui annoncé par le modèle et celui des motifs destructifs reconnus (`rm -rf`, `mkfs`, `dd of=/dev/…`, `diskpart clean`, `format`, `DROP`, `kubectl delete`…). Le modèle ne peut jamais l'abaisser. Une citation vers un document non fourni est supprimée ; sans source restante, la réponse est « non vérifiée ».
+- **Modèle** : `claude-opus-5-5`, effort `medium`, sortie structurée (schéma Pydantic) et prompt système mis en cache. Le repli côté serveur (`server-side-fallback`) est activé : si le modèle principal est surchargé, Anthropic bascule sur un modèle de secours plutôt que d'échouer. Un refus du modèle (`stop_reason = refusal`) donne une réponse claire, sans contenu partiel.
+- **Mode factice** (`AI_LLM=fake`) : sans clé ni coût, toute la chaîne fonctionne en développement, en CI et en test.
+- **Dégradation** : si le service IA ne répond pas, l'API renvoie 503 et garde la question dans l'historique ; le reste de la plateforme n'en dépend pas.
 
 ### 8.2 Topologie des agents
 
@@ -271,7 +298,7 @@ Chaque réponse contenant une commande passe par un **validateur de sortie** qui
 }
 ```
 
-- Une commande classée **destructive** (`rm -rf`, `format`, `diskpart clean`, `DROP`…) est affichée **masquée** jusqu'à ce que l'utilisateur ait lu les risques (et, en mode apprentissage, réussi une question de compréhension).
+- Une commande classée **destructive** (`rm -rf`, `format`, `diskpart clean`, `DROP`…) est affichée **masquée** jusqu'à ce que l'utilisateur ait lu les risques (et, en mode apprentissage, réussi une question de compréhension). *Implémenté : risque `high` ou `critical` → masquée ; `critical` → copie impossible ; la question de compréhension viendra avec les labs.*
 - Pas de bouton « copier » direct sur les commandes à risque élevé.
 - Réponse sans source → marquée « non vérifiée ».
 

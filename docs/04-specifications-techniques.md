@@ -81,6 +81,12 @@ Préfixe `/api/v1`. Documentation OpenAPI générée sur `/api/docs`. Authentifi
 | POST | `/editorial/revisions/:id/review` | `{ decision: approve \| request_changes, comment }` ; approuver publie. **403** sur sa propre révision ; **422** si une cause provoque des régressions et que le commentaire ne les justifie pas |
 | POST | `/editorial/revisions/:id/withdraw` | Retire une révision non publiée (auteur ou admin) |
 | GET | `/admin/users` | Liste des utilisateurs (rôles `admin` ou `support`) |
+| POST | `/assistant/ask` | `{ question, platform?, level?, conversationId? }` → réponse structurée (étapes pourquoi/comment/quand/risques, sources, questions de vérification), `remainingToday`. **429** au-delà du quota sur 24 h (`ASSISTANT_DAILY_QUOTA`, ×3 auteurs et relecteurs, ×10 administrateurs). **503** si le service IA est indisponible (question conservée). **404** sur la conversation d'un autre |
+| GET | `/assistant/conversations` | Mes 50 dernières conversations |
+| GET | `/assistant/conversations/:id` | Questions et réponses d'une de mes conversations |
+| PUT | `/assistant/messages/:id/feedback` | `{ rating: 1 \| -1, comment? }` (204) : alimente l'évaluation continue |
+
+Le service IA (`services/ai`, interne) expose `GET /health` et `POST /v1/ask` (en-tête `x-ai-token`) ; voir [son README](../services/ai/README.md).
 
 Exemple de réponse `POST /diagnostic/analyze` :
 
@@ -177,6 +183,8 @@ Règles dans `apps/api/src/modules/gamification/domain/rules.ts`, testées unita
 ## 9. Variables d'environnement
 
 Voir [`.env.example`](../.env.example). Principales : `DATABASE_URL`, `REDIS_URL`, `QDRANT_URL`, `API_PORT`, `NEXT_PUBLIC_API_URL`, `CORS_ORIGINS`, et pour l'identité `OIDC_ISSUER`, `OIDC_AUDIENCE`, `OIDC_JWKS_URL`, `NEXTAUTH_URL`, `NEXTAUTH_SECRET`, `KEYCLOAK_ISSUER`, `KEYCLOAK_INTERNAL_ISSUER`, `KEYCLOAK_CLIENT_ID`, `KEYCLOAK_CLIENT_SECRET`.
+
+Assistant : `AI_SERVICE_URL`, `AI_SERVICE_TOKEN`, `AI_SERVICE_TIMEOUT_MS`, `ASSISTANT_DAILY_QUOTA` (API) ; `AI_LLM` (`fake` ou `claude`), `AI_MODEL`, `AI_EFFORT`, `ANTHROPIC_API_KEY`, `CORE_API_URL` (service IA).
 
 Exploitation : `LOG_FORMAT=json` (une ligne JSON par message), `METRICS_PORT` (métriques Prometheus sur `/metrics`, 9464 par défaut, 0 pour désactiver), `APP_VERSION` (renvoyée par `/health`, posée par l'image), `OUTBOX_RELAY_INTERVAL_MS`.
 

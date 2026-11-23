@@ -1,0 +1,103 @@
+{{- if .Values.ai.enabled }}
+{{- $name := printf "%s-ai" (include "sysmaster.fullname" .) -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "sysmaster.labels" . | nindent 4 }}
+    app.kubernetes.io/component: ai
+spec:
+  replicas: {{ .Values.ai.replicas }}
+  revisionHistoryLimit: 5
+  selector:
+    matchLabels:
+      {{- include "sysmaster.selector" (dict "root" . "component" "ai") | nindent 6 }}
+  strategy:
+    rollingUpdate: { maxUnavailable: 0, maxSurge: 1 }
+  template:
+    metadata:
+      labels:
+        {{- include "sysmaster.labels" . | nindent 8 }}
+        app.kubernetes.io/component: ai
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      automountServiceAccountToken: false
+      # Une réponse du modèle peut prendre une minute : on la laisse finir avant l'arrêt.
+      terminationGracePeriodSeconds: 90
+      containers:
+        - name: ai
+          image: "{{ .Values.image.registry }}/sysmaster-ai:{{ include "sysmaster.tag" . }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- include "sysmaster.containerSecurity" . | nindent 10 }}
+          ports:
+            - { name: http, containerPort: 8000 }
+          env:
+            - { name: APP_VERSION, value: {{ include "sysmaster.tag" . | quote }} }
+            - { name: AI_LLM, value: {{ .Values.ai.llm | quote }} }
+            - { name: AI_MODEL, value: {{ .Values.ai.model | quote }} }
+            - { name: AI_EFFORT, value: {{ .Values.ai.effort | quote }} }
+            - { name: CORE_API_URL, value: {{ printf "http://%s-api/api/v1" (include "sysmaster.fullname" .) | quote }} }
+            - name: AI_SERVICE_TOKEN
+              valueFrom: { secretKeyRef: { name: {{ .Values.existingSecret }}, key: AI_SERVICE_TOKEN } }
+            {{- if eq .Values.ai.llm "claude" }}
+            - name: ANTHROPIC_API_KEY
+              valueFrom: { secretKeyRef: { name: {{ .Values.existingSecret }}, key: ANTHROPIC_API_KEY } }
+            {{- end }}
+            {{- range $k, $v := .Values.ai.extraEnv }}
+            - { name: {{ $k }}, value: {{ $v | quote }} }
+            {{- end }}
+          startupProbe:
+            httpGet: { path: /health, port: http }
+            periodSeconds: 2
+            failureThreshold: 30
+          livenessProbe:
+            httpGet: { path: /health, port: http }
+            periodSeconds: 10
+          readinessProbe:
+            httpGet: { path: /health, port: http }
+            periodSeconds: 5
+          resources: {{- toYaml .Values.ai.resources | nindent 12 }}
+          volumeMounts:
+            - { name: tmp, mountPath: /tmp }
+      volumes:
+        - { name: tmp, emptyDir: {} }
+---
+# Service interne uniquement : aucune route d'ingress n'y mène.
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "sysmaster.labels" . | nindent 4 }}
+    app.kubernetes.io/component: ai
+spec:
+  selector:
+    {{- include "sysmaster.selector" (dict "root" . "component" "ai") | nindent 4 }}
+  ports:
+    - { name: http, port: 80, targetPort: http }
+{{- if .Values.ai.networkPolicy.enabled }}
+---
+# Seuls les pods de l'API cœur peuvent appeler le service IA (le jeton partagé reste exigé).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "sysmaster.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "sysmaster.selector" (dict "root" . "component" "ai") | nindent 6 }}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "sysmaster.selector" (dict "root" . "component" "api") | nindent 14 }}
+      ports:
+        - { port: 8000 }
+{{- end }}
+{{- end }}
