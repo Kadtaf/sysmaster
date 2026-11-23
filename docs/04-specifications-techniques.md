@@ -1,0 +1,144 @@
+# 04 — Spécifications techniques
+
+## 1. Pile technique
+
+| Couche | Choix | Version | Pourquoi |
+|---|---|---|---|
+| Monorepo | pnpm workspaces + Turborepo | pnpm 10 | Installation rapide, cache de build, tâches parallèles |
+| Frontend | Next.js (App Router), React, TypeScript | 15 / 19 / 5 | SSR/ISR pour le SEO du contenu pédagogique, Server Components |
+| UI | Tailwind CSS, shadcn/ui, Framer Motion, lucide-react | 4 | Composants accessibles (Radix) possédés par le projet, pas de dépendance figée |
+| Backend cœur | NestJS (Node 22) | 11 | Modules, DI, CQRS, GraphQL, WebSocket, transports microservices natifs |
+| Accès données | `pg` + SQL versionné | — | Contrôle total du schéma (voir ADR-011) |
+| Validation | `zod` (contrats partagés) | 3 | Mêmes schémas côté web et API |
+| Service IA | Python 3.12, FastAPI, Pydantic | Phase 3 | Écosystème RAG/LLM |
+| Bus | NATS JetStream | Phase 2 | Simple, performant, persistance |
+| Base | PostgreSQL | 16 | |
+| Cache | Redis | 7 | |
+| Recherche | OpenSearch / Elasticsearch | Phase 2 | |
+| Vecteurs | Qdrant | 1.x | Voir ADR-007 |
+| Identité | Keycloak (OIDC, WebAuthn, SAML) | Phase 2 | |
+| Paiement | Stripe Billing, Tax, Connect | Phase 5 | |
+| Conteneurs | Docker, Kubernetes, Helm | | |
+| IaC | Terraform | Phase 7 | |
+| CI/CD | GitHub Actions | | |
+| Observabilité | OpenTelemetry, Prometheus, Grafana, Loki, Tempo | Phase 2 | |
+
+## 2. Structure du monorepo
+
+```
+sysmaster/
+├── apps/
+│   ├── web/                 # Next.js : académie, KB, diagnostic, tableaux de bord
+│   └── api/                 # NestJS : monolithe modulaire (DDD + hexagonal)
+│       └── src/modules/
+│           ├── diagnostic/  # domain / application / infrastructure / interface
+│           ├── knowledge/
+│           ├── learning/
+│           └── health/
+├── packages/
+│   └── contracts/           # Types et schémas zod partagés (DTO, événements)
+├── services/
+│   └── ai/                  # FastAPI (Phase 3) — README de conception uniquement
+├── db/
+│   ├── migrations/          # SQL versionné
+│   └── seeds/               # données de démo
+├── infra/
+│   ├── docker/              # Dockerfiles
+│   └── scripts/             # migrate, seed, deploy
+├── docs/                    # cette documentation
+├── docker-compose.yml
+└── .github/workflows/ci.yml
+```
+
+## 3. API REST (Phase 1)
+
+Préfixe `/api/v1`. Documentation OpenAPI générée sur `/api/docs`.
+
+| Méthode | Route | Description |
+|---|---|---|
+| GET | `/health` | État de l'API et de la base |
+| GET | `/learning/paths` | Liste des parcours publiés |
+| GET | `/kb/commands?q=&platform=` | Recherche de fiches commandes |
+| GET | `/kb/commands/:slug` | Fiche complète (paramètres, exemples, alternatives, sources) |
+| GET | `/diagnostic/symptoms?platform=` | Symptômes connus |
+| POST | `/diagnostic/analyze` | Analyse : `{ platform, description?, symptoms?, evidence? }` → hypothèses classées |
+
+Exemple de réponse `POST /diagnostic/analyze` :
+
+```json
+{
+  "sessionId": "c1f…",
+  "detectedSymptoms": ["unexpected_reboot", "reboot_under_load", "loud_fans"],
+  "confidence": 0.71,
+  "hypotheses": [
+    {
+      "cause": "overheating",
+      "label": "Surchauffe",
+      "probability": 0.78,
+      "explanation": "Le processeur ou la carte graphique dépasse…",
+      "reasoning": ["« Redémarre en jeu » est 2,4× plus probable si la cause est une surchauffe…"],
+      "actionPlan": [{ "step": "Mesurer les températures…", "why": "…", "risk": "none" }]
+    }
+  ],
+  "clarifyingQuestions": ["Voyez-vous un écran bleu avant le redémarrage ?"]
+}
+```
+
+Conventions : erreurs au format RFC 9457 (`application/problem+json`), pagination par curseur, `Idempotency-Key` sur les POST sensibles (paiement, examen), limitation de débit par utilisateur et par IP (Redis).
+
+## 4. Moteur de déduction v1 (implémenté)
+
+Modèle **bayésien naïf avec terme de fuite** :
+
+```
+score(c) = P(c) × Π_{s ∈ observés} P(s|c) × Π_{e ∈ preuves} boost(e,c)
+P(s|c) = likelihood(s,c) si règle connue, sinon ε = 0,02 (fuite)
+probabilité(c) = score(c) / Σ score
+confiance = p1 × (1 − p2/p1) pondérée par le nombre de symptômes (saturation à 3)
+```
+
+- **Extraction de symptômes** v1 : correspondance de synonymes normalisés (accents, casse). Remplacée en Phase 3 par l'agent LLM (extraction structurée), le moteur restant identique.
+- **Questions de clarification** : le moteur choisit les symptômes non observés qui séparent le mieux les deux meilleures hypothèses (différence de vraisemblance maximale).
+- **Explications** : pour chaque cause, les facteurs qui ont le plus pesé, en langage naturel.
+- Code : `apps/api/src/modules/diagnostic/domain/deduction-engine.ts`, testé unitairement.
+
+## 5. Sécurité applicative
+
+| Sujet | Mesure |
+|---|---|
+| Authentification | OIDC (Keycloak), jetons d'accès courts (5 min), refresh rotatif, cookies `HttpOnly; Secure; SameSite=Lax` pour le web |
+| Autorisation | Guards NestJS (RBAC) + politiques par ressource (ABAC) |
+| Entrées | Validation zod/class-validator sur chaque DTO, limites de taille (logs ≤ 10 Mo) |
+| En-têtes | Helmet, CSP stricte, HSTS |
+| Fichiers | Analyse antivirus (ClamAV), type MIME vérifié, stockage S3 privé, URLs signées |
+| Secrets | Jamais dans le dépôt ; `.env.example` uniquement ; coffre en production |
+| IA | Contenu utilisateur et RAG = données ; outils en liste blanche ; validateur de sortie ; journalisation des refus |
+| Labs | Isolation microVM, pas d'accès au réseau interne, egress filtré, TTL |
+| Dépendances | Dependabot, `pnpm audit`, analyse d'images (Trivy) en CI |
+
+## 6. Performance et scalabilité
+
+- API sans état ; sessions dans Redis ; montée en charge horizontale.
+- Pages de contenu en ISR (revalidation à la publication) servies par CDN.
+- Budgets : LCP < 2,5 s sur mobile 4G, API p95 < 300 ms (hors IA), JS initial < 200 Ko.
+- Tests de charge k6 avant chaque phase majeure (objectif Phase 7 : 50 000 utilisateurs simultanés).
+
+## 7. Qualité
+
+- TypeScript strict, ESLint, Prettier.
+- Tests : unitaires (domaine, Jest/Vitest), intégration (Testcontainers PostgreSQL), end-to-end (Playwright), contrats d'API.
+- Le domaine ne dépend d'aucun framework : il est testé sans base de données.
+- CI : lint → typecheck → tests → build → image Docker (sur `main`).
+
+## 8. Environnements
+
+| Environnement | Usage | Déploiement |
+|---|---|---|
+| local | développement | `docker compose up` |
+| preview | une instance par pull request | Phase 2 (Vercel pour le web + namespace Kubernetes éphémère) |
+| staging | recette | automatique sur `main` |
+| production | utilisateurs | manuel (tag), déploiement progressif (canary) |
+
+## 9. Variables d'environnement
+
+Voir [`.env.example`](../.env.example). Principales : `DATABASE_URL`, `REDIS_URL`, `QDRANT_URL`, `API_PORT`, `NEXT_PUBLIC_API_URL`, `CORS_ORIGINS`.

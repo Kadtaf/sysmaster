@@ -1,0 +1,72 @@
+# Pile de développement complète : docker compose up --build
+# Web : http://localhost:3000   API : http://localhost:4000/api/v1   Swagger : http://localhost:4000/api/docs
+name: sysmaster
+
+x-db-env: &db-env
+  DATABASE_URL: postgres://${POSTGRES_USER:-sysmaster}:${POSTGRES_PASSWORD:-sysmaster}@postgres:5432/${POSTGRES_DB:-sysmaster}
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-sysmaster}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-sysmaster}
+      POSTGRES_DB: ${POSTGRES_DB:-sysmaster}
+    ports: ["5432:5432"]
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER}"]
+      interval: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports: ["6379:6379"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      retries: 10
+
+  qdrant:
+    # Base vectorielle du RAG (utilisée à partir de la Phase 3)
+    image: qdrant/qdrant:v1.13.4
+    ports: ["6333:6333"]
+    volumes: [qdrantdata:/qdrant/storage]
+
+  migrate:
+    # Applique les migrations puis charge les données de démonstration, et s'arrête.
+    build: { context: ., dockerfile: infra/docker/api.Dockerfile }
+    working_dir: /repo
+    command: ["node", "infra/scripts/migrate.mjs", "--seed"]
+    environment: *db-env
+    depends_on:
+      postgres: { condition: service_healthy }
+
+  api:
+    build: { context: ., dockerfile: infra/docker/api.Dockerfile }
+    environment:
+      <<: *db-env
+      REDIS_URL: redis://redis:6379
+      QDRANT_URL: http://qdrant:6333
+      API_PORT: 4000
+      CORS_ORIGINS: http://localhost:3000
+    ports: ["4000:4000"]
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+
+  web:
+    build:
+      context: .
+      dockerfile: infra/docker/web.Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:4000/api/v1
+    environment:
+      API_URL_INTERNAL: http://api:4000/api/v1
+    ports: ["3000:3000"]
+    depends_on:
+      api: { condition: service_healthy }
+
+volumes:
+  pgdata:
+  qdrantdata:
