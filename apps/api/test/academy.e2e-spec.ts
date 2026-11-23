@@ -1,9 +1,12 @@
 import { INestApplication } from '@nestjs/common';
 import { Pool } from 'pg';
 import request from 'supertest';
+import { createSystemdPath, dropPath } from './helpers/fixtures';
 import { createTestApp } from './helpers/test-app';
 
 const describeDb = process.env.DATABASE_URL ? describe : describe.skip;
+// Parcours limité au cours systemd : les parcours réels évoluent avec le contenu.
+const PATH = 'parcours-test-academie';
 
 // Identifiants des données de démo (db/seeds)
 const L = {
@@ -21,8 +24,10 @@ describeDb('Académie (e2e)', () => {
   beforeAll(async () => {
     ({ app, tokenFor } = await createTestApp());
     pool = new Pool({ connectionString: process.env.DATABASE_URL });
+    await createSystemdPath(pool, PATH);
   });
   afterAll(async () => {
+    await dropPath(pool, PATH);
     await pool?.end();
     await app?.close();
   });
@@ -50,8 +55,8 @@ describeDb('Académie (e2e)', () => {
     const token = await tokenFor();
     const auth = (r: request.Test) => r.auth(token, { type: 'bearer' });
 
-    const enrolled = await auth(http().post('/api/v1/learning/paths/administrateur-linux/enroll')).expect(200);
-    expect(enrolled.body).toMatchObject({ pathSlug: 'administrateur-linux', progressPct: 0, completedAt: null });
+    const enrolled = await auth(http().post(`/api/v1/learning/paths/${PATH}/enroll`)).expect(200);
+    expect(enrolled.body).toMatchObject({ pathSlug: PATH, progressPct: 0, completedAt: null });
 
     // Ordre : la 2e leçon est verrouillée tant que la 1re n'est pas validée, et on dit laquelle faire.
     const locked = await auth(http().post(`/api/v1/learning/lessons/${L.journalctl}/complete`)).expect(409);

@@ -3,9 +3,12 @@ import { Pool } from 'pg';
 import request from 'supertest';
 import { EventRegistry } from '../src/shared/events/event-registry';
 import { OutboxRelay } from '../src/shared/events/outbox-relay';
+import { createSystemdPath, dropPath } from './helpers/fixtures';
 import { createTestApp, newIdentity } from './helpers/test-app';
 
 const describeDb = process.env.DATABASE_URL ? describe : describe.skip;
+// Parcours limité au cours systemd : les parcours réels évoluent avec le contenu.
+const PATH = 'parcours-test-gamification';
 
 const L = {
   systemctl: '00000000-0000-4000-8500-000000000003', // 30 min → 40 XP
@@ -37,9 +40,11 @@ describeDb('Gamification et relais d\'événements (e2e)', () => {
   beforeAll(async () => {
     ({ app, tokenFor } = await createTestApp());
     pool = new Pool({ connectionString: process.env.DATABASE_URL });
+    await createSystemdPath(pool, PATH);
     relay = app.get(OutboxRelay);
   });
   afterAll(async () => {
+    await dropPath(pool, PATH);
     await pool?.end();
     await app?.close();
   });
@@ -57,7 +62,7 @@ describeDb('Gamification et relais d\'événements (e2e)', () => {
     expect(empty.gamification).toMatchObject({ totalXp: 0, level: 1, streakDays: 0 });
     expect(empty.recommendations).toEqual([expect.objectContaining({ kind: 'start', href: '/parcours' })]);
 
-    await auth(http().post('/api/v1/learning/paths/administrateur-linux/enroll')).expect(200);
+    await auth(http().post(`/api/v1/learning/paths/${PATH}/enroll`)).expect(200);
     await auth(http().post(`/api/v1/learning/lessons/${L.systemctl}/complete`)).expect(200);
 
     const afterFirst = await settle(dashboard, (d) => d.gamification.totalXp >= 40);
