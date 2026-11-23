@@ -67,7 +67,7 @@ Préfixe `/api/v1`. Documentation OpenAPI générée sur `/api/docs`. Authentifi
 | GET | `/kb/commands?q=&platform=` | Recherche de fiches commandes |
 | GET | `/kb/commands/:slug` | Fiche complète (paramètres, exemples, alternatives, sources) |
 | GET | `/diagnostic/symptoms?platform=` | Symptômes connus |
-| POST | `/diagnostic/analyze` | Analyse : `{ platform, description?, symptoms?, evidence? }` → hypothèses classées. Anonyme ou connecté (la session rejoint alors l'historique) |
+| POST | `/diagnostic/analyze` | Analyse : `{ platform, description?, symptoms?, evidence?, useAi? }` → hypothèses classées, plus `extraction` (méthode, citations, lignes de journal relevées). Anonyme ou connecté (la session rejoint alors l'historique). `useAi: true` exige une connexion (**401** sinon) et compte dans le quota IA (**429**) ; si l'IA est indisponible, repli sur les synonymes avec `extraction.note` |
 | GET | `/me` | Profil, rôles et droits de l'utilisateur connecté (jeton requis) |
 | GET | `/me/dashboard` | Tableau de bord : XP, niveau, série, badges, parcours, compétences, points forts et faibles, recommandations |
 | GET | `/gamification/leaderboard?limit=` | Classement (noms abrégés) ; si connecté, `me` donne votre rang |
@@ -81,7 +81,7 @@ Préfixe `/api/v1`. Documentation OpenAPI générée sur `/api/docs`. Authentifi
 | POST | `/editorial/revisions/:id/review` | `{ decision: approve \| request_changes, comment }` ; approuver publie. **403** sur sa propre révision ; **422** si une cause provoque des régressions et que le commentaire ne les justifie pas |
 | POST | `/editorial/revisions/:id/withdraw` | Retire une révision non publiée (auteur ou admin) |
 | GET | `/admin/users` | Liste des utilisateurs (rôles `admin` ou `support`) |
-| POST | `/assistant/ask` | `{ question, platform?, level?, conversationId? }` → réponse structurée (étapes pourquoi/comment/quand/risques, sources, questions de vérification), `remainingToday`. **429** au-delà du quota sur 24 h (`ASSISTANT_DAILY_QUOTA`, ×3 auteurs et relecteurs, ×10 administrateurs). **503** si le service IA est indisponible (question conservée). **404** sur la conversation d'un autre |
+| POST | `/assistant/ask` | `{ question, platform?, level?, conversationId? }` → réponse structurée (étapes pourquoi/comment/quand/risques, sources, questions de vérification), `remainingToday`. **429** au-delà du quota sur 24 h (`ASSISTANT_DAILY_QUOTA`, ×3 auteurs et relecteurs, ×10 administrateurs), commun à toutes les requêtes à l'IA (assistant et diagnostic) et compté dans `ai.agent_runs`. **503** si le service IA est indisponible (question conservée). **404** sur la conversation d'un autre |
 | GET | `/assistant/conversations` | Mes 50 dernières conversations |
 | GET | `/assistant/conversations/:id` | Questions et réponses d'une de mes conversations |
 | PUT | `/assistant/messages/:id/feedback` | `{ rating: 1 \| -1, comment? }` (204) : alimente l'évaluation continue |

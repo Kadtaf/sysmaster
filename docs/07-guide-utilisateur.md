@@ -103,6 +103,10 @@ Connecté, ouvrez **Assistant** et posez votre question (choisir la plateforme e
 - Le nombre de questions par 24 heures est limité ; il reste affiché sous la zone de saisie. Vos conversations sont conservées dans la colonne de gauche.
 - Les pouces 👍 / 👎 sous une réponse nous aident à améliorer l'assistant.
 
+### Diagnostic avec l'IA
+
+Connecté, cochez « Repérer les symptômes avec l'IA » sur la page Diagnostic. L'IA lit votre description et le journal collé, et montre pour chaque symptôme retenu le passage exact qui le justifie : vous voyez ce qu'elle a compris, et vous pouvez corriger en cochant d'autres symptômes. Les causes, elles, sont toujours classées par le moteur de diagnostic, avec son raisonnement. Chaque analyse par l'IA compte dans le même quota quotidien que l'assistant.
+
 ## 5. Ce qui arrive ensuite
 
 Les fonctions suivantes sont prévues dans la [feuille de route](05-feuille-de-route.md) :

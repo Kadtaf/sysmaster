@@ -59,9 +59,10 @@ Les durées sont indicatives et supposent une équipe dédiée ; avec un dévelo
 - ✅ Socle de l'assistant : `services/ai` (FastAPI) avec routeur tuteur / diagnosticien et domaines, profils d'agents, sortie structurée validée, garde-fous (risque relevé par motifs destructifs, citations limitées aux documents fournis, réponse « non vérifiée » sans source), mode factice sans clé ; module API (quota sur 24 h, conversations, historique, avis) ; page `/assistant` (commande masquée tant que les risques ne sont pas lus, copie interdite si critique) ; image, Helm (service interne, `NetworkPolicy`), CI Python. ⏳ Streaming ; profils lus depuis `ai.agent_profiles`.
 - 🟡 Pipeline RAG : v0 sur la base de connaissances SysMaster (recherche plein texte de l'API cœur). ⏳ Ingestion des 6 sources officielles (dans le respect des licences), Qdrant, recherche hybride, reranking.
 - NATS JetStream (ADR-013) : le relais outbox publie les événements de publication de contenu, que le service IA consomme pour réindexer le RAG.
-- Diagnostic : extraction de symptômes par LLM, analyse de captures (OCR + vision), analyse de logs (agent 10 + `evidence_patterns`).
+- ✅ Diagnostic : repérage des symptômes par LLM dans la description et le journal (catalogue fermé, citations vérifiées, le moteur bayésien décide), lignes de journal significatives expliquées, repli sur les synonymes. ⏳ Analyse de captures d'écran (OCR + vision).
+- ✅ Suivi des coûts : chaque appel au modèle est tracé par utilisateur avec ses jetons (cache compris) ; quota quotidien commun à toutes les fonctions IA. ⏳ Quotas par forfait (avec la monétisation, Phase 5).
 - Génération de quiz et d'exercices (relue avant publication).
-- Évaluation continue (golden sets), suivi des coûts, quotas par plan.
+- Évaluation continue (golden sets).
 
 ## Phase 4 — Labs virtuels et diagnostic avancé
 
