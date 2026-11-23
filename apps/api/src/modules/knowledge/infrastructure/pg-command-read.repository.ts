@@ -16,9 +16,9 @@ export class PgCommandReadRepository extends CommandReadRepository {
     const { rows } = await this.db.query<CommandSummary & Record<string, unknown>>(
       `SELECT ${summaryColumns()} FROM kb.commands
         WHERE status = 'published'
-          AND ($1::text IS NULL OR search_vector @@ websearch_to_tsquery('french', $1) OR name % $1 OR name ILIKE '%' || $1 || '%')
+          AND ($1::text IS NULL OR search_vector @@ websearch_to_tsquery('kb.fr', $1) OR name % $1 OR name ILIKE '%' || $1 || '%')
           AND ($2::text IS NULL OR platform::text = $2)
-        ORDER BY CASE WHEN $1::text IS NULL THEN 0 ELSE -ts_rank(search_vector, websearch_to_tsquery('french', $1)) END, name
+        ORDER BY CASE WHEN $1::text IS NULL THEN 0 ELSE -ts_rank(search_vector, websearch_to_tsquery('kb.fr', $1)) END, name
         LIMIT $3`,
       [q ?? null, platform ?? null, limit],
     );

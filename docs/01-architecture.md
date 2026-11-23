@@ -193,7 +193,7 @@ sequenceDiagram
 ## 6. Architecture événementielle
 
 - **Pattern Outbox transactionnel** : l'événement est écrit dans la même transaction que le changement d'état (`platform.outbox_events`), puis relayé. Aucun événement perdu, aucun événement fantôme.
-- **Relais implémenté (Phase 2)** : `apps/api/src/shared/events/outbox-relay.ts` lit les événements par lots (`FOR UPDATE SKIP LOCKED`, plusieurs instances possibles) et les distribue dans le processus aux consommateurs abonnés (`EventRegistry`). Chaque consommateur tourne dans sa propre transaction et enregistre l'événement dans `platform.processed_events` : un rejeu ne compte rien deux fois. En cas d'échec, l'événement est retenté avec une attente exponentielle (2 s, 4 s, 8 s…) et mis de côté après 10 essais avec sa dernière erreur (`attempts`, `last_error`). `OUTBOX_RELAY_INTERVAL_MS` règle la fréquence (0 désactive). Quand un service sera extrait, un adaptateur NATS publiera les mêmes événements.
+- **Relais implémenté (Phase 2)** : `apps/api/src/shared/events/outbox-relay.ts` lit les événements par lots (`FOR UPDATE SKIP LOCKED`, plusieurs instances possibles) et les distribue dans le processus aux consommateurs abonnés (`EventRegistry`). Chaque consommateur tourne dans sa propre transaction et enregistre l'événement dans `platform.processed_events` : un rejeu ne compte rien deux fois. En cas d'échec, l'événement est retenté avec une attente exponentielle (2 s, 4 s, 8 s…) et mis de côté après 10 essais avec sa dernière erreur (`attempts`, `last_error`). `OUTBOX_RELAY_INTERVAL_MS` règle la fréquence (0 désactive). Quand un service sera extrait (le service IA en Phase 3, voir ADR-013), un adaptateur NATS publiera les mêmes événements.
 - **Événements publiés aujourd'hui** : `iam.user.registered.v1`, `learning.lesson.completed.v1`, `learning.path.completed.v1`, `diagnostic.session.completed.v1`, `kb.command.published.v1`, `learning.course.published.v1`, `learning.path.published.v1`, `diagnostic.cause.published.v1`. Consommateurs : `gamification` (XP, niveaux, badges, séries) et `learning-progress` (recalcule la progression des inscrits quand un cours ou un parcours publié change).
 - **Bus** : NATS JetStream (léger, simple à opérer) jusqu'à quelques milliers d'événements/s ; migration vers Kafka si la rétention longue et le rejeu massif deviennent nécessaires. Les producteurs dépendent d'un port `EventPublisher`, la migration ne touche que l'adaptateur.
 - **Format** : CloudEvents 1.0, schémas versionnés dans `packages/contracts` (`diagnostic.completed.v1`).
@@ -555,6 +555,9 @@ flowchart LR
 | ADR-009 | Moteur de déduction à base de règles probabilistes, LLM limité à l'extraction et l'explication | Accepté |
 | ADR-010 | Labs macOS/iOS simulés (contrainte de licence Apple) | Accepté |
 | ADR-011 | SQL explicite (`pg`) plutôt qu'un ORM dans le cœur, migrations SQL versionnées | Accepté |
+| ADR-012 | Recherche plein texte dans PostgreSQL (insensible aux accents) ; OpenSearch reporté à des seuils mesurables | Accepté (fin de Phase 2) |
+| ADR-013 | NATS JetStream introduit avec le service IA (Phase 3), pas avant | Accepté (fin de Phase 2) |
+| ADR-014 | Pas de BFF GraphQL tant qu'il n'y a qu'un client web ; REST + Server Components | Accepté (fin de Phase 2) |
 
 ### Pourquoi NestJS plutôt que FastAPI pour le cœur (ADR-002)
 
@@ -562,6 +565,26 @@ flowchart LR
 - NestJS fournit nativement modules, injection de dépendances, CQRS (`@nestjs/cqrs`), GraphQL, WebSocket et microservices (NATS, Kafka) : tout ce que la demande liste.
 - **FastAPI reste utilisé là où il est meilleur** : le service IA (RAG, embeddings, évaluation), où l'écosystème Python est incontournable.
 - Alternative écartée : tout en FastAPI. Possible, mais on perd le partage de types avec Next.js et la structure modulaire imposée de NestJS sur une grosse équipe.
+
+### Fin de Phase 2 : trois briques reportées, et à quelles conditions (ADR-012 à 014)
+
+La feuille de route prévoyait OpenSearch, NATS et un BFF GraphQL en Phase 2. Chacun ajoute un composant à exploiter (sauvegardes, mises à jour, supervision, astreinte). La règle retenue : **on n'ajoute une brique que lorsqu'un besoin mesurable la justifie**, et on écrit ce besoin à l'avance pour que la décision ne dépende pas de l'humeur du moment.
+
+**ADR-012 — Recherche : PostgreSQL d'abord.**
+- *Constat* : 28 fiches aujourd'hui, 150 visées. Un essai sur **56 000 fiches** synthétiques (index GIN sur `tsvector` et trigrammes, même requête que l'API) répond en **8 ms**. Le même essai a révélé le vrai défaut : « redemarrer » ne trouvait pas « redémarrer ». La migration 007 corrige ce point avec `unaccent`, sans nouveau composant.
+- *Décision* : rester sur PostgreSQL. La recherche hybride du RAG (Phase 3) utilisera Qdrant pour les vecteurs et ce même index pour la partie lexicale (BM25 approché par `ts_rank`).
+- *Quand revoir* : p95 de `/kb/commands` au-dessus de 150 ms en production (métrique `http_request_duration_seconds`), besoin de facettes ou de tolérance aux fautes sur des phrases entières, ou ouverture du forum (Phase 4, des millions de messages).
+- *Coût du changement* : faible. La recherche passe par le port `CommandReadRepository` ; un adaptateur OpenSearch alimenté par les événements `kb.command.published.v1` le remplacera.
+
+**ADR-013 — Bus : NATS avec le premier consommateur hors processus.**
+- *Constat* : tous les consommateurs (gamification, progression) vivent dans le même processus. L'outbox et le relais garantissent déjà la livraison au moins une fois, avec idempotence, reprises et lettre morte. Un bus n'apporterait aujourd'hui qu'un composant de plus.
+- *Décision* : introduire NATS JetStream **avec le service IA de la Phase 3**, premier consommateur dans un autre processus (il doit réindexer le RAG quand une fiche ou une leçon est publiée). Le relais publiera alors les mêmes événements (même `type`, même charge utile) sur des sujets `sysmaster.<type>` ; les consommateurs internes restent en mémoire.
+- *Quand revoir plus tôt* : besoin de rejouer l'historique des événements, ou relais saturé (`outbox_oldest_pending_seconds` durablement au-dessus de 60 s).
+
+**ADR-014 — GraphQL : pas de BFF pour un seul client.**
+- *Constat* : le seul client est le site Next.js. Ses Server Components appellent l'API REST depuis le serveur, au plus près des données, et assemblent les pages composites (tableau de bord : un seul appel, `/me/dashboard`). Un BFF ajouterait une couche à maintenir sans réduire le nombre d'allers-retours du navigateur.
+- *Décision* : REST versionné, contrats partagés (`packages/contracts`), un point d'entrée REST dédié quand une page en a besoin.
+- *Quand revoir* : arrivée de l'application mobile (Phase 6), ou plus de trois appels REST pour une même vue côté client.
 
 ### Pourquoi `pg` + SQL plutôt que Prisma (ADR-011)
 

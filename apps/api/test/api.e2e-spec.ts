@@ -36,6 +36,14 @@ describeDb('API (e2e, PostgreSQL)', () => {
     expect(res.body[0].slug).toBe('linux-journalctl');
   });
 
+  it('la recherche ignore les accents : « journaux evenements » trouve Get-WinEvent', async () => {
+    const search = async (q: string) =>
+      (await request(app.getHttpServer()).get('/api/v1/kb/commands').query({ q }).expect(200)).body.map((c: { slug: string }) => c.slug);
+    const sans = await search('journaux evenements');
+    expect(sans).toContain('windows-get-winevent');
+    expect(sans).toEqual(await search('journaux événements'));
+  });
+
   it('GET /kb/commands/linux-rm-rf applique la règle P-2', async () => {
     const res = await request(app.getHttpServer()).get('/api/v1/kb/commands/linux-rm-rf').expect(200);
     expect(res.body).toMatchObject({ riskLevel: 'critical', maskedUntilRisksRead: true, copyAllowed: false });

@@ -46,9 +46,9 @@ Les durées sont indicatives et supposent une équipe dédiée ; avec un dévelo
 - ✅ Keycloak : e-mail, Google, Microsoft, GitHub (Apple via extension), 2FA, passkeys ; rôles synchronisés, garde API « fermé par défaut », page Mon compte ([06-authentification.md](06-authentification.md)). Organisations et SSO SAML : avec les licences (Phase 5).
 - ✅ Académie : parcours, cours, leçons (24 leçons rédigées), inscription, validation dans l'ordre, progression. ⏳ Test de positionnement et recommandations.
 - ✅ Back-office éditorial des fiches commandes : révisions, brouillon → relecture → publication, règle P-1 vérifiée avant soumission, quatre yeux, audit et événement `kb.command.published.v1`. ✅ Même circuit pour les cours (leçons, modules, compétences ; progression des apprenants conservée), les parcours et les causes de diagnostic (règles, motifs, plan d'action), avec simulation sur des cas de référence avant publication.
-- ✅ Relais outbox (lots, idempotence, reprise avec attente exponentielle, lettre morte) ; gamification (XP, niveaux, badges, séries, classement avec retrait possible). ⏳ Bus NATS quand un service sera extrait ; classement en cache Redis si le volume l'exige.
+- ✅ Relais outbox (lots, idempotence, reprise avec attente exponentielle, lettre morte) ; gamification (XP, niveaux, badges, séries, classement avec retrait possible). ⏳ Bus NATS avec le service IA (Phase 3, ADR-013) ; classement en cache Redis si le volume l'exige.
 - ✅ Tableau de bord apprenant (niveau, série, badges, compétences, points forts et faibles, recommandations). ⏳ Tableau de bord d'organisation (avec les organisations, Phase 5).
-- GraphQL BFF, OpenSearch pour la recherche.
+- ✅ Décisions documentées (ADR-012 à 014) : recherche PostgreSQL rendue insensible aux accents (OpenSearch reporté à des seuils mesurables), NATS avec le service IA en Phase 3, pas de BFF GraphQL avant l'application mobile.
 - Maquettes UX/UI complètes (Figma) et design system documenté.
 - ✅ CD vers l'environnement de test (images GHCR versionnées par commit, chart Helm, migrations avant déploiement, annulation automatique, test de fumée) ; observabilité de base (journaux JSON, identifiant de requête, métriques Prometheus, alertes). ⏳ Cluster de test à fournir (voir docs/08 §7) ; traces OpenTelemetry en Phase 3.
 - 🟡 **Contenu** : parcours « Administrateur Linux » (ligne de commande, systemd, réseau, stockage) et « Technicien informatique » (fondamentaux, réseau, disques et démarrage) complets, soit 24 leçons ; 28 fiches commandes sur les 150 visées. Le contenu initial est rédigé dans `db/content/` (seed généré), puis il évolue dans le back-office avec relecture.
@@ -58,6 +58,7 @@ Les durées sont indicatives et supposent une équipe dédiée ; avec un dévelo
 
 - `services/ai` (FastAPI) : routeur, 12 profils d'agents, garde-fous et validateur de sortie, streaming WebSocket.
 - Pipeline RAG : ingestion des 6 sources officielles (dans le respect des licences), recherche hybride, reranking, citations obligatoires.
+- NATS JetStream (ADR-013) : le relais outbox publie les événements de publication de contenu, que le service IA consomme pour réindexer le RAG.
 - Diagnostic : extraction de symptômes par LLM, analyse de captures (OCR + vision), analyse de logs (agent 10 + `evidence_patterns`).
 - Génération de quiz et d'exercices (relue avant publication).
 - Évaluation continue (golden sets), suivi des coûts, quotas par plan.
