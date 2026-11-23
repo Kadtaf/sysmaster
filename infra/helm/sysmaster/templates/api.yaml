@@ -46,6 +46,13 @@ spec:
             {{- with .Values.oidc.internalIssuer }}
             - { name: OIDC_JWKS_URL, value: {{ printf "%s/protocol/openid-connect/certs" . | quote }} }
             {{- end }}
+            {{- if .Values.ai.enabled }}
+            - { name: AI_SERVICE_URL, value: {{ printf "http://%s-ai" (include "sysmaster.fullname" .) | quote }} }
+            - { name: AI_SERVICE_TIMEOUT_MS, value: {{ .Values.ai.timeoutMs | quote }} }
+            - { name: ASSISTANT_DAILY_QUOTA, value: {{ .Values.ai.assistantDailyQuota | quote }} }
+            - name: AI_SERVICE_TOKEN
+              valueFrom: { secretKeyRef: { name: {{ .Values.existingSecret }}, key: AI_SERVICE_TOKEN } }
+            {{- end }}
             {{- range $k, $v := .Values.api.extraEnv }}
             - { name: {{ $k }}, value: {{ $v | quote }} }
             {{- end }}

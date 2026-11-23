@@ -1,5 +1,5 @@
 {{- if .Values.podDisruptionBudget.enabled }}
-{{- range $component := list "api" "web" }}
+{{- range $component := (ternary (list "api" "web" "ai") (list "api" "web") $.Values.ai.enabled) }}
 ---
 # Garde au moins un pod pendant les maintenances de nœuds (drain).
 apiVersion: policy/v1

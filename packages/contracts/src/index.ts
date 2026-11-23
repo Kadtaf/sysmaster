@@ -461,3 +461,80 @@ export interface CommandPublishedV1 {
   reviewerId: string;
   isNew: boolean;
 }
+
+// ---------- Assistant IA (Phase 3) ----------
+// Miroir du contrat du service IA (services/ai/app/schemas.py).
+export const ASSISTANT_LEVELS = ['beginner', 'intermediate', 'advanced'] as const;
+export const AskAssistantSchema = z.object({
+  question: z.string().trim().min(3, 'Posez une question d’au moins 3 caractères.').max(4000),
+  platform: z.enum(PLATFORMS).optional(),
+  level: z.enum(ASSISTANT_LEVELS).default('beginner'),
+  conversationId: z.string().uuid().optional(),
+});
+export type AskAssistantInput = z.infer<typeof AskAssistantSchema>;
+
+export interface AssistantSource {
+  ref: number;
+  title: string;
+  url: string;
+  kind: 'kb_command';
+  slug: string | null;
+}
+
+export interface AssistantStep {
+  title: string;
+  why: string;
+  how: string;
+  command: string | null;
+  shell: string | null;
+  when: string;
+  risk: RiskLevel;
+  riskNote: string;
+  alternatives: string[];
+  /** Règle P-2 appliquée par le service : commande masquée tant que les risques ne sont pas lus. */
+  maskedUntilRisksRead: boolean;
+  copyAllowed: boolean;
+  /** Motifs destructifs reconnus par le service (indépendamment du modèle). */
+  flaggedBy: string[];
+}
+
+export interface AssistantAnswer {
+  summary: string;
+  explanation: string;
+  steps: AssistantStep[];
+  sources: AssistantSource[];
+  checkQuestions: string[];
+  /** Faux si la réponse ne s'appuie sur aucune source fournie : affichée « non vérifiée ». */
+  verified: boolean;
+  outOfScope: boolean;
+  notes: string[];
+}
+
+export interface AssistantReplyDto {
+  conversationId: string;
+  messageId: string;
+  answer: AssistantAnswer;
+  agent: 'tutor' | 'diagnostician';
+  domain: string | null;
+  outcome: 'answered' | 'refused';
+  remainingToday: number;
+}
+
+export interface AssistantConversationSummary {
+  id: string;
+  title: string;
+  createdAt: string;
+}
+
+export interface AssistantTurnDto {
+  messageId: string;
+  question: string;
+  reply: AssistantAnswer | null;
+  agent: string | null;
+  createdAt: string;
+}
+
+export const AssistantFeedbackSchema = z.object({
+  rating: z.union([z.literal(1), z.literal(-1)]),
+  comment: z.string().trim().max(2000).optional(),
+});

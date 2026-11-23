@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { AssistantModule } from './modules/assistant/assistant.module';
 import { DatabaseModule } from './shared/database.module';
 import { IamModule } from './modules/iam/iam.module';
 import { EventsModule } from './shared/events/events.module';
@@ -12,6 +13,6 @@ import { DiagnosticModule } from './modules/diagnostic/diagnostic.module';
 import { LearningModule } from './modules/learning/learning.module';
 
 @Module({
-  imports: [DatabaseModule, EventsModule, ObservabilityModule, IamModule, HealthModule, LearningModule, KnowledgeModule, DiagnosticModule, GamificationModule, DashboardModule, EditorialModule],
+  imports: [DatabaseModule, EventsModule, ObservabilityModule, IamModule, HealthModule, LearningModule, KnowledgeModule, DiagnosticModule, GamificationModule, DashboardModule, EditorialModule, AssistantModule],
 })
 export class AppModule {}
