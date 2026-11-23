@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { Cpu } from 'lucide-react';
+import { AuthButton } from '@/components/auth-button';
 
 const links = [
   { href: '/parcours', label: 'Parcours' },
@@ -24,6 +25,9 @@ export function SiteHeader() {
             </li>
           ))}
         </ul>
+        <div className="ml-auto">
+          <AuthButton />
+        </div>
       </nav>
     </header>
   );

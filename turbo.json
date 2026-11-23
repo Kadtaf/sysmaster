@@ -29,7 +29,8 @@
         "^build"
       ],
       "env": [
-        "DATABASE_URL"
+        "DATABASE_URL",
+        "KEYCLOAK_E2E_URL"
       ]
     },
     "dev": {
@@ -45,7 +46,16 @@
         "API_PORT",
         "CORS_ORIGINS",
         "API_URL_INTERNAL",
-        "NEXT_PUBLIC_API_URL"
+        "NEXT_PUBLIC_API_URL",
+        "OIDC_ISSUER",
+        "OIDC_JWKS_URL",
+        "OIDC_AUDIENCE",
+        "NEXTAUTH_URL",
+        "NEXTAUTH_SECRET",
+        "KEYCLOAK_ISSUER",
+        "KEYCLOAK_INTERNAL_ISSUER",
+        "KEYCLOAK_CLIENT_ID",
+        "KEYCLOAK_CLIENT_SECRET"
       ]
     }
   }

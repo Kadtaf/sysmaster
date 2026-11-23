@@ -6,14 +6,17 @@ export const publicApiBase = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhos
 
 export class ApiUnavailableError extends Error {}
 
-export async function apiGet<T>(path: string): Promise<T | null> {
+export async function apiGet<T>(path: string, accessToken?: string): Promise<T | null> {
   let res: Response;
   try {
-    res = await fetch(`${serverBase}${path}`, { cache: 'no-store' });
+    res = await fetch(`${serverBase}${path}`, {
+      cache: 'no-store',
+      headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
+    });
   } catch {
     throw new ApiUnavailableError(`API injoignable (${serverBase})`);
   }
-  if (res.status === 404) return null;
+  if (res.status === 404 || res.status === 401) return null;
   if (!res.ok) throw new Error(`API ${res.status} sur ${path}`);
   return (await res.json()) as T;
 }

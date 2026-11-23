@@ -33,6 +33,12 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
+      - name: Keycloak (royaume importé) pour les tests d'authentification
+        run: |
+          docker run -d --name keycloak -p 8080:8080 -p 9000:9000 \
+            -e KC_BOOTSTRAP_ADMIN_USERNAME=admin -e KC_BOOTSTRAP_ADMIN_PASSWORD=admin -e KC_HEALTH_ENABLED=true \
+            -v "$PWD/infra/keycloak:/opt/keycloak/data/import:ro" \
+            quay.io/keycloak/keycloak:26.4 start-dev --import-realm
       - run: pnpm install --frozen-lockfile
       - name: Migrations et données de démo (vérifie aussi qu'elles sont rejouables)
         run: |
@@ -41,7 +47,11 @@ jobs:
           pnpm db:seed
       - run: pnpm lint
       - run: pnpm typecheck
+      - name: Attendre Keycloak
+        run: timeout 180 bash -c 'until curl -sf http://localhost:9000/health/ready; do sleep 3; done' || (docker logs keycloak | tail -50; exit 1)
       - run: pnpm test
+        env:
+          KEYCLOAK_E2E_URL: http://localhost:8080
       - run: pnpm build
 
   docker:

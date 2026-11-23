@@ -14,6 +14,7 @@ Windows, Linux, macOS, iOS, iPadOS, Android, réseaux, cloud, cybersécurité, D
 | [03 — Spécifications fonctionnelles](docs/03-specifications-fonctionnelles.md) | Règles « comprendre avant d'exécuter », modules, parcours, principes UX/UI |
 | [04 — Spécifications techniques](docs/04-specifications-techniques.md) | Pile, structure, API, moteur de déduction, sécurité, qualité |
 | [05 — Feuille de route](docs/05-feuille-de-route.md) | 7 phases, état des 16 livrables, risques |
+| [06 — Authentification](docs/06-authentification.md) | Keycloak, rôles, 2FA, passkeys, fournisseurs sociaux, mise en production |
 
 ## Démarrage rapide
 
@@ -26,6 +27,7 @@ docker compose up --build
 
 - Web : http://localhost:3000
 - API : http://localhost:4000/api/v1, documentation OpenAPI : http://localhost:4000/api/docs
+- Keycloak : http://localhost:8080/admin (`admin` / `admin`)
 
 Le service `migrate` applique le schéma et charge les données de démonstration avant le démarrage de l'API.
 
@@ -35,7 +37,7 @@ Prérequis : Node 22, pnpm 10 (`corepack enable`), Docker pour les bases.
 
 ```bash
 cp .env.example .env
-docker compose up -d postgres redis qdrant
+docker compose up -d postgres redis qdrant keycloak
 pnpm install
 pnpm db:migrate && pnpm db:seed
 pnpm dev            # API sur :4000, web sur :3000
@@ -71,4 +73,6 @@ infra/          Dockerfiles, script de migration
 
 ## Comptes de démonstration
 
-Les utilisateurs de démo (`admin@`, `alice@`, `bob@`, `mentor@sysmaster.local`) existent en base, mais l'authentification arrive en Phase 2 : en Phase 1, toutes les routes sont publiques et en lecture, sauf `POST /diagnostic/analyze`.
+`admin@sysmaster.local`, `alice@sysmaster.local` et `mentor@sysmaster.local`, mot de passe `Demo-SysMaster-2026!` (développement uniquement). Détails, fournisseurs sociaux, 2FA et passkeys : [docs/06-authentification.md](docs/06-authentification.md).
+
+Les tests de l'authentification avec un vrai Keycloak s'exécutent si `KEYCLOAK_E2E_URL` est défini (`KEYCLOAK_E2E_URL=http://localhost:8080 pnpm test`).

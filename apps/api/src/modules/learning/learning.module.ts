@@ -2,6 +2,7 @@ import { Controller, Get, Injectable, Module } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import type { LearningPathSummary } from '@sysmaster/contracts';
 import { Database } from '../../shared/database.module';
+import { Public } from '../iam/interface/auth.decorators';
 
 /**
  * Module Learning, Phase 1 : lecture seule du catalogue, en architecture en couches simple.
@@ -27,6 +28,7 @@ export class LearningCatalog {
 }
 
 @ApiTags('learning')
+@Public()
 @Controller('learning')
 export class LearningController {
   constructor(private readonly catalog: LearningCatalog) {}

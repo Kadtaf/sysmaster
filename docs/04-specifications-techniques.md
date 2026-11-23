@@ -52,7 +52,7 @@ sysmaster/
 
 ## 3. API REST (Phase 1)
 
-Préfixe `/api/v1`. Documentation OpenAPI générée sur `/api/docs`.
+Préfixe `/api/v1`. Documentation OpenAPI générée sur `/api/docs`. Authentification : `Authorization: Bearer <jeton Keycloak>` (voir [06-authentification.md](06-authentification.md)).
 
 | Méthode | Route | Description |
 |---|---|---|
@@ -61,7 +61,9 @@ Préfixe `/api/v1`. Documentation OpenAPI générée sur `/api/docs`.
 | GET | `/kb/commands?q=&platform=` | Recherche de fiches commandes |
 | GET | `/kb/commands/:slug` | Fiche complète (paramètres, exemples, alternatives, sources) |
 | GET | `/diagnostic/symptoms?platform=` | Symptômes connus |
-| POST | `/diagnostic/analyze` | Analyse : `{ platform, description?, symptoms?, evidence? }` → hypothèses classées |
+| POST | `/diagnostic/analyze` | Analyse : `{ platform, description?, symptoms?, evidence? }` → hypothèses classées. Anonyme ou connecté (la session rejoint alors l'historique) |
+| GET | `/me` | Profil, rôles et droits de l'utilisateur connecté (jeton requis) |
+| GET | `/admin/users` | Liste des utilisateurs (rôles `admin` ou `support`) |
 
 Exemple de réponse `POST /diagnostic/analyze` :
 
@@ -141,4 +143,4 @@ confiance = p1 × (1 − p2/p1) pondérée par le nombre de symptômes (saturati
 
 ## 9. Variables d'environnement
 
-Voir [`.env.example`](../.env.example). Principales : `DATABASE_URL`, `REDIS_URL`, `QDRANT_URL`, `API_PORT`, `NEXT_PUBLIC_API_URL`, `CORS_ORIGINS`.
+Voir [`.env.example`](../.env.example). Principales : `DATABASE_URL`, `REDIS_URL`, `QDRANT_URL`, `API_PORT`, `NEXT_PUBLIC_API_URL`, `CORS_ORIGINS`, et pour l'identité `OIDC_ISSUER`, `OIDC_AUDIENCE`, `OIDC_JWKS_URL`, `NEXTAUTH_URL`, `NEXTAUTH_SECRET`, `KEYCLOAK_ISSUER`, `KEYCLOAK_INTERNAL_ISSUER`, `KEYCLOAK_CLIENT_ID`, `KEYCLOAK_CLIENT_SECRET`.
