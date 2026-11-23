@@ -56,6 +56,8 @@ Chaque fiche commande contient : nom, utilité, historique, fonctionnement inter
 - Filtres : plateforme, niveau, risque.
 - Workflow éditorial : brouillon → relecture technique → publié.
 
+> **Livré (PR back-office)** : édition par révisions (la fiche en ligne ne change qu'à l'approbation), soumission refusée tant que la fiche ne respecte pas P-1 (pourquoi, quand, contexte, risques, exemple, alternative, source ; niveau de risque cohérent avec les paramètres), relecture par une autre personne que l'auteur, demande de changements commentée, historique. Écrans `/editorial` et `/editorial/<id>`.
+
 **Critères (Phase 1)** : `/commandes` liste les fiches ; `/commandes/linux-rm-rf` affiche la commande masquée tant que les risques ne sont pas lus.
 
 ### 2.4 Diagnostic universel — **Phase 1 (moteur v1)**, Phase 3–4 (IA, logs, agent)
@@ -131,6 +133,8 @@ Coupons, codes promo, essai gratuit, facturation (TVA via Stripe Tax), affiliati
 Web (Phase 1), puis Android, iOS, iPadOS (React Native + Expo, logique partagée), macOS et Windows (Tauri, réutilise l'app web + agent de collecte intégré).
 
 ### 2.13 Back-office — Phase 2+
+
+> **Livré** : workflow éditorial des fiches commandes (§2.3). Reste à faire : leçons et parcours, règles de diagnostic avec simulation, sources RAG, modération, organisations, remboursements.
 
 Gestion des contenus, règles de diagnostic (avec simulation avant publication), sources RAG, modération, utilisateurs, organisations, remboursements, tableaux de bord métier.
 

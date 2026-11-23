@@ -1,0 +1,137 @@
+# 08 — Guide administrateur
+
+Ce guide couvre l'exploitation de ce qui est livré : installation, comptes et rôles, contenu, événements, base de données. Comme partout dans SysMaster, chaque opération donne **pourquoi**, **quand**, les **risques** et une **alternative**. L'authentification a son propre guide : [06 — Authentification](06-authentification.md).
+
+## 1. Installer et démarrer
+
+| Besoin | Commande | Remarques |
+|---|---|---|
+| Tout lancer d'un coup | `cp .env.example .env && docker compose up --build` | Le service `migrate` applique le schéma et les données de démo avant l'API |
+| Développer | `docker compose up -d postgres redis qdrant keycloak`, puis `pnpm install`, `pnpm db:migrate && pnpm db:seed` et `pnpm dev` | API sur :4000, web sur :3000 |
+| Vérifier que l'API répond | `curl localhost:4000/api/v1/health` | `database: up` confirme la connexion à PostgreSQL |
+
+Les variables d'environnement sont décrites dans [`.env.example`](../.env.example) et dans [04 §9](04-specifications-techniques.md#9-variables-denvironnement). En production, **aucun** des secrets par défaut ne doit rester en place : la liste est dans [06, « Production : à changer impérativement »](06-authentification.md#production--à-changer-impérativement).
+
+## 2. Rôles
+
+Les rôles se donnent dans **Keycloak** (console d'administration → royaume `sysmaster` → Utilisateurs → *Role mapping*). L'API les relit dans le jeton à chaque connexion et les recopie dans `iam.user_roles` : il n'y a rien à faire côté base.
+
+| Rôle | Ce qu'il ouvre aujourd'hui |
+|---|---|
+| `learner` | Rôle par défaut : académie, diagnostic, tableau de bord |
+| `author` | Rédiger des révisions de fiches commandes |
+| `reviewer` | Relire et publier les révisions **des autres** |
+| `admin` | Tout ce qui précède, plus la liste des utilisateurs (`GET /admin/users`) et le retrait de n'importe quelle révision |
+| `support` | Liste des utilisateurs |
+| `mentor`, `moderator` | Réservés aux modules communauté (Phase 5) |
+
+- **Pourquoi passer par Keycloak plutôt que par la base ?** Une seule source de vérité. Un rôle ajouté seulement en base serait écrasé à la connexion suivante.
+- **Quand le changement s'applique** : au prochain jeton, c'est-à-dire au plus 5 minutes plus tard. Pour un effet immédiat, l'utilisateur se déconnecte puis se reconnecte.
+- **Risque** : un rôle inconnu de l'application n'ouvre aucun droit, une faute de frappe est donc sans danger. En revanche, `admin` ouvre la lecture de tous les comptes : à donner avec parcimonie.
+
+## 3. Contenu : le workflow éditorial
+
+```mermaid
+stateDiagram-v2
+  [*] --> Brouillon : l'auteur crée
+  Brouillon --> EnRelecture : soumettre (fiche complète)
+  EnRelecture --> ChangementsDemandés : un relecteur commente
+  ChangementsDemandés --> EnRelecture : l'auteur corrige et resoumet
+  EnRelecture --> Publiée : un autre relecteur approuve
+  Brouillon --> Retirée
+  EnRelecture --> Retirée
+  ChangementsDemandés --> Retirée
+  Publiée --> [*]
+```
+
+Règles garanties par l'API (et pas seulement par l'interface) :
+
+- **Fiche complète avant soumission**. Il faut : pourquoi, quand, contexte, au moins un risque, un exemple expliqué, une alternative publiée et une source. Le niveau de risque de la fiche ne peut pas être inférieur à celui de son risque ou de son paramètre le plus grave. Une fiche à risque élevé ou critique doit décrire au moins une erreur fréquente.
+- **Quatre yeux** : personne ne relit sa propre révision, administrateurs compris. La base le vérifie aussi (contrainte `reviewer_id <> author_id`).
+- **Une révision ouverte par fiche**, pour que deux modifications ne s'écrasent pas.
+- **La version en ligne ne change qu'à l'approbation**. La publication tient en une transaction : la fiche, ses paramètres, exemples, alternatives et sources, le journal d'audit et l'événement `kb.command.published.v1`.
+
+**Grille de relecture conseillée** :
+
+1. La commande fait-elle ce que dit la fiche, sur la plateforme indiquée ?
+2. Les risques sont-ils complets ? Pensez aux variables vides, aux droits root et aux données de production.
+3. Le niveau de risque est-il juste ? Il pilote le masquage de la commande et la présence du bouton copier.
+4. Les sources sont-elles officielles et à jour ?
+5. Un débutant comprendrait-il **pourquoi** avant de lire **comment** ?
+
+**Historique d'une fiche** :
+
+```sql
+SELECT r.id, r.status, e.action, u.display_name, e.comment, e.created_at
+  FROM kb.command_revisions r
+  JOIN kb.revision_events e ON e.revision_id = r.id
+  JOIN iam.users u ON u.id = e.actor_id
+ WHERE r.content->>'slug' = 'linux-systemctl'
+ ORDER BY e.created_at;
+```
+
+Cette requête est en lecture seule et sans risque. Le journal d'audit global est dans `platform.audit_log` (action `kb.command.published`).
+
+## 4. Événements (outbox)
+
+Chaque changement important écrit un événement dans `platform.outbox_events`, dans la même transaction que la donnée. Le relais intégré à l'API le distribue ensuite aux consommateurs, aujourd'hui la gamification. Le fonctionnement détaillé est dans [01 — Architecture](01-architecture.md).
+
+### Surveiller
+
+```sql
+-- En attente (normalement proche de 0 : le relais passe toutes les secondes)
+SELECT count(*) FROM platform.outbox_events WHERE published_at IS NULL AND attempts < 10;
+
+-- En échec : retentés avec une attente croissante
+SELECT id, type, attempts, last_error, next_attempt_at
+  FROM platform.outbox_events WHERE published_at IS NULL AND attempts BETWEEN 1 AND 9;
+
+-- Lettres mortes : abandonnés après 10 essais, à examiner
+SELECT id, type, last_error, occurred_at
+  FROM platform.outbox_events WHERE published_at IS NULL AND attempts >= 10;
+```
+
+**Pourquoi c'est important** : un événement bloqué signifie de l'XP ou des badges non attribués. Rien n'est perdu pour autant, puisque l'événement attend en base.
+
+### Rejouer une lettre morte
+
+D'abord, corrigez la cause indiquée par `last_error`, sinon l'événement échouera de nouveau. Ensuite :
+
+```sql
+UPDATE platform.outbox_events
+   SET attempts = 0, next_attempt_at = now(), last_error = NULL
+ WHERE id = '<id>' AND published_at IS NULL;
+```
+
+- **Risque : faible.** Chaque consommateur note dans `platform.processed_events` ce qu'il a déjà traité, donc un consommateur qui avait réussi ne recompte rien. Seuls ceux qui avaient échoué le retraitent.
+- **À ne pas faire** : remettre `published_at` à NULL en masse. C'est sans effet sur les consommateurs déjà passés, et cela charge le relais pour rien.
+- **Réglage** : `OUTBOX_RELAY_INTERVAL_MS` (1000 par défaut ; 0 désactive le relais, ce qui est utile pour une maintenance).
+
+## 5. Base de données
+
+| Commande | Pourquoi | Risque | Alternative |
+|---|---|---|---|
+| `pnpm db:migrate` | Applique les migrations SQL pas encore appliquées (suivies dans `platform.schema_migrations`) | Faible : chaque migration tourne en transaction. Faites une sauvegarde avant en production | — |
+| `pnpm db:seed` | Charge les données de démo. Rejouable sans doublon | Faible, mais **à ne jamais lancer en production** : comptes et contenus fictifs | Importer du vrai contenu par le back-office |
+| `pnpm db:reset` | Supprime tous les schémas applicatifs puis recrée tout | **Critique** : efface toutes les données, sans corbeille | En développement seulement. Sinon, sauvegardez puis restaurez |
+| `pg_dump -Fc -f sysmaster.dump "$DATABASE_URL"` | Sauvegarde complète, compressée | Aucun : lecture seule | Sauvegardes gérées par l'hébergeur (PITR) |
+| `pg_restore --clean --if-exists -d "$DATABASE_URL" sysmaster.dump` | Restaurer une sauvegarde | **Élevé** : remplace les données actuelles | Restaurer d'abord dans une base vide pour vérifier |
+
+## 6. Problèmes fréquents
+
+| Symptôme | Cause | Correction |
+|---|---|---|
+| `403 « Cet e-mail est déjà associé à un autre compte ou n'est pas vérifié »` | Le compte a été recréé dans Keycloak (nouvel identifiant) alors que la base garde le lien vers l'ancien. C'est un refus volontaire : on ne rattache pas un compte existant à une nouvelle identité sans contrôle | Après avoir vérifié qu'il s'agit bien de la même personne : `UPDATE iam.users SET idp_subject = NULL WHERE email = '<e-mail>';` Le lien se refait à la connexion suivante, si l'e-mail est vérifié |
+| L'XP n'augmente pas après une leçon validée | Relais désactivé (`OUTBOX_RELAY_INTERVAL_MS=0`) ou événement en échec | Requêtes de la section 4 |
+| `401` sur toutes les routes protégées | `OIDC_ISSUER` ne correspond pas à l'émetteur des jetons (souvent `localhost` d'un côté et le nom du conteneur de l'autre) | Voir [06](06-authentification.md) : émetteur public et émetteur interne |
+| La soumission d'une fiche renvoie `422` | La fiche ne respecte pas encore la règle P-1 | La réponse liste les manques, et l'éditeur les affiche aussi |
+
+## 7. Pas encore livré
+
+Ces sujets sont prévus dans la [feuille de route](05-feuille-de-route.md) :
+
+- édition des leçons et des parcours dans le back-office (aujourd'hui par migration SQL) ;
+- édition des règles de diagnostic, avec simulation avant publication ;
+- modération ;
+- tableau de bord d'organisation ;
+- déploiement Kubernetes et observabilité.

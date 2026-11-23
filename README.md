@@ -15,6 +15,8 @@ Windows, Linux, macOS, iOS, iPadOS, Android, réseaux, cloud, cybersécurité, D
 | [04 — Spécifications techniques](docs/04-specifications-techniques.md) | Pile, structure, API, moteur de déduction, sécurité, qualité |
 | [05 — Feuille de route](docs/05-feuille-de-route.md) | 7 phases, état des 16 livrables, risques |
 | [06 — Authentification](docs/06-authentification.md) | Keycloak, rôles, 2FA, passkeys, fournisseurs sociaux, mise en production |
+| [07 — Guide utilisateur](docs/07-guide-utilisateur.md) | Parcours, fiches, diagnostic, tableau de bord, contribution |
+| [08 — Guide administrateur](docs/08-guide-administrateur.md) | Rôles, workflow éditorial, événements, base de données, dépannage |
 
 ## Démarrage rapide
 
@@ -60,6 +62,7 @@ Les tests de bout en bout de l'API (`apps/api/test`) s'exécutent quand `DATABAS
 2. **Commande critique** : `/commandes/linux-rm-rf`. La commande reste masquée tant que les risques ne sont pas dépliés, et il n'y a pas de bouton copier.
 3. **Fiche complète** : `/commandes/linux-systemctl` (paramètres, cas réel, erreurs fréquentes, alternatives, sources).
 4. **Académie et gamification** : connectez-vous (`alice@sysmaster.local`), validez « systemctl : démarrer, arrêter, activer », puis ouvrez `/tableau-de-bord` : XP, badge « Premier pas », compétence en progression. `/classement` montre les noms abrégés et permet de s'en retirer.
+5. **Rédaction** : connectez-vous en `mentor@sysmaster.local` (auteur et relecteur), ouvrez **Rédaction**, créez une fiche et soumettez-la : la liste de ce qui manque s'affiche. Une fois la fiche complète, un autre compte relecteur (`admin@sysmaster.local`) l'approuve et elle est publiée.
 
 ## Structure
 

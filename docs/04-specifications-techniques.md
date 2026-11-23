@@ -72,6 +72,13 @@ Préfixe `/api/v1`. Documentation OpenAPI générée sur `/api/docs`. Authentifi
 | GET | `/me/dashboard` | Tableau de bord : XP, niveau, série, badges, parcours, compétences, points forts et faibles, recommandations |
 | GET | `/gamification/leaderboard?limit=` | Classement (noms abrégés) ; si connecté, `me` donne votre rang |
 | PUT | `/me/leaderboard-visibility` | `{ visible: boolean }` : apparaître ou non dans le classement (204) |
+| GET | `/editorial/revisions?status=` | Révisions de fiches (rôles `author`, `reviewer`, `admin`) : toutes pour un relecteur, les siennes pour un auteur |
+| POST | `/editorial/revisions` | `{ fromSlug? }` : nouvelle fiche, ou modification d'une fiche publiée. **409** si une révision est déjà ouverte |
+| GET | `/editorial/revisions/:id` | Contenu, écarts à P-1 (`issues`), actions permises (`can`), historique |
+| PUT | `/editorial/revisions/:id` | Enregistre le brouillon (auteur). **400** si mal formé ; incomplet accepté |
+| POST | `/editorial/revisions/:id/submit` | Soumet ; **422** avec `issues` si la fiche ne respecte pas P-1 |
+| POST | `/editorial/revisions/:id/review` | `{ decision: approve \| request_changes, comment }` ; approuver publie. **403** sur sa propre révision |
+| POST | `/editorial/revisions/:id/withdraw` | Retire une révision non publiée (auteur ou admin) |
 | GET | `/admin/users` | Liste des utilisateurs (rôles `admin` ou `support`) |
 
 Exemple de réponse `POST /diagnostic/analyze` :

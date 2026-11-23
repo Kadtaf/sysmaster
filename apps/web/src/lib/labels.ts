@@ -34,3 +34,21 @@ export const xpReasonLabel: Record<string, string> = {
 export const rarityLabel: Record<string, string> = {
   common: 'Courant', rare: 'Rare', epic: 'Épique', legendary: 'Légendaire',
 };
+
+export const revisionStatusMeta: Record<string, { label: string; className: string }> = {
+  draft: { label: 'Brouillon', className: 'bg-muted text-foreground' },
+  in_review: { label: 'En relecture', className: 'bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-100' },
+  changes_requested: { label: 'Changements demandés', className: 'bg-orange-100 text-orange-900 dark:bg-orange-900/40 dark:text-orange-100' },
+  published: { label: 'Publiée', className: 'bg-emerald-100 text-emerald-900 dark:bg-emerald-900/40 dark:text-emerald-100' },
+  withdrawn: { label: 'Retirée', className: 'bg-muted text-muted-foreground' },
+};
+
+export const revisionActionLabel: Record<string, string> = {
+  created: 'a créé la révision',
+  submitted: 'a soumis à la relecture',
+  changes_requested: 'a demandé des changements',
+  approved: 'a approuvé et publié',
+  withdrawn: 'a retiré la révision',
+};
+
+export const EDITORIAL_ROLES = ['author', 'reviewer', 'admin', 'super_admin'];
