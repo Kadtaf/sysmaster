@@ -62,7 +62,7 @@ Les durées sont indicatives et supposent une équipe dédiée ; avec un dévelo
 - ✅ Diagnostic : repérage des symptômes par LLM dans la description et le journal (catalogue fermé, citations vérifiées, le moteur bayésien décide), lignes de journal significatives expliquées, repli sur les synonymes. ⏳ Analyse de captures d'écran (OCR + vision).
 - ✅ Suivi des coûts : chaque appel au modèle est tracé par utilisateur avec ses jetons (cache compris) ; quota quotidien commun à toutes les fonctions IA. ⏳ Quotas par forfait (avec la monétisation, Phase 5).
 - Génération de quiz et d'exercices (relue avant publication).
-- Évaluation continue (golden sets).
+- ✅ Évaluation continue : jeux de référence (assistant, extraction), contrôles déterministes en CI, évaluation avec le vrai modèle et juge par modèle via un workflow manuel.
 
 ## Phase 4 — Labs virtuels et diagnostic avancé
 

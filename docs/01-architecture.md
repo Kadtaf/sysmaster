@@ -341,6 +341,8 @@ Le reranking (modèle de réordonnancement) est reporté : il se justifiera avec
 
 **Évaluation continue** : jeu de questions de référence (« golden set ») par domaine, mesure de *faithfulness* et de précision des citations à chaque changement de prompt ou de modèle.
 
+*Implémenté (`services/ai/evals`)* : deux jeux de référence en TOML, l'assistant (20 questions : routage attendu, fiches attendues, commandes interdites, hors périmètre) et l'extraction de symptômes (10 descriptions, codes attendus). Les contrôles déterministes (routage, recherche, citation, « pourquoi » avant la commande, observation d'abord, commande à risque masquée, aucune commande interdite) tournent en CI avec le modèle factice et un instantané hors ligne des fiches ; les mesures qui dépendent du modèle (citations, hors périmètre, précision/rappel de l'extraction) et un juge par modèle (réponse appuyée par les sources, sûreté, pédagogie de 1 à 5) passent par un workflow manuel, car payant. Les seuils sont dans `evals/thresholds.toml` ; on corrige le système, jamais l'attente, pour faire passer un cas.
+
 ### 8.5 Moteur de déduction
 
 Le diagnostic ne repose pas uniquement sur un LLM (non déterministe, difficile à auditer). Il combine :

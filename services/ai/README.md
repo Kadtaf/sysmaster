@@ -65,6 +65,21 @@ uv run python -m app.rag.ingest --source postgresql --max-pages 20
 - Les pages sont découpées par titre ; chaque passage garde l'URL avec son ancre, le titre de section et l'attribution affichée sous la réponse.
 - L'ingestion est idempotente : relancée, elle ne réencode que les pages modifiées.
 
+## Évaluation
+
+```bash
+uv run python -m evals.run                        # modèle factice, instantané des fiches : gratuit, en CI
+uv run python -m evals.run --llm claude           # vrai modèle (ANTHROPIC_API_KEY) : payant
+uv run python -m evals.run --llm claude --judge   # + juge par modèle : environ deux fois plus cher
+uv run python -m evals.run --core-url http://localhost:4000/api/v1   # vraie recherche de l'API
+```
+
+- `evals/golden/` : les questions et ce qu'on attend (agent, domaine, fiches, commandes interdites). On n'ajuste pas une attente pour faire passer un cas ; on corrige le système.
+- `evals/thresholds.toml` : seuils par mode. Sous un seuil, la commande sort en erreur (la CI échoue en mode factice).
+- `evals/reports/` (ignoré par git) : rapport JSON et Markdown, avec les cas à examiner.
+- `evals/snapshot.py` régénère `evals/fixtures/kb.json` depuis une API locale quand les fiches changent.
+- Le workflow GitHub « Évaluation IA » lance la version payante à la main (secret `ANTHROPIC_API_KEY`).
+
 ## Structure
 
 ```
@@ -75,5 +90,6 @@ app/
 ├── rag/         fiches (API cœur), collecte, découpage, plongements, index Qdrant, ingestion
 ├── orchestrator.py
 └── main.py
-tests/           garde-fous, routeur, API, client Claude (SDK simulé), RAG (Qdrant en mémoire, HTTP simulé)
+tests/           garde-fous, routeur, API, client Claude (SDK simulé), RAG (Qdrant en mémoire, HTTP simulé), banc d'évaluation
+evals/           jeux de référence, seuils, juge, rapport
 ```

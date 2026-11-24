@@ -13,6 +13,7 @@ from app.agents.router import route
         ("Comment fonctionne le DNS ?", None, "tutor", "network"),
         ("nginx ne démarre plus", "linux", "diagnostician", "linux"),
         ("Qu'est-ce qu'un volume ?", "docker", "tutor", "docker"),
+        ("Par quels routeurs passent mes paquets ?", None, "tutor", "network"),
     ],
 )
 def test_route(question: str, platform: str | None, agent: str, domain: str | None) -> None:
