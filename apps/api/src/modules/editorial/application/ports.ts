@@ -1,5 +1,6 @@
 import type { ContentIssue, ContentKind, RevisionStatus, RevisionSummaryDto, SimulationDto } from '@sysmaster/contracts';
 import type { PoolClient } from 'pg';
+import type { GlobalRole } from '../../iam/domain/identity';
 
 export interface RevisionRecord {
   id: string;
@@ -48,6 +49,11 @@ export interface ContentKindAdapter<C = unknown> {
   apply(tx: PoolClient, content: C, targetId: string | null): Promise<string>;
   /** Type d'événement publié (outbox). */
   readonly publishedEvent: string;
+  /**
+   * Rôles exigés en plus du workflow pour rédiger et relire ce type (profils d'agents IA : administrateurs).
+   * Absent : auteurs et relecteurs habituels.
+   */
+  readonly restrictedTo?: GlobalRole[];
   /** Simulation avant publication (causes de diagnostic). */
   simulate?(content: C): Promise<SimulationDto>;
 }

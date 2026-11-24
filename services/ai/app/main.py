@@ -6,7 +6,7 @@ from contextlib import asynccontextmanager
 from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.responses import StreamingResponse
 
-from app.config import Settings, docs_index, settings
+from app.config import Settings, docs_index, profile_store, settings
 from app.diagnostic.extract import extract
 from app.llm.claude import ClaudeLlm
 from app.llm.fake import FakeLlm
@@ -44,6 +44,10 @@ def get_retriever(cfg: Settings = Depends(settings)) -> Retriever:
     return CompositeRetriever(parts)
 
 
+async def get_profiles() -> dict[str, str]:
+    return await profile_store().get()
+
+
 def require_token(x_ai_token: str = Header(default=""), cfg: Settings = Depends(settings)) -> None:
     """Le service n'est appelé que par l'API cœur, qui authentifie l'utilisateur et applique les quotas."""
     if not hmac.compare_digest(x_ai_token, cfg.ai_service_token):
@@ -61,8 +65,13 @@ def health(cfg: Settings = Depends(settings)) -> dict:
 
 
 @app.post("/v1/ask", response_model=AskResponse, response_model_by_alias=True, dependencies=[Depends(require_token)])
-async def ask_endpoint(req: AskRequest, llm: Llm = Depends(get_llm), retriever: Retriever = Depends(get_retriever)) -> AskResponse:
-    res = await ask(req, llm, retriever)
+async def ask_endpoint(
+    req: AskRequest,
+    llm: Llm = Depends(get_llm),
+    retriever: Retriever = Depends(get_retriever),
+    profiles: dict[str, str] = Depends(get_profiles),
+) -> AskResponse:
+    res = await ask(req, llm, retriever, profiles)
     log.info(
         "ask agent=%s domain=%s outcome=%s latency_ms=%s sources=%s",
         res.agent,
@@ -80,13 +89,16 @@ def sse(event: str, data: dict) -> str:
 
 @app.post("/v1/ask/stream", dependencies=[Depends(require_token)])
 async def ask_stream_endpoint(
-    req: AskRequest, llm: Llm = Depends(get_llm), retriever: Retriever = Depends(get_retriever)
+    req: AskRequest,
+    llm: Llm = Depends(get_llm),
+    retriever: Retriever = Depends(get_retriever),
+    profiles: dict[str, str] = Depends(get_profiles),
 ) -> StreamingResponse:
     """Server-Sent Events : meta, delta…, puis answer (même contenu que /v1/ask) ou error."""
 
     async def events():
         try:
-            async for event, data in ask_stream(req, llm, retriever):
+            async for event, data in ask_stream(req, llm, retriever, profiles):
                 if event == "answer":
                     log.info(
                         "ask(stream) agent=%s domain=%s outcome=%s latency_ms=%s",

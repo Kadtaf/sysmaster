@@ -2,7 +2,7 @@ import httpx
 import respx
 from fastapi.testclient import TestClient
 
-from app.main import app, get_llm, get_retriever
+from app.main import app, get_llm, get_profiles, get_retriever
 from app.orchestrator import build_user_message
 from app.rag.retriever import CoreApiRetriever, Document, keywords
 from app.schemas import AskRequest
@@ -27,6 +27,7 @@ def client() -> TestClient:
 
     app.dependency_overrides[get_retriever] = lambda: StaticRetriever()
     app.dependency_overrides[get_llm] = lambda: FakeLlm()
+    app.dependency_overrides[get_profiles] = lambda: {}
     return TestClient(app)
 
 

@@ -1,7 +1,7 @@
 """Chaîne d'une question : routage → contexte → modèle → garde-fous."""
 
 import time
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Mapping
 from typing import Any
 
 from app.agents.profiles import system_prompt
@@ -56,15 +56,17 @@ def _response(r, result: LlmResult, documents: list[Document], started: float) -
     )
 
 
-async def ask(req: AskRequest, llm: Llm, retriever: Retriever) -> AskResponse:
+async def ask(req: AskRequest, llm: Llm, retriever: Retriever, profiles: Mapping[str, str] | None = None) -> AskResponse:
     started = time.monotonic()
     r = route(req.question, req.platform)
     documents = await retriever.search(req.question, req.platform)
-    result = await llm.answer(system_prompt(r.agent, r.domain), build_user_message(req, documents))
+    result = await llm.answer(system_prompt(r.agent, r.domain, profiles), build_user_message(req, documents))
     return _response(r, result, documents, started)
 
 
-async def ask_stream(req: AskRequest, llm: Llm, retriever: Retriever) -> AsyncIterator[tuple[str, dict[str, Any]]]:
+async def ask_stream(
+    req: AskRequest, llm: Llm, retriever: Retriever, profiles: Mapping[str, str] | None = None
+) -> AsyncIterator[tuple[str, dict[str, Any]]]:
     """Même chaîne que ask(), en événements :
 
     - « meta » : agent, domaine et documents consultés, dès qu'ils sont connus ;
@@ -83,7 +85,7 @@ async def ask_stream(req: AskRequest, llm: Llm, retriever: Retriever) -> AsyncIt
     )
     sent = dict.fromkeys(STREAMED_FIELDS, "")
     result: LlmResult | None = None
-    async for item in llm.answer_stream(system_prompt(r.agent, r.domain), build_user_message(req, documents)):
+    async for item in llm.answer_stream(system_prompt(r.agent, r.domain, profiles), build_user_message(req, documents)):
         if isinstance(item, LlmResult):
             result = item
             break

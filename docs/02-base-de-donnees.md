@@ -107,7 +107,7 @@ erDiagram
 | `gamification` | xp_ledger (partitionnée), user_stats, levels, badges, user_badges, challenges, challenge_participants, leaderboard (vue) |
 | `community` | categories, threads, posts, votes, shared_scripts, reports, study_groups, study_group_members, mentorships |
 | `billing` | plans, customers, subscriptions, invoices, coupons, affiliates, referrals, marketplace_products, marketplace_orders, stripe_webhook_events |
-| `ai` | agent_profiles, conversations, messages (partitionnée), agent_runs (un appel au modèle : utilisateur, agent, modèle, latence, jetons dont cache — base du quota et du suivi des coûts, migration 008), feedback, rag_sources, rag_documents, rag_chunks |
+| `ai` | agent_profiles (missions et domaines de l'assistant, modifiables dans le back-office, version incrémentée à chaque publication — migration 009), conversations, messages (partitionnée), agent_runs (un appel au modèle : utilisateur, agent, modèle, latence, jetons dont cache — base du quota et du suivi des coûts, migration 008), feedback, rag_sources, rag_documents, rag_chunks |
 | `notification` | notifications, preferences |
 
 ## Points d'attention

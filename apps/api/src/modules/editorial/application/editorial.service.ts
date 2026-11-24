@@ -50,6 +50,7 @@ export class EditorialService {
   async create(user: AuthenticatedUser, kind: ContentKind, from?: string): Promise<RevisionDto> {
     if (!canCreate(user)) throw new ForbiddenException('Seuls les auteurs et les administrateurs rédigent des contenus.');
     const adapter = this.adapter(kind);
+    if (!this.allowed(adapter, user)) throw new ForbiddenException(`Réservé aux rôles : ${adapter.restrictedTo!.join(', ')}.`);
     let targetId: string | null = null;
     let content = adapter.blank();
     if (from) {
@@ -70,7 +71,8 @@ export class EditorialService {
 
   async save(id: string, user: AuthenticatedUser, body: unknown): Promise<RevisionDto> {
     const r = await this.load(id, user);
-    this.guard(() => assertCan(permissions(r, user).edit, r, user, 'edit'));
+    this.restrict(r, user);
+    this.guard(() => assertCan(this.perms(r, user).edit, r, user, 'edit'));
     const adapter = this.adapter(r.kind);
     const content = parse(adapter.schema, body);
     if (r.targetId && adapter.key(content) !== adapter.key(r.content)) {
@@ -82,7 +84,8 @@ export class EditorialService {
 
   async submit(id: string, user: AuthenticatedUser): Promise<RevisionDto> {
     const r = await this.load(id, user);
-    this.guard(() => assertCan(permissions(r, user).submit, r, user, 'submit'));
+    this.restrict(r, user);
+    this.guard(() => assertCan(this.perms(r, user).submit, r, user, 'submit'));
     const issues = await this.adapter(r.kind).issues(r.content, r.targetId);
     if (issues.length) throw new UnprocessableEntityException({ message: 'Le contenu n’est pas encore publiable.', issues });
     await this.repo.transition(id, 'in_review', user.id, 'submitted', null);
@@ -98,7 +101,8 @@ export class EditorialService {
 
   async review(id: string, user: AuthenticatedUser, decision: 'approve' | 'request_changes', comment: string): Promise<RevisionDto> {
     const r = await this.load(id, user);
-    this.guard(() => assertCan(permissions(r, user).review, r, user, 'review'));
+    this.restrict(r, user);
+    this.guard(() => assertCan(this.perms(r, user).review, r, user, 'review'));
     if (decision === 'request_changes') {
       await this.repo.transition(id, 'changes_requested', user.id, 'changes_requested', comment);
       return this.get(id, user);
@@ -127,9 +131,25 @@ export class EditorialService {
 
   async withdraw(id: string, user: AuthenticatedUser): Promise<RevisionDto> {
     const r = await this.load(id, user);
-    this.guard(() => assertCan(permissions(r, user).withdraw, r, user, 'withdraw'));
+    this.guard(() => assertCan(this.perms(r, user).withdraw, r, user, 'withdraw'));
     await this.repo.transition(id, 'withdrawn', user.id, 'withdrawn', null);
     return this.get(id, user);
+  }
+
+  private allowed(adapter: ContentKindAdapter, user: AuthenticatedUser): boolean {
+    return !adapter.restrictedTo || hasAnyRole(user, adapter.restrictedTo);
+  }
+
+  private restrict(r: RevisionRecord, user: AuthenticatedUser): void {
+    const adapter = this.adapter(r.kind);
+    if (!this.allowed(adapter, user)) throw new ForbiddenException(`Réservé aux rôles : ${adapter.restrictedTo!.join(', ')}.`);
+  }
+
+  /** Droits du workflow, restreints pour les types réservés (seul le retrait reste possible). */
+  private perms(r: RevisionRecord, user: AuthenticatedUser) {
+    const p = permissions(r, user);
+    if (this.allowed(this.adapter(r.kind), user)) return p;
+    return { edit: false, submit: false, review: false, withdraw: p.withdraw };
   }
 
   private adapter(kind: ContentKind): ContentKindAdapter {
@@ -172,7 +192,7 @@ export class EditorialService {
       issues: await adapter.issues(r.content, r.targetId),
       reviewer: r.reviewerName,
       reviewComment: r.reviewComment,
-      can: permissions(r, user),
+      can: this.perms(r, user),
       history: r.history,
     } as RevisionDto;
   }

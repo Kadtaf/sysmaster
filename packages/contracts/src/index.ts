@@ -388,7 +388,22 @@ export const CauseContentSchema = z.object({
 });
 export type CauseContent = z.infer<typeof CauseContentSchema>;
 
-export const CONTENT_KINDS = ['command', 'course', 'path', 'diagnostic_cause'] as const;
+/**
+ * Profil d'agent IA : la mission (tuteur, diagnosticien) ou les consignes d'un domaine (Windows, Linux…)
+ * ajoutées au socle de sécurité du service IA, qui, lui, ne se modifie pas ici.
+ */
+export const AgentProfileContentSchema = z.object({
+  code: req(40).regex(/^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$/, 'minuscules, chiffres et soulignés'),
+  name: req(120),
+  /** Ce que fait l'agent, en une phrase (affiché, non envoyé au modèle). */
+  mission: z.string().trim().max(400).default(''),
+  /** Consignes envoyées au modèle après le socle de sécurité. */
+  systemPrompt: z.string().trim().max(4000).default(''),
+  enabled: z.boolean().default(true),
+});
+export type AgentProfileContent = z.infer<typeof AgentProfileContentSchema>;
+
+export const CONTENT_KINDS = ['command', 'course', 'path', 'diagnostic_cause', 'agent_profile'] as const;
 export type ContentKind = (typeof CONTENT_KINDS)[number];
 
 export const REVISION_STATUSES = ['draft', 'in_review', 'changes_requested', 'published', 'withdrawn'] as const;
@@ -414,7 +429,8 @@ export type RevisionContent =
   | { kind: 'command'; content: CommandContent }
   | { kind: 'course'; content: CourseContent }
   | { kind: 'path'; content: PathContent }
-  | { kind: 'diagnostic_cause'; content: CauseContent };
+  | { kind: 'diagnostic_cause'; content: CauseContent }
+  | { kind: 'agent_profile'; content: AgentProfileContent };
 
 export type RevisionDto = RevisionSummaryDto &
   RevisionContent & {

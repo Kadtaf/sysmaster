@@ -285,6 +285,8 @@ flowchart TB
 
 **Principe** : les « experts » ne sont pas 12 modèles différents mais **un même LLM avec des profils** (prompt système, outils autorisés, filtres RAG par domaine, exemples). Cela réduit le coût et permet d'ajouter un expert (ex. « Expert PostgreSQL ») par configuration (`ai.agent_profiles`).
 
+*Implémenté (migration 009)* : le prompt système se compose du **socle** (règles de sécurité : comprendre avant d'exécuter, citations, risques honnêtes), qui reste dans le code du service IA et ne change qu'en PR, puis de la **mission** (`tutor`, `diagnostician`) et du **domaine** (`windows_expert`, `linux_expert`, `devops_expert`, `network_expert`) choisis par le routeur. Missions et domaines se modifient dans le back-office éditorial, comme une fiche : brouillon, relecture, publication versionnée et tracée ; ce type de contenu est réservé aux administrateurs, à la rédaction comme à la relecture, et les balises du contexte (`<documents>`, `<question>`…) y sont refusées. Le service IA lit les profils actifs auprès de l'API (`GET /ai/profiles`, jeton de service) avec un cache d'une minute ; si l'API ne répond pas, il garde les derniers profils connus, puis ses textes intégrés (identiques à ceux de la migration, vérifié par un test). Un nouveau profil n'est publiable qu'une fois que le routeur sait le choisir. Outils autorisés, filtres RAG par profil et niveau de modèle (`model_tier`) restent à brancher.
+
 ### 8.3 Garde-fous pédagogiques (philosophie « comprendre avant d'exécuter »)
 
 Chaque réponse contenant une commande passe par un **validateur de sortie** qui impose un schéma JSON :

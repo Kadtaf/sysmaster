@@ -70,4 +70,8 @@ export const contentKindMeta: Record<string, { label: string; newLabel: string; 
     label: 'Cause de diagnostic', newLabel: 'Nouvelle cause', placeholder: 'psu_failure', href: () => '/diagnostic',
     rule: 'Une cause n’est publiable que si chaque probabilité est justifiée et que le plan d’action commence sans danger',
   },
+  agent_profile: {
+    label: 'Profil d’agent IA', newLabel: 'Nouveau profil', placeholder: 'network_expert', href: () => '/assistant',
+    rule: 'Réservé aux administrateurs, relu par un second administrateur ; les règles de sécurité de l’assistant restent dans le code',
+  },
 };

@@ -5,10 +5,11 @@ import { AiGateway, AiUsageRepository, ConversationRepository } from './applicat
 import { PgAiUsageRepository } from './infrastructure/pg-ai-usage.repository';
 import { HttpAiGateway } from './infrastructure/http-ai.gateway';
 import { PgConversationRepository } from './infrastructure/pg-conversation.repository';
+import { AgentProfilesController } from './interface/agent-profiles.controller';
 import { AssistantController } from './interface/assistant.controller';
 
 @Module({
-  controllers: [AssistantController],
+  controllers: [AssistantController, AgentProfilesController],
   providers: [
     AssistantService,
     { provide: AiGateway, useClass: HttpAiGateway },
