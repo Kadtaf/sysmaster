@@ -17,6 +17,9 @@ const CHECK_LABELS: Record<LabCheck['kind'], string> = {
   host_reachable: 'Hôte joignable (nom ou adresse)',
   name_resolves: 'Nom résolu par le DNS',
   file_has_line: 'Ligne active présente (ou absente) dans un fichier',
+  container_running: 'Conteneur démarré (ou non)',
+  container_autostart: 'Conteneur relancé (ou non) au démarrage du serveur',
+  http_ok: 'URL qui répond (et contient un texte)',
 };
 
 const defaultCheck = (kind: LabCheck['kind']): LabCheck => {
@@ -28,6 +31,9 @@ const defaultCheck = (kind: LabCheck['kind']): LabCheck => {
     case 'host_reachable': return { kind, target: '' };
     case 'name_resolves': return { kind, name: '' };
     case 'file_has_line': return { kind, path: '/etc/', line: '', expected: true };
+    case 'container_running': return { kind, name: '', expected: true };
+    case 'container_autostart': return { kind, name: '', expected: false };
+    case 'http_ok': return { kind, url: 'http://localhost:8080', contains: '' };
   }
 };
 
@@ -61,10 +67,19 @@ function CheckEditor({ check, set, ro }: { check: LabCheck; set: (c: LabCheck) =
       {check.kind === 'name_resolves' && (
         <input aria-label="Nom" placeholder="depot.exemple.fr" value={check.name} disabled={ro} onChange={(e) => set({ ...check, name: e.target.value })} className={cn(small, 'font-mono')} />
       )}
-      {(check.kind === 'service_enabled' || check.kind === 'path_exists' || check.kind === 'file_has_line') && (
+      {(check.kind === 'container_running' || check.kind === 'container_autostart') && (
+        <input aria-label="Conteneur" placeholder="projet-app-1" value={check.name} disabled={ro} onChange={(e) => set({ ...check, name: e.target.value })} className={cn(small, 'font-mono')} />
+      )}
+      {check.kind === 'http_ok' && (
+        <>
+          <input aria-label="URL" value={check.url} disabled={ro} onChange={(e) => set({ ...check, url: e.target.value })} className={cn(small, 'font-mono')} />
+          <input aria-label="Texte attendu" placeholder="texte attendu (facultatif)" value={check.contains ?? ''} disabled={ro} onChange={(e) => set({ ...check, contains: e.target.value || undefined })} className={small} />
+        </>
+      )}
+      {(check.kind === 'service_enabled' || check.kind === 'path_exists' || check.kind === 'file_has_line' || check.kind === 'container_running' || check.kind === 'container_autostart') && (
         <select aria-label="Attendu" value={String(check.expected)} disabled={ro} onChange={(e) => set({ ...check, expected: e.target.value === 'true' })} className={small}>
-          <option value="true">{check.kind === 'service_enabled' ? 'activé' : 'présent'}</option>
-          <option value="false">{check.kind === 'service_enabled' ? 'désactivé' : 'absent'}</option>
+          <option value="true">{check.kind === 'service_enabled' || check.kind === 'container_autostart' ? 'oui' : check.kind === 'container_running' ? 'démarré' : 'présent'}</option>
+          <option value="false">{check.kind === 'service_enabled' || check.kind === 'container_autostart' ? 'non' : check.kind === 'container_running' ? 'arrêté' : 'absent'}</option>
         </select>
       )}
     </div>
@@ -82,7 +97,7 @@ function MachineEditor({ value, onChange, ro, issue }: { value: LabContent['mach
   return (
     <Field
       label="Machine de départ (JSON)"
-      hint="L’état EN PANNE : répertoires, fichiers (taille en octets, contenu affiché), montages, services (actif, activé, ports, fichier écrit au démarrage, journal) et, si besoin, réseau (interfaces, routes, hôtes du monde simulé avec leurs enregistrements DNS et leur réponse web)."
+      hint="L’état EN PANNE : répertoires, fichiers (taille en octets, contenu affiché), montages, services (actif, activé, ports, fichier écrit au démarrage, journal) et, si besoin, réseau (interfaces, routes, hôtes du monde simulé avec leurs enregistrements DNS et leur réponse web) et Docker (images avec leurs variables obligatoires, conteneurs, fichier compose)."
       issue={issue}
     >
       <textarea

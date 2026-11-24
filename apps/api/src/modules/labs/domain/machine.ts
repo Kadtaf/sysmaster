@@ -6,6 +6,7 @@
  * (fichiers et tailles, points de montage, services systemd, ports écoutés, journaux).
  */
 
+import type { SimDocker } from './docker';
 import type { SimNetwork } from './network';
 
 export interface SimFile {
@@ -50,6 +51,8 @@ export interface MachineState {
   nextPid: number;
   /** Réseau (facultatif : les labs sans réseau n'en décrivent pas). */
   network?: SimNetwork;
+  /** Docker (facultatif) : images, conteneurs et fichier compose du projet. */
+  docker?: SimDocker;
 }
 
 /** Espace libre minimal pour qu'un service puisse écrire en démarrant. */

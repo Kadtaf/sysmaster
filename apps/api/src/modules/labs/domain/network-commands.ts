@@ -1,3 +1,4 @@
+import { publishedHttp } from './docker';
 import type { MachineState } from './machine';
 import { inCidr, isIp, nameservers, networkOf, onLink, reach, resolve, type SimNetwork } from './network';
 import type { ShellResult } from './shell';
@@ -150,23 +151,40 @@ export function dns(state: MachineState, tool: 'dig' | 'nslookup' | 'host', args
   return ok(state, `Server:\t\t${server}\nAddress:\t${server}#53\n\nName:\t${name}\nAddress: ${ip}`);
 }
 
+export type HttpResult =
+  | { ok: true; status: number; body: string }
+  | { ok: false; code: number; message: string };
+
+/** Requête HTTP simulée : résolution, routage, puis serveur web distant ou port publié par un conteneur local. */
+export function httpGet(state: MachineState, url: string): HttpResult {
+  const m = /^(?:(https?):\/\/)?([^/:]+)(?::(\d+))?(\/.*)?$/.exec(url);
+  if (!m) return { ok: false, code: 3, message: 'curl: (3) URL using bad/illegal format or missing URL' };
+  const hostName = m[2];
+  const port = Number(m[3] ?? (m[1] === 'https' ? 443 : 80));
+  const r = resolve(state, hostName);
+  if (!r.ok) return { ok: false, code: 6, message: `curl: (6) Could not resolve host: ${hostName}` };
+  if (r.ip.startsWith('127.')) {
+    const local = publishedHttp(state, port);
+    if (local) return { ok: true, ...local };
+    return { ok: false, code: 7, message: `curl: (7) Failed to connect to ${hostName} port ${port}: Connection refused` };
+  }
+  const path = reach(state.network, r.ip);
+  if (!path.ok) {
+    return path.reason === 'unreachable'
+      ? { ok: false, code: 7, message: `curl: (7) Failed to connect to ${hostName} port ${port}: Network is unreachable` }
+      : { ok: false, code: 28, message: `curl: (28) Failed to connect to ${hostName} port ${port} after 10000 ms: Timeout was reached` };
+  }
+  const http = state.network?.hosts[r.ip]?.http;
+  if (!http) return { ok: false, code: 7, message: `curl: (7) Failed to connect to ${hostName} port ${port}: Connection refused` };
+  return { ok: true, ...http };
+}
+
 export function curl(state: MachineState, args: string[]): ShellResult {
   const head = args.includes('-I') || args.includes('--head');
   const url = args.find((a) => !a.startsWith('-'));
   if (!url) return err(state, 'curl: no URL specified!', 2);
-  const m = /^(?:(https?):\/\/)?([^/:]+)(?::(\d+))?(\/.*)?$/.exec(url);
-  if (!m) return err(state, `curl: (3) URL using bad/illegal format or missing URL`, 3);
-  const hostName = m[2];
-  const r = resolve(state, hostName);
-  if (!r.ok) return err(state, `curl: (6) Could not resolve host: ${hostName}`, 6);
-  const path = reach(state.network, r.ip);
-  const http = state.network?.hosts[r.ip]?.http;
-  if (!path.ok) {
-    return path.reason === 'unreachable'
-      ? err(state, `curl: (7) Failed to connect to ${hostName} port ${m[3] ?? (m[1] === 'http' ? 80 : 443)}: Network is unreachable`, 7)
-      : err(state, `curl: (28) Failed to connect to ${hostName} port ${m[3] ?? (m[1] === 'http' ? 80 : 443)} after 10000 ms: Timeout was reached`, 28);
-  }
-  if (!http) return err(state, `curl: (7) Failed to connect to ${hostName} port ${m[3] ?? 443}: Connection refused`, 7);
-  const status = `HTTP/1.1 ${http.status} ${http.status === 200 ? 'OK' : http.status < 400 ? 'Redirect' : 'Error'}`;
-  return ok(state, head ? `${status}\ncontent-type: text/html` : http.body);
+  const r = httpGet(state, url);
+  if (!r.ok) return err(state, r.message, r.code);
+  const status = `HTTP/1.1 ${r.status} ${r.status === 200 ? 'OK' : r.status < 400 ? 'Redirect' : 'Error'}`;
+  return ok(state, head ? `${status}\ncontent-type: text/html` : r.body);
 }

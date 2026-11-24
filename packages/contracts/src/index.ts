@@ -539,6 +539,26 @@ export const LabMachineSchema = z.object({
       http: z.object({ status: z.number().int().min(100).max(599), body: z.string().max(5000) }).optional(),
     })),
   }).optional(),
+  docker: z.object({
+    composeFile: absPath.optional(),
+    images: z.record(z.string().max(200), z.object({
+      requiredEnv: z.array(z.string().regex(/^[A-Z_][A-Z0-9_]*$/)).max(20).optional(),
+      listens: z.number().int().min(1).max(65535).optional(),
+      startupLog: z.array(z.string().max(300)).max(20),
+      http: z.object({ status: z.number().int().min(100).max(599), body: z.string().max(5000) }).optional(),
+    })),
+    containers: z.record(z.string().regex(/^[a-zA-Z0-9][a-zA-Z0-9_.-]*$/).max(100), z.object({
+      service: z.string().max(60).optional(),
+      image: z.string().max(200),
+      status: z.enum(['running', 'restarting', 'exited', 'created']),
+      restart: z.enum(['no', 'always', 'unless-stopped', 'on-failure']),
+      restartCount: z.number().int().min(0),
+      ports: z.array(z.object({ host: z.number().int().min(1).max(65535), container: z.number().int().min(1).max(65535) })).max(10),
+      env: z.record(z.string().max(100), z.string().max(500)),
+      logs: z.array(z.string().max(500)).max(60),
+      stoppedByUser: z.boolean().optional(),
+    })),
+  }).optional(),
 });
 export type LabMachine = z.infer<typeof LabMachineSchema>;
 export const LabCheckSchema = z.discriminatedUnion('kind', [
@@ -549,6 +569,9 @@ export const LabCheckSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('host_reachable'), target: z.string().min(1).max(253) }),
   z.object({ kind: z.literal('name_resolves'), name: z.string().min(1).max(253) }),
   z.object({ kind: z.literal('file_has_line'), path: absPath, line: z.string().min(1).max(300), expected: z.boolean() }),
+  z.object({ kind: z.literal('container_running'), name: z.string().min(1).max(100), expected: z.boolean() }),
+  z.object({ kind: z.literal('container_autostart'), name: z.string().min(1).max(100), expected: z.boolean() }),
+  z.object({ kind: z.literal('http_ok'), url: z.string().min(1).max(300), contains: z.string().max(200).optional() }),
 ]);
 export type LabCheck = z.infer<typeof LabCheckSchema>;
 export const LabContentSchema = z.object({

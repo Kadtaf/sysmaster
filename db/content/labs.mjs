@@ -422,4 +422,245 @@ dans la configuration.`,
   ],
 };
 
-export default [diskFull, portTaken, dnsInterne, defaultRoute];
+// ---------------------------------------------------------------- Docker ----
+function dockerMachine({ hostname, dirs, files, docker }) {
+  return {
+    hostname,
+    cwd: '/root',
+    clock: '2026-11-24T11:05:00.000Z',
+    nextPid: 3100,
+    dirs: ['/etc', '/home', '/root', '/srv', '/tmp', '/usr', '/var', '/var/lib', '/var/lib/docker', '/var/log', ...dirs],
+    files: { '/var/log/syslog': { size: 3 * M, content: syslogTail.replaceAll('web01', hostname) }, ...files },
+    mounts: [{ target: '/', device: '/dev/sda1', sizeBytes: 40 * G, baseUsedBytes: Math.round(11.3 * G) }],
+    services: {
+      docker: {
+        description: 'Docker Application Container Engine', active: 'active', enabled: true, process: 'dockerd', pid: 811, ports: [],
+        journal: [`nov. 24 08:58:07 ${hostname} systemd[1]: Started docker.service - Docker Application Container Engine.`],
+      },
+      ssh: {
+        description: 'OpenBSD Secure Shell server', active: 'active', enabled: true, process: 'sshd', pid: 702, ports: [22],
+        journal: [`nov. 24 08:58:04 ${hostname} systemd[1]: Started ssh.service - OpenBSD Secure Shell server.`],
+      },
+    },
+    docker,
+  };
+}
+
+const facturationCompose = `services:
+  app:
+    image: registre.exemple.fr/facturation:2.4
+    restart: unless-stopped
+    ports:
+      - "8080:8000"
+    environment:
+      - DB_HOST=db.exemple.fr
+      - DB_USER=facturation
+      - TZ=Europe/Paris
+`;
+
+const crashLines = (t) => [
+  `${t} Traceback (most recent call last):`,
+  `${t}   File "/app/config.py", line 12, in <module>`,
+  `${t}     DATABASE = os.environ["DATABASE_HOST"]`,
+  `${t} KeyError: 'DATABASE_HOST'`,
+  `${t} ERREUR : variable d'environnement obligatoire manquante : DATABASE_HOST`,
+];
+
+const dockerVariable = {
+  slug: 'docker-variable-renommee',
+  title: 'Le conteneur redémarre en boucle après la mise à jour',
+  category: 'docker',
+  difficulty: 'beginner',
+  ttlMinutes: 45,
+  briefMd: `L'application de facturation de **srv-app** est passée hier soir de la version 2.3 à la 2.4.
+Depuis, \`http://localhost:8080\` ne répond plus et le conteneur ne cesse de redémarrer.
+
+Remettez l'application en ligne **en version 2.4** (revenir à la 2.3 n'est pas une option : elle corrige une faille).
+Le projet compose est dans \`/srv/facturation\`.
+
+> Machine simulée : tapez \`help\` pour voir les commandes disponibles.`,
+  objectives: [
+    'Reconnaître une boucle de redémarrage avec docker ps et lire la cause dans docker logs',
+    'Comprendre qu’un docker restart ne relit pas la configuration du fichier compose',
+    'Corriger le fichier compose et recréer le conteneur avec docker compose up -d',
+  ],
+  hints: [
+    'docker ps -a : regardez la colonne STATUS. Puis docker logs facturation-app-1 pour savoir pourquoi le programme s’arrête.',
+    'Le programme réclame une variable qui n’existe pas dans le fichier compose. Une note de version (CHANGELOG) accompagne le projet.',
+    'Corrigez le nom de la variable dans /srv/facturation/compose.yaml (sed -i), puis recréez le conteneur depuis ce répertoire : docker compose up -d.',
+  ],
+  solutionMd: `**Cause** : la version 2.4 a renommé la variable \`DB_HOST\` en \`DATABASE_HOST\` (voir \`CHANGELOG.md\`).
+Le fichier compose fournit encore l'ancien nom : au démarrage, le programme ne trouve pas \`DATABASE_HOST\` et s'arrête,
+et la politique \`restart: unless-stopped\` le relance aussitôt, à l'infini.
+
+**Démarche** : \`docker ps -a\` → « Restarting » ; \`docker logs facturation-app-1\` → \`KeyError: 'DATABASE_HOST'\` ;
+\`cat CHANGELOG.md\` → le renommage ; \`sed -i 's/DB_HOST=/DATABASE_HOST=/' compose.yaml\` ; \`docker compose up -d\`
+(compose voit que la configuration a changé et **recrée** le conteneur) ; \`curl http://localhost:8080\`.
+
+**Pourquoi \`docker restart\` ne suffit pas** : il relance le même conteneur, avec les variables figées à sa création.
+Seule une recréation (\`docker compose up -d\`) applique le fichier modifié.
+
+**Pour que ça ne revienne pas** : lire les notes de version avant une montée de version majeure ou mineure, et
+tester la nouvelle image sur un environnement de recette.`,
+  machine: dockerMachine({
+    hostname: 'srv-app',
+    dirs: ['/srv/facturation'],
+    files: {
+      '/srv/facturation/compose.yaml': { size: facturationCompose.length, content: facturationCompose },
+      '/srv/facturation/CHANGELOG.md': {
+        size: 400,
+        content: "# Facturation — notes de version\n\n## 2.4.0 (21/11/2026)\n- Sécurité : correction d'une faille d'injection dans l'export PDF.\n- **Incompatible** : la variable `DB_HOST` est renommée `DATABASE_HOST`. L'ancien nom n'est plus lu.\n\n## 2.3.2 (02/10/2026)\n- Corrections mineures.\n",
+      },
+    },
+    docker: {
+      composeFile: '/srv/facturation/compose.yaml',
+      images: {
+        'registre.exemple.fr/facturation:2.4': {
+          requiredEnv: ['DATABASE_HOST', 'DB_USER'],
+          listens: 8000,
+          startupLog: ['INFO Connexion à la base db.exemple.fr : OK', 'INFO Facturation 2.4.0 à l’écoute sur 0.0.0.0:8000'],
+          http: { status: 200, body: '<html><body><h1>Facturation 2.4.0</h1></body></html>' },
+        },
+        'registre.exemple.fr/facturation:2.3': {
+          requiredEnv: ['DB_HOST', 'DB_USER'],
+          listens: 8000,
+          startupLog: ['INFO Facturation 2.3.2 à l’écoute sur 0.0.0.0:8000'],
+          http: { status: 200, body: '<html><body><h1>Facturation 2.3.2</h1></body></html>' },
+        },
+      },
+      containers: {
+        'facturation-app-1': {
+          service: 'app',
+          image: 'registre.exemple.fr/facturation:2.4',
+          status: 'restarting',
+          restart: 'unless-stopped',
+          restartCount: 214,
+          ports: [{ host: 8080, container: 8000 }],
+          env: { DB_HOST: 'db.exemple.fr', DB_USER: 'facturation', TZ: 'Europe/Paris' },
+          logs: [...crashLines('2026-11-24T11:04:51Z'), ...crashLines('2026-11-24T11:04:58Z')],
+        },
+      },
+    },
+  }),
+  validators: [
+    { description: 'Le conteneur de l’application tourne', check: { kind: 'container_running', name: 'facturation-app-1', expected: true } },
+    { description: 'http://localhost:8080 répond en version 2.4', check: { kind: 'http_ok', url: 'http://localhost:8080', contains: 'Facturation 2.4' } },
+  ],
+  walkthrough: [
+    'docker ps -a',
+    'docker logs --tail 5 facturation-app-1',
+    'cd /srv/facturation',
+    'cat CHANGELOG.md',
+    "sed -i 's/DB_HOST=/DATABASE_HOST=/' compose.yaml",
+    'docker compose up -d',
+    'curl http://localhost:8080',
+  ],
+};
+
+const tableauCompose = `services:
+  web:
+    image: grafana/grafana:11.3.0
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SERVER_ROOT_URL=http://srv-supervision:3000
+`;
+
+const dockerPort = {
+  slug: 'docker-port-deja-alloue',
+  title: 'docker compose up échoue : port déjà alloué',
+  category: 'docker',
+  difficulty: 'intermediate',
+  ttlMinutes: 45,
+  briefMd: `Sur **srv-supervision**, le tableau de bord en version 11 doit remplacer une version 10 lancée « pour tester »
+il y a quelques mois. Mais \`docker compose up -d\` échoue, et \`http://localhost:3000\` affiche toujours la version 10.
+
+Mettez la version 11 en service sur le port 3000, et assurez-vous que l'ancienne **ne reviendra pas** au prochain
+redémarrage du serveur. Le projet compose est dans \`/srv/tableau\`.
+
+> Machine simulée : tapez \`help\` pour voir les commandes disponibles.`,
+  objectives: [
+    'Lire « port is already allocated » et trouver quel conteneur occupe le port',
+    'Distinguer un conteneur lancé à la main (docker run) d’un service compose',
+    'Comprendre les politiques de redémarrage : stop n’empêche pas « always » de revenir',
+  ],
+  hints: [
+    'Lancez docker compose up -d depuis /srv/tableau et lisez l’erreur : quel port est en cause ?',
+    'docker ps montre qui publie déjà le port 3000. Ce conteneur ne fait pas partie du projet compose.',
+    'docker stop libère le port, mais regardez sa politique de redémarrage (docker inspect) : que se passera-t-il au prochain démarrage ?',
+    'Supprimez l’ancien conteneur (docker rm) ou retirez-lui son redémarrage automatique (docker update --restart=no), puis relancez docker compose up -d.',
+  ],
+  solutionMd: `**Cause** : un conteneur \`grafana-test\`, lancé à la main avec \`docker run --restart=always -p 3000:3000\`,
+publie déjà le port 3000. Le conteneur du projet compose est créé mais ne peut pas démarrer :
+\`Bind for 0.0.0.0:3000 failed: port is already allocated\`.
+
+**Démarche** : \`docker compose up -d\` → l'erreur ; \`docker ps\` → \`grafana-test\` sur \`0.0.0.0:3000\` ;
+\`docker inspect grafana-test\` → \`RestartPolicy: always\` ; \`docker stop grafana-test\` puis \`docker rm grafana-test\` ;
+\`docker compose up -d\` ; \`curl http://localhost:3000\` → version 11.
+
+**Le piège** : \`docker stop\` seul libère le port tout de suite, mais avec \`--restart=always\` le conteneur repart
+au prochain démarrage du démon Docker, avant ou à la place du service compose. Il faut le supprimer, ou au minimum
+\`docker update --restart=no grafana-test\`.
+
+**À retenir** : un conteneur « de test » lancé à la main n'apparaît dans aucun fichier : faites l'inventaire avec
+\`docker ps -a\` avant de déployer, et préférez compose pour tout ce qui doit durer.`,
+  machine: dockerMachine({
+    hostname: 'srv-supervision',
+    dirs: ['/srv/tableau'],
+    files: { '/srv/tableau/compose.yaml': { size: tableauCompose.length, content: tableauCompose } },
+    docker: {
+      composeFile: '/srv/tableau/compose.yaml',
+      images: {
+        'grafana/grafana:11.3.0': {
+          listens: 3000,
+          startupLog: ['logger=server level=info msg="HTTP Server Listen" address=[::]:3000 protocol=http', 'logger=server level=info msg="Grafana v11.3.0 démarré"'],
+          http: { status: 200, body: '<html><head><title>Grafana</title></head><body>Grafana v11.3.0</body></html>' },
+        },
+        'grafana/grafana:10.0.0': {
+          listens: 3000,
+          startupLog: ['logger=server level=info msg="Grafana v10.0.0 démarré"'],
+          http: { status: 200, body: '<html><head><title>Grafana</title></head><body>Grafana v10.0.0</body></html>' },
+        },
+      },
+      containers: {
+        'grafana-test': {
+          image: 'grafana/grafana:10.0.0',
+          status: 'running',
+          restart: 'always',
+          restartCount: 0,
+          ports: [{ host: 3000, container: 3000 }],
+          env: {},
+          logs: ['2026-06-12T14:02:10Z logger=server level=info msg="Grafana v10.0.0 démarré"'],
+        },
+        'tableau-web-1': {
+          service: 'web',
+          image: 'grafana/grafana:11.3.0',
+          status: 'created',
+          restart: 'unless-stopped',
+          restartCount: 0,
+          ports: [{ host: 3000, container: 3000 }],
+          env: { GF_SERVER_ROOT_URL: 'http://srv-supervision:3000' },
+          logs: [],
+        },
+      },
+    },
+  }),
+  validators: [
+    { description: 'Le conteneur du projet compose tourne', check: { kind: 'container_running', name: 'tableau-web-1', expected: true } },
+    { description: 'http://localhost:3000 sert la version 11', check: { kind: 'http_ok', url: 'http://localhost:3000', contains: 'v11.3.0' } },
+    { description: 'L’ancien conteneur ne redémarrera pas avec le serveur', check: { kind: 'container_autostart', name: 'grafana-test', expected: false } },
+  ],
+  walkthrough: [
+    'cd /srv/tableau',
+    'docker compose up -d',
+    'docker ps',
+    'docker inspect grafana-test',
+    'docker stop grafana-test',
+    'docker rm grafana-test',
+    'docker compose up -d',
+    'curl http://localhost:3000',
+  ],
+};
+
+export default [diskFull, portTaken, dnsInterne, defaultRoute, dockerVariable, dockerPort];
