@@ -1,6 +1,7 @@
 """Chaîne d'une question : routage → contexte → modèle → garde-fous."""
 
 import time
+from collections.abc import Mapping
 
 from app.agents.profiles import system_prompt
 from app.agents.router import route
@@ -38,11 +39,11 @@ def build_user_message(req: AskRequest, documents: list[Document]) -> str:
     return "\n\n".join(parts)
 
 
-async def ask(req: AskRequest, llm: Llm, retriever: Retriever) -> AskResponse:
+async def ask(req: AskRequest, llm: Llm, retriever: Retriever, profiles: Mapping[str, str] | None = None) -> AskResponse:
     started = time.monotonic()
     r = route(req.question, req.platform)
     documents = await retriever.search(req.question, req.platform)
-    result = await llm.answer(system_prompt(r.agent, r.domain), build_user_message(req, documents))
+    result = await llm.answer(system_prompt(r.agent, r.domain, profiles), build_user_message(req, documents))
     answer = enforce(result.draft, documents) if result.draft else REFUSED
     return AskResponse(
         answer=answer,

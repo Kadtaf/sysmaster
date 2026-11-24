@@ -78,6 +78,8 @@ Cette requête est en lecture seule et sans risque. Le journal d'audit global es
 - **Parcours** : au moins un cours publié, dans l'ordre conseillé.
 - **Causes de diagnostic** : chaque règle « symptôme → cause » est justifiée, chaque étape du plan d'action dit **pourquoi**, et la première étape n'est jamais risquée (on observe avant d'agir). Les motifs de journaux doivent être des expressions régulières valides.
 
+- **Profils d'agents IA** (administrateurs seulement, à la rédaction comme à la relecture) : les consignes de mission (tuteur, diagnosticien) et de domaine (Windows, Linux, conteneurs, réseau) que l'assistant ajoute à son socle de sécurité. Le socle lui-même (comprendre avant d'exécuter, citations, risques) ne se modifie pas ici. Les consignes font au moins une phrase et ne contiennent pas les balises du contexte (`<documents>`, `<question>`…). Publiées, elles s'appliquent en une minute environ ; décocher « Actif » ramène l'assistant aux consignes d'origine. Après une modification, lancez l'évaluation (`services/ai/README.md`, section Évaluation) pour vérifier que les réponses restent justes.
+
 **Simulation avant publication.** Pour une cause, l'éditeur rejoue les cas de référence (`diagnostic.reference_cases`) avec la base actuelle puis avec le brouillon. Une **régression** signifie qu'un cas trouvait la bonne cause en tête et ne la trouve plus. Le relecteur ne peut approuver une régression qu'en expliquant pourquoi dans son commentaire. Pour ajouter un cas de référence (lecture seule pour les apprenants, sans risque) :
 
 ```sql

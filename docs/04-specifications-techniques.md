@@ -72,7 +72,7 @@ Préfixe `/api/v1`. Documentation OpenAPI générée sur `/api/docs`. Authentifi
 | GET | `/me/dashboard` | Tableau de bord : XP, niveau, série, badges, parcours, compétences, points forts et faibles, recommandations |
 | GET | `/gamification/leaderboard?limit=` | Classement (noms abrégés) ; si connecté, `me` donne votre rang |
 | PUT | `/me/leaderboard-visibility` | `{ visible: boolean }` : apparaître ou non dans le classement (204) |
-| GET | `/editorial/revisions?status=&kind=` | Révisions (rôles `author`, `reviewer`, `admin`) : toutes pour un relecteur, les siennes pour un auteur. `kind` : `command`, `course`, `path`, `diagnostic_cause` |
+| GET | `/editorial/revisions?status=&kind=` | Révisions (rôles `author`, `reviewer`, `admin`) : toutes pour un relecteur, les siennes pour un auteur. `kind` : `command`, `course`, `path`, `diagnostic_cause`, `agent_profile` (réservé aux administrateurs, rédaction et relecture) |
 | POST | `/editorial/revisions` | `{ kind, from? }` : nouveau contenu, ou modification du contenu publié d'identifiant `from` (slug ou code). `fromSlug` reste accepté pour les fiches. **409** si une révision est déjà ouverte |
 | GET | `/editorial/revisions/:id` | Contenu, écarts aux règles du type (`issues`), actions permises (`can`), historique |
 | GET | `/editorial/revisions/:id/simulation` | Causes de diagnostic seulement : rejoue les cas de référence avant et après la modification (`cases`, `regressions`, `improvements`) |
@@ -86,7 +86,7 @@ Préfixe `/api/v1`. Documentation OpenAPI générée sur `/api/docs`. Authentifi
 | GET | `/assistant/conversations/:id` | Questions et réponses d'une de mes conversations |
 | PUT | `/assistant/messages/:id/feedback` | `{ rating: 1 \| -1, comment? }` (204) : alimente l'évaluation continue |
 
-Le service IA (`services/ai`, interne) expose `GET /health` et `POST /v1/ask` (en-tête `x-ai-token`) ; voir [son README](../services/ai/README.md).
+Le service IA (`services/ai`, interne) lit les profils d'agents publiés sur `GET /ai/profiles` (interne, en-tête `x-ai-token`, hors documentation publique) et expose `GET /health` et `POST /v1/ask` (en-tête `x-ai-token`) ; voir [son README](../services/ai/README.md).
 
 Exemple de réponse `POST /diagnostic/analyze` :
 

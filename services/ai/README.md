@@ -29,6 +29,7 @@ export AI_LLM=claude ANTHROPIC_API_KEY=…   # clé créée sur console.anthropi
 | `AI_EMBEDDER` | `hash` (`fastembed` dans l'image) | `fastembed` : modèle multilingue local ; `hash` : lexical, pour les tests |
 | `EMBED_MODEL` | `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2` | changer de modèle impose de réindexer |
 | `RAG_MIN_SIMILARITY` | `0.3` | en dessous, un passage n'est pas proposé au modèle |
+| `PROFILES_TTL_SECONDS` | `60` | délai maximal avant qu'un profil publié dans le back-office s'applique |
 
 ## Contrat
 
@@ -43,6 +44,7 @@ Prévus : `POST /v1/quiz/generate` (relu avant publication), streaming.
 ## Chemin d'une question
 
 1. **Routage** (`app/agents/router.py`) : panne → *diagnosticien*, sinon *tuteur* ; domaine déduit de la plateforme ou du vocabulaire.
+   Le prompt système = socle de sécurité (`app/agents/profiles.py`, modifiable seulement en PR) + mission + domaine. Mission et domaine viennent des profils publiés dans le back-office (`GET /ai/profiles` de l'API cœur, cache `PROFILES_TTL_SECONDS`, `app/agents/store.py`) ; à défaut, des textes intégrés.
 2. **Recherche** (`app/rag/retriever.py`) : d'abord les fiches SysMaster (`GET /kb/commands?q=…`, lues en direct, donc toujours à jour), puis les passages de documentation officielle (Qdrant, recherche hybride filtrée par plateforme). Le tout est numéroté `[1]`, `[2]`… Une source en panne n'empêche pas de répondre avec l'autre.
 3. **Génération** (`app/llm/claude.py`) : prompt système du profil (mis en cache), documents, sortie au schéma `DraftAnswer`.
 4. **Garde-fous** (`app/guardrails/`) :

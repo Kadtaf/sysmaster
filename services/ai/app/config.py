@@ -18,6 +18,8 @@ class Settings(BaseSettings):
     core_api_url: str = "http://localhost:4000/api/v1"
     # Jeton partagé avec l'API cœur : le service n'est pas exposé publiquement.
     ai_service_token: str = "dev-only-ai-token"
+    # Profils d'agents publiés dans le back-office : relus au plus tard après ce délai (secondes).
+    profiles_ttl_seconds: float = 60.0
     # Documentation officielle (Qdrant). Vide : seules les fiches SysMaster servent de contexte.
     qdrant_url: str = ""
     qdrant_collection: str = "official_docs"
@@ -58,3 +60,11 @@ def docs_index():
     if not cfg.qdrant_url:
         return None
     return DocsIndex(AsyncQdrantClient(url=cfg.qdrant_url), embedder(), cfg.qdrant_collection, cfg.rag_min_similarity)
+
+
+@lru_cache
+def profile_store():
+    from app.agents.store import ProfileStore
+
+    cfg = settings()
+    return ProfileStore(cfg.core_api_url, cfg.ai_service_token, cfg.profiles_ttl_seconds)

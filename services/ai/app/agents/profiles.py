@@ -1,5 +1,13 @@
 """Profils d'agents. Le texte est stable (aucune date, aucun identifiant) pour que le cache de
-prompt du fournisseur s'applique d'une requête à l'autre."""
+prompt du fournisseur s'applique d'une requête à l'autre.
+
+Le socle (CORE) porte les règles de sécurité et ne se modifie que dans ce fichier, relu en PR. Les
+missions et les domaines viennent des profils publiés dans le back-office (ai.agent_profiles, voir
+store.py) ; les textes ci-dessous servent de repli quand un profil est absent ou désactivé, et
+reprennent ceux de la migration 009.
+"""
+
+from collections.abc import Mapping
 
 CORE = """Tu es l'assistant pédagogique de SysMaster, une plateforme francophone qui apprend l'administration
 système et réseau. Ta règle absolue : **comprendre avant d'exécuter**.
@@ -26,24 +34,27 @@ Règles :
 - Réponds en français, avec des phrases complètes et un vocabulaire adapté au niveau indiqué.
 - Termine par une ou deux questions courtes qui vérifient la compréhension (`check_questions`)."""
 
-MISSIONS = {
+# Profil de chaque mission et de chaque domaine choisis par le routeur.
+MISSION_PROFILE = {"tutor": "tutor", "diagnostician": "diagnostician"}
+DOMAIN_PROFILE = {"windows": "windows_expert", "linux": "linux_expert", "docker": "devops_expert", "network": "network_expert"}
+
+DEFAULTS = {
     "tutor": """Mission : tuteur. On te pose une question de compréhension. Explique le mécanisme avec une
 analogie simple si le niveau est débutant, puis montre comment l'observer sur une machine. Peu d'étapes.""",
     "diagnostician": """Mission : diagnosticien. On te décrit une panne. Propose une démarche : hypothèses les plus
 probables d'abord, puis pour chacune l'observation qui la confirme ou l'écarte. Les étapes vont de la
 moins risquée à la plus risquée ; aucune réparation avant une observation qui la justifie.""",
-}
-
-DOMAINS = {
-    "windows": "Domaine : Windows (cmd, PowerShell, Observateur d'événements, WinRE). Précise si une étape exige une invite administrateur.",
-    "linux": "Domaine : Linux (bash, systemd, journald). Précise si une étape exige sudo, et les différences entre distributions courantes.",
-    "docker": "Domaine : Docker et conteneurs. Distingue l'image, le conteneur et les volumes ; signale toute perte de données possible.",
-    "network": "Domaine : réseau. Raisonne couche par couche (lien, IP, route, DNS, service) et indique ce que chaque test élimine.",
+    "windows_expert": "Domaine : Windows (cmd, PowerShell, Observateur d'événements, WinRE). Précise si une étape exige une invite administrateur.",
+    "linux_expert": "Domaine : Linux (bash, systemd, journald). Précise si une étape exige sudo, et les différences entre distributions courantes.",
+    "devops_expert": "Domaine : Docker et conteneurs. Distingue l'image, le conteneur et les volumes ; signale toute perte de données possible.",
+    "network_expert": "Domaine : réseau. Raisonne couche par couche (lien, IP, route, DNS, service) et indique ce que chaque test élimine.",
 }
 
 
-def system_prompt(agent: str, domain: str | None) -> str:
-    parts = [CORE, MISSIONS[agent]]
+def system_prompt(agent: str, domain: str | None, profiles: Mapping[str, str] | None = None) -> str:
+    """Socle de sécurité, puis mission, puis domaine. `profiles` : textes publiés (code → consignes)."""
+    texts = {**DEFAULTS, **(profiles or {})}
+    parts = [CORE, texts[MISSION_PROFILE[agent]]]
     if domain:
-        parts.append(DOMAINS[domain])
+        parts.append(texts[DOMAIN_PROFILE[domain]])
     return "\n\n".join(parts)
