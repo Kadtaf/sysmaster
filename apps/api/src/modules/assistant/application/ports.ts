@@ -61,6 +61,33 @@ export interface AiQuizResponse {
   outcome: 'answered' | 'refused';
 }
 
+export interface AiLabRequest {
+  topic: string;
+  category: string;
+  difficulty: 'beginner' | 'intermediate' | 'advanced' | 'expert';
+  /** Un lab publié, en JSON : modèle de forme. */
+  example: string;
+  /** Commandes simulées et vérifications disponibles. */
+  reference: string;
+  /** Passe de correction : proposition précédente (JSON) et problèmes relevés. */
+  previous?: string;
+  issues?: string[];
+}
+
+export interface AiLabResponse {
+  lab: {
+    slug: string; title: string; briefMd: string; objectives: string[]; hints: string[]; solutionMd: string;
+    machine: unknown; validators: unknown; walkthrough: string[];
+  } | null;
+  notes: string[];
+  /** Proposition brute (JSON), renvoyée telle quelle pour une passe de correction. */
+  raw: string | null;
+  model: string;
+  usage: AiUsage;
+  latencyMs: number;
+  outcome: 'answered' | 'refused';
+}
+
 /** Événements intermédiaires du flux : routage et documents consultés, puis texte au fil de la génération. */
 export type AiStreamEvent =
   | { event: 'meta'; data: { agent: 'tutor' | 'diagnostician'; domain: string | null; consulted: { ref: number; title: string; kind: 'kb_command' | 'official_doc' }[] } }
@@ -81,6 +108,10 @@ export abstract class AiGateway {
   /** Propose des questions de quiz à partir d'un contenu ; une personne les relit avant publication. */
   generateQuiz(_req: AiQuizRequest): Promise<AiQuizResponse> {
     return Promise.reject(new AiUnavailableError('génération de quiz non prise en charge'));
+  }
+  /** Propose un lab simulé complet ; l'API le rejoue sur le simulateur, puis une personne le relit. */
+  generateLab(_req: AiLabRequest): Promise<AiLabResponse> {
+    return Promise.reject(new AiUnavailableError('génération de labs non prise en charge'));
   }
 }
 

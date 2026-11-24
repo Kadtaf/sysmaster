@@ -370,7 +370,7 @@ function sed(state: MachineState, args: string[]): ShellResult {
   return ok({ ...state, files: { ...state.files, [path]: { ...f, size: replaced.length, content: replaced } } }, '');
 }
 
-const HELP = `Machine simulée : les commandes ne s'exécutent nulle part, elles transforment un état.
+export const HELP = `Machine simulée : les commandes ne s'exécutent nulle part, elles transforment un état.
 Commandes disponibles : ${SUPPORTED.join(', ')}.
 Filtres après | : grep [-i -v -c] MOT, head [-n N], tail [-n N], sort [-n -r], uniq [-c], wc -l, cut -d' ' -f N.
 Vider un fichier : truncate -s 0 FICHIER ou > FICHIER.

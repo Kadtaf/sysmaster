@@ -616,6 +616,22 @@ export const LabContentSchema = z.object({
 });
 export type LabContent = z.infer<typeof LabContentSchema>;
 
+/** Demande de brouillon de lab à l'IA (agent 11) : l'incident à mettre en scène, en quelques phrases. */
+export const GenerateLabDraftSchema = z.object({
+  topic: z.string().trim().min(10, 'Décrivez l’incident en une ou deux phrases.').max(1000),
+  category: z.enum(LAB_CATEGORIES),
+  difficulty: z.enum(DIFFICULTIES).default('beginner'),
+});
+export type GenerateLabDraftInput = z.infer<typeof GenerateLabDraftSchema>;
+export interface LabDraftDto {
+  revisionId: string;
+  /** Appels au modèle : 1, ou 2 quand une passe de correction a suivi la vérification. */
+  attempts: number;
+  /** Problèmes encore relevés par les règles de publication (démarche rejouée comprise) : à corriger à la main. */
+  remainingIssues: string[];
+  remainingToday: number;
+}
+
 export type LabCommandInput = z.infer<typeof LabCommandSchema>;
 export interface LabCommandResultDto extends LabTranscriptEntry {
   prompt: string;

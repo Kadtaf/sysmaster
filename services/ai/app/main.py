@@ -8,13 +8,14 @@ from fastapi.responses import StreamingResponse
 
 from app.config import Settings, docs_index, profile_store, settings
 from app.diagnostic.extract import extract
+from app.labs import generate as generate_lab
 from app.llm.claude import ClaudeLlm
 from app.llm.fake import FakeLlm
 from app.llm.port import Llm
 from app.orchestrator import ask, ask_stream
 from app.quiz import generate as generate_quiz
 from app.rag.retriever import CompositeRetriever, CoreApiRetriever, OfficialDocsRetriever, Retriever
-from app.schemas import AskRequest, AskResponse, ExtractRequest, ExtractResponse, QuizRequest, QuizResponse
+from app.schemas import AskRequest, AskResponse, ExtractRequest, ExtractResponse, LabRequest, LabResponse, QuizRequest, QuizResponse
 
 logging.basicConfig(level=logging.INFO, format='{"level":"%(levelname)s","logger":"%(name)s","message":"%(message)s"}')
 log = logging.getLogger("sysmaster.ai")
@@ -129,4 +130,18 @@ async def extract_endpoint(req: ExtractRequest, llm: Llm = Depends(get_llm)) -> 
 async def quiz_endpoint(req: QuizRequest, llm: Llm = Depends(get_llm)) -> QuizResponse:
     res = await generate_quiz(req, llm)
     log.info("quiz questions=%s dropped=%s latency_ms=%s outcome=%s", len(res.questions), len(res.notes), res.latency_ms, res.outcome)
+    return res
+
+
+@app.post("/v1/labs/generate", response_model=LabResponse, response_model_by_alias=True, dependencies=[Depends(require_token)])
+async def lab_endpoint(req: LabRequest, llm: Llm = Depends(get_llm)) -> LabResponse:
+    res = await generate_lab(req, llm)
+    log.info(
+        "lab ok=%s notes=%s repair=%s latency_ms=%s outcome=%s",
+        res.lab is not None,
+        len(res.notes),
+        bool(req.previous),
+        res.latency_ms,
+        res.outcome,
+    )
     return res

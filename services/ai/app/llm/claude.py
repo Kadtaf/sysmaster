@@ -10,7 +10,9 @@ import jiter
 from pydantic import BaseModel
 
 from app.llm.port import LlmResult
-from app.schemas import DraftAnswer, DraftExtraction, DraftQuiz, Usage
+from app.schemas import DraftAnswer, DraftExtraction, DraftLab, DraftQuiz, Usage
+
+LAB_MAX_TOKENS = 16_000
 
 
 class ClaudeLlm:
@@ -31,6 +33,10 @@ class ClaudeLlm:
         # Rédiger de bons distracteurs et des explications justes demande de la réflexion : effort de réglage.
         return await self._parse(system, user, DraftQuiz, self.effort)
 
+    async def generate_lab(self, system: str, user: str) -> LlmResult[DraftLab]:
+        # Un lab complet (machine JSON, démarche, solution) est long : plafond de sortie relevé.
+        return await self._parse(system, user, DraftLab, self.effort, max_tokens=max(self.max_tokens, LAB_MAX_TOKENS))
+
     async def answer_stream(self, system: str, user: str) -> AsyncIterator[dict[str, Any] | LlmResult[DraftAnswer]]:
         """Même requête que answer(), en flux : le JSON partiel est décodé à chaque fragment pour que l'appelant
         affiche le résumé et l'explication pendant la génération. La réponse validée arrive en dernier."""
@@ -47,13 +53,15 @@ class ClaudeLlm:
             final = await stream.get_final_message()
         yield self._result(final)
 
-    async def _parse[T: BaseModel](self, system: str, user: str, schema: type[T], effort: str) -> LlmResult[T]:
-        return self._result(await self.client.beta.messages.parse(**self._params(system, user, schema, effort)))
+    async def _parse[T: BaseModel](
+        self, system: str, user: str, schema: type[T], effort: str, max_tokens: int | None = None
+    ) -> LlmResult[T]:
+        return self._result(await self.client.beta.messages.parse(**self._params(system, user, schema, effort, max_tokens)))
 
-    def _params(self, system: str, user: str, schema: type[BaseModel], effort: str) -> dict[str, Any]:
+    def _params(self, system: str, user: str, schema: type[BaseModel], effort: str, max_tokens: int | None = None) -> dict[str, Any]:
         return {
             "model": self.model,
-            "max_tokens": self.max_tokens,
+            "max_tokens": max_tokens or self.max_tokens,
             # Prompt système stable : mis en cache d'une requête à l'autre (le contexte variable est dans le message).
             "system": [{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}],
             "messages": [{"role": "user", "content": user}],
