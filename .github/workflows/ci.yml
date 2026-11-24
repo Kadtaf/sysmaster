@@ -41,7 +41,9 @@ jobs:
             quay.io/keycloak/keycloak:26.4 start-dev --import-realm
       - run: pnpm install --frozen-lockfile
       - name: Le seed de contenu est à jour avec db/content
-        run: node infra/scripts/build-content-seed.mjs --check
+        run: |
+          node infra/scripts/build-content-seed.mjs --check
+          node infra/scripts/build-labs-seed.mjs --check
       - name: Migrations et données de démo (vérifie aussi qu'elles sont rejouables)
         run: |
           pnpm db:migrate

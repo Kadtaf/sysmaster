@@ -6,6 +6,7 @@ const links = [
   { href: '/parcours', label: 'Parcours' },
   { href: '/commandes', label: 'Base de connaissances' },
   { href: '/diagnostic', label: 'Diagnostic' },
+  { href: '/labs', label: 'Labs' },
   { href: '/assistant', label: 'Assistant' },
   { href: '/classement', label: 'Classement' },
 ];
