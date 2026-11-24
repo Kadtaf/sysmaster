@@ -61,7 +61,7 @@ Les durées sont indicatives et supposent une équipe dédiée ; avec un dévelo
 - ⏸ NATS JetStream (ADR-013, mis à jour) : pas encore nécessaire, les fiches étant lues en direct par le service IA ; il arrivera avec le premier consommateur hors processus réel.
 - ✅ Diagnostic : repérage des symptômes par LLM dans la description et le journal (catalogue fermé, citations vérifiées, le moteur bayésien décide), lignes de journal significatives expliquées, repli sur les synonymes. ⏳ Analyse de captures d'écran (OCR + vision).
 - ✅ Suivi des coûts : chaque appel au modèle est tracé par utilisateur avec ses jetons (cache compris) ; quota quotidien commun à toutes les fonctions IA. ⏳ Quotas par forfait (avec la monétisation, Phase 5).
-- ✅ Génération de quiz relue avant publication : brouillon rédigé par l'IA depuis une fiche publiée (forme vérifiée par le service, quota commun), corrigé par l'auteur, relu par une autre personne, publié et lié à la fiche. ⏳ Passage des quiz par les apprenants ; exercices.
+- ✅ Génération de quiz relue avant publication : brouillon rédigé par l'IA depuis une fiche publiée (forme vérifiée par le service, quota commun), corrigé par l'auteur, relu par une autre personne, publié et lié à la fiche. ✅ Passage des quiz par les apprenants depuis la fiche (`/quiz/:slug`) : réponses révélées seulement après la tentative, correction expliquée question par question, tentative enregistrée si l'apprenant est connecté. ⏳ Exercices.
 - ✅ Évaluation continue : jeux de référence (assistant, extraction), contrôles déterministes en CI, évaluation avec le vrai modèle et juge par modèle via un workflow manuel.
 
 ## Phase 4 — Labs virtuels et diagnostic avancé

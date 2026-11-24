@@ -25,6 +25,10 @@ Les sections d'une fiche suivent un ordre voulu : **Pourquoi → Quand → Risqu
 
 Essayez avec `/commandes/linux-rm-rf`, puis regardez l'alternative proposée, `trash-put`.
 
+### Tester ma compréhension
+
+Quand une fiche a un quiz relu et publié, la section **Tester ma compréhension** y mène. Répondez à toutes les questions, puis validez : vous voyez votre score, les questions justes et fausses, la bonne réponse et le **pourquoi** de chacune. Une question à cases à cocher n'est juste que si vous cochez exactement les bonnes réponses. Vous pouvez recommencer autant de fois que vous le voulez. Sans compte, rien n'est enregistré ; connecté, chaque tentative est gardée.
+
 ### Faire un diagnostic
 
 1. Décrivez la panne avec vos mots, par exemple « mon PC redémarre seul, surtout en jeu, et il chauffe ». Vous pouvez aussi cocher des symptômes.
