@@ -12,6 +12,7 @@ import {
   stopService,
   tick,
 } from './machine';
+import { curl, dns, ip, ping } from './network-commands';
 
 /**
  * Interpréteur de commandes de la machine simulée. Il ne lance jamais rien de réel : chaque
@@ -31,7 +32,8 @@ export const MAX_COMMAND_LENGTH = 500;
 
 const SUPPORTED = [
   'pwd', 'cd', 'ls', 'cat', 'head', 'tail', 'df', 'du', 'rm', 'truncate',
-  'systemctl', 'journalctl', 'ss', 'ps', 'help',
+  'systemctl', 'journalctl', 'ss', 'ps', 'echo', 'sed',
+  'ip', 'ping', 'dig', 'nslookup', 'host', 'curl', 'help',
 ] as const;
 
 /** Découpe une ligne en mots, avec les guillemets simples et doubles. */
@@ -327,10 +329,46 @@ function ps(state: MachineState): ShellResult {
   return ok(state, out.join('\n'));
 }
 
+/** Écrit dans un fichier (echo … > fichier, >> pour ajouter). Le répertoire doit exister. */
+function write(state: MachineState, target: string, text: string, append: boolean): ShellResult {
+  const path = normalize(target, state.cwd);
+  if (isDir(state, path)) return err(state, `bash: ${target}: Is a directory`);
+  if (!isDir(state, parentOf(path))) return err(state, `bash: ${target}: No such file or directory`);
+  const before = state.files[path]?.content ?? '';
+  const content = append ? `${before}${before && !before.endsWith('\n') ? '\n' : ''}${text}\n` : `${text}\n`;
+  return ok({ ...state, files: { ...state.files, [path]: { size: content.length, content } } }, '');
+}
+
+/**
+ * sed -i 's/ancien/nouveau/[g]' fichier : le motif est pris LITTÉRALEMENT (pas d'expression
+ * régulière), ce qui suffit pour décommenter ou corriger une ligne et reste sans surprise.
+ */
+function sed(state: MachineState, args: string[]): ShellResult {
+  const inPlace = args.includes('-i');
+  const rest = args.filter((a) => a !== '-i');
+  const [expr, target] = rest;
+  if (!inPlace || !expr || !target) return err(state, "sed : seule la forme sed -i 's/ancien/nouveau/' FICHIER est simulée");
+  const sep = expr[1];
+  const parts = expr.slice(2).split(sep);
+  if (expr[0] !== 's' || !sep || parts.length < 3) return err(state, `sed: -e expression #1, char ${expr.length}: unterminated \`s' command`);
+  const [from, to, flags] = parts;
+  const path = normalize(target, state.cwd);
+  const f = state.files[path];
+  if (!f) return err(state, `sed: can't read ${target}: No such file or directory`, 2);
+  if (!from) return err(state, 'sed: -e expression #1: motif vide');
+  const content = f.content ?? '';
+  const replaced = content
+    .split('\n')
+    .map((l) => (flags.includes('g') ? l.split(from).join(to) : l.replace(from, () => to)))
+    .join('\n');
+  return ok({ ...state, files: { ...state.files, [path]: { size: replaced.length, content: replaced } } }, '');
+}
+
 const HELP = `Machine simulée : les commandes ne s'exécutent nulle part, elles transforment un état.
 Commandes disponibles : ${SUPPORTED.join(', ')}.
 Filtres après | : grep MOT, head [-n N], tail [-n N].
-Vider un fichier : truncate -s 0 FICHIER ou > FICHIER.`;
+Vider un fichier : truncate -s 0 FICHIER ou > FICHIER.
+Écrire : echo 'texte' > FICHIER (>> pour ajouter) ; corriger : sed -i 's/ancien/nouveau/' FICHIER (motif littéral).`;
 
 function runOne(state: MachineState, words: string[]): ShellResult {
   const [cmd, ...args] = words;
@@ -384,6 +422,20 @@ function runOne(state: MachineState, words: string[]): ShellResult {
       return ss(state);
     case 'ps':
       return ps(state);
+    case 'echo':
+      return ok(state, args.join(' '));
+    case 'sed':
+      return sed(state, args);
+    case 'ip':
+      return ip(state, args);
+    case 'ping':
+      return ping(state, args);
+    case 'dig':
+    case 'nslookup':
+    case 'host':
+      return dns(state, cmd, args);
+    case 'curl':
+      return curl(state, args);
     default:
       return err(state, `${cmd}: commande non simulée dans ce lab. Tapez help pour la liste.`, 127);
   }
@@ -418,6 +470,10 @@ export function run(state: MachineState, line: string): ShellResult {
   // « > fichier » seul (ou « : > fichier ») vide le fichier.
   const redirect = /^(?:sudo\s+)?(?::\s*)?>\s*(\S+)$/.exec(trimmed);
   if (redirect) return truncate(clocked, ['-s', '0', redirect[1]]);
+
+  // echo … > fichier / >> fichier : la seule écriture de fichier simulée (avec sed -i).
+  const echo = /^(?:sudo\s+)?echo\s+(?:-e\s+)?(.*?)\s*(>>?)\s*(\S+)$/.exec(trimmed);
+  if (echo) return write(clocked, echo[3], tokenize(echo[1]).join(' '), echo[2] === '>>');
 
   const [first, ...pipes] = trimmed.split('|').map((s) => tokenize(s));
   const words = first[0] === 'sudo' ? first.slice(1) : first;

@@ -103,4 +103,30 @@ describe('Labs du seed 007', () => {
       expect(evaluate(state, lab.simulation.validators).every((c) => c.passed)).toBe(false);
     });
   });
+
+  describe('DNS interne', () => {
+    const lab = bySlug('reseau-dns-interne');
+
+    it('un DNS public résout les noms publics mais pas le dépôt interne', () => {
+      const { state, outputs } = play(lab.simulation.machine, ["echo 'nameserver 1.1.1.1' > /etc/resolv.conf", 'curl https://depot.exemple.fr']);
+      expect(outputs[1]).toContain('Could not resolve host');
+      expect(evaluate(state, lab.simulation.validators).every((c) => c.passed)).toBe(false);
+    });
+
+    it('ajouter le bon serveur sans retirer l’ancien ne suffit pas', () => {
+      const { state } = play(lab.simulation.machine, ["echo 'nameserver 10.0.0.2' >> /etc/resolv.conf"]);
+      const checks = evaluate(state, lab.simulation.validators);
+      expect(checks.filter((c) => c.passed).length).toBe(2);
+    });
+  });
+
+  describe('route par défaut', () => {
+    const lab = bySlug('reseau-route-par-defaut');
+
+    it('la route ajoutée à chaud répare, mais ne survit pas au redémarrage', () => {
+      const { state } = play(lab.simulation.machine, ['ip route add default via 10.0.0.1']);
+      const checks = evaluate(state, lab.simulation.validators);
+      expect(checks.map((c) => c.passed)).toEqual([true, true, false]);
+    });
+  });
 });
