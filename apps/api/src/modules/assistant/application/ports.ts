@@ -36,9 +36,21 @@ export interface AiExtractResponse {
   outcome: 'answered' | 'refused';
 }
 
+/** Événements intermédiaires du flux : routage et documents consultés, puis texte au fil de la génération. */
+export type AiStreamEvent =
+  | { event: 'meta'; data: { agent: 'tutor' | 'diagnostician'; domain: string | null; consulted: { ref: number; title: string; kind: 'kb_command' | 'official_doc' }[] } }
+  | { event: 'delta'; data: { field: 'summary' | 'explanation'; text: string } };
+
 /** Port vers le service IA (FastAPI). */
 export abstract class AiGateway {
   abstract ask(req: AiAskRequest): Promise<AiAskResponse>;
+  /**
+   * Même question, en flux : `onEvent` reçoit les événements intermédiaires, la promesse rend la réponse
+   * validée par les garde-fous. Par défaut, sans flux (les doublures de test n'ont rien à implémenter).
+   */
+  askStream(req: AiAskRequest, _onEvent: (e: AiStreamEvent) => void): Promise<AiAskResponse> {
+    return this.ask(req);
+  }
   /** Repère des symptômes d'un catalogue fermé dans un texte libre ou un journal (le moteur de déduction décide ensuite). */
   abstract extractSymptoms(req: AiExtractRequest): Promise<AiExtractResponse>;
 }
