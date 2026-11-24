@@ -14,15 +14,6 @@ export class PgConversationRepository extends ConversationRepository {
     super();
   }
 
-  async questionsSince(userId: string, since: Date): Promise<number> {
-    const { rows } = await this.db.query<{ n: number }>(
-      `SELECT count(*)::int AS n FROM ai.messages m JOIN ai.conversations c ON c.id = m.conversation_id
-        WHERE c.user_id = $1 AND m.role = 'user' AND m.created_at >= $2`,
-      [userId, since],
-    );
-    return rows[0].n;
-  }
-
   async ownedBy(conversationId: string, userId: string): Promise<boolean> {
     const { rowCount } = await this.db.query(`SELECT 1 FROM ai.conversations WHERE id = $1 AND user_id = $2`, [conversationId, userId]);
     return rowCount === 1;
@@ -61,7 +52,7 @@ export class PgConversationRepository extends ConversationRepository {
     }));
   }
 
-  saveTurn(conversationId: string, question: string, res: AiAskResponse | null, failure?: string): Promise<string> {
+  saveTurn(userId: string, conversationId: string, question: string, res: AiAskResponse | null, failure?: string): Promise<string> {
     return this.db.transaction(async (tx) => {
       const q = await tx.query<{ id: string }>(
         `INSERT INTO ai.messages (conversation_id, role, content) VALUES ($1, 'user', $2) RETURNING id`,
@@ -70,8 +61,8 @@ export class PgConversationRepository extends ConversationRepository {
       const questionId = q.rows[0].id;
       if (!res) {
         await tx.query(
-          `INSERT INTO ai.agent_runs (conversation_id, agent_code, model, outcome, trace_id) VALUES ($1, 'unknown', 'unknown', 'error', $2)`,
-          [conversationId, (failure ?? '').slice(0, 200)],
+          `INSERT INTO ai.agent_runs (user_id, conversation_id, agent_code, model, outcome, trace_id) VALUES ($1, $2, 'unknown', 'unknown', 'error', $3)`,
+          [userId, conversationId, (failure ?? '').slice(0, 200)],
         );
         return questionId;
       }
@@ -85,8 +76,12 @@ export class PgConversationRepository extends ConversationRepository {
         ],
       );
       await tx.query(
-        `INSERT INTO ai.agent_runs (conversation_id, agent_code, model, latency_ms, outcome) VALUES ($1, $2, $3, $4, $5)`,
-        [conversationId, res.agent, res.model, res.latencyMs, res.outcome === 'refused' ? 'refused' : 'ok'],
+        `INSERT INTO ai.agent_runs (user_id, conversation_id, agent_code, model, latency_ms, outcome, tokens_in, tokens_out, cache_read_tokens, cache_write_tokens)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+        [
+          userId, conversationId, res.agent, res.model, res.latencyMs, res.outcome === 'refused' ? 'refused' : 'ok',
+          res.usage.inputTokens, res.usage.outputTokens, res.usage.cacheReadTokens, res.usage.cacheWriteTokens,
+        ],
       );
       return a.rows[0].id;
     });

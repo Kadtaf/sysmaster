@@ -354,6 +354,15 @@ Le diagnostic ne repose pas uniquement sur un LLM (non déterministe, difficile 
 
 Le monorepo contient déjà la version 1 de ce moteur (`apps/api/src/modules/diagnostic/domain/deduction-engine.ts`) avec l'exemple « Mon PC redémarre seul ».
 
+**Repérage des symptômes par le LLM (Phase 3, implémenté)** — option « Repérer les symptômes avec l'IA » de `/diagnostic` :
+
+- Le cœur envoie au service IA (`POST /v1/diagnostic/extract`) la description, le journal et le **catalogue fermé** des symptômes de la plateforme, jamais les causes ni les règles.
+- Le modèle renvoie des codes du catalogue, chacun justifié par une **citation mot pour mot** du texte de l'utilisateur, et jusqu'à 5 lignes de journal expliquées. Effort `low` : la tâche est simple et doit être rapide.
+- Garde-fous du service : un code hors catalogue est écarté ; une citation introuvable dans le texte (après normalisation de la casse, des accents et des espaces) écarte le symptôme. Une invention du modèle devient donc visible et sans effet.
+- Le moteur bayésien classe ensuite les causes **exactement comme avant** : le modèle ne touche à aucune probabilité. Les symptômes repérés gardent leur origine (`extracted_ai`), ce qui permettra de mesurer l'apport de l'IA face aux synonymes.
+- Repli : service IA indisponible → synonymes, avec un message clair. L'essai compte dans le quota, sinon une panne permettrait de le contourner en boucle.
+- Un journal de plus de 20 000 caractères est réduit à ses lignes significatives et à sa fin (souvent l'instant de la panne).
+
 ---
 
 ## 9. Laboratoires virtuels

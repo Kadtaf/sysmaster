@@ -12,7 +12,26 @@ export interface AiAskResponse {
   agent: 'tutor' | 'diagnostician';
   domain: string | null;
   model: string;
-  usage: { inputTokens: number; outputTokens: number; cacheReadTokens: number; cacheWriteTokens: number };
+  usage: AiUsage;
+  latencyMs: number;
+  outcome: 'answered' | 'refused';
+}
+
+export interface AiUsage { inputTokens: number; outputTokens: number; cacheReadTokens: number; cacheWriteTokens: number }
+
+export interface AiExtractRequest {
+  platform: string;
+  description: string;
+  evidence: string;
+  catalogue: { code: string; label: string }[];
+}
+
+export interface AiExtractResponse {
+  symptoms: { code: string; quote: string; source: 'description' | 'evidence' }[];
+  logFindings: { summary: string; quote: string }[];
+  notes: string[];
+  model: string;
+  usage: AiUsage;
   latencyMs: number;
   outcome: 'answered' | 'refused';
 }
@@ -20,6 +39,24 @@ export interface AiAskResponse {
 /** Port vers le service IA (FastAPI). */
 export abstract class AiGateway {
   abstract ask(req: AiAskRequest): Promise<AiAskResponse>;
+  /** Repère des symptômes d'un catalogue fermé dans un texte libre ou un journal (le moteur de déduction décide ensuite). */
+  abstract extractSymptoms(req: AiExtractRequest): Promise<AiExtractResponse>;
+}
+
+export interface AiRun {
+  userId: string;
+  agentCode: string;
+  model: string;
+  latencyMs: number | null;
+  outcome: 'ok' | 'refused' | 'error';
+  usage?: AiUsage;
+  failure?: string;
+}
+
+/** Usage de l'IA, toutes fonctions confondues : base du quota quotidien et du suivi des coûts. */
+export abstract class AiUsageRepository {
+  abstract requestsSince(userId: string, since: Date): Promise<number>;
+  abstract record(run: AiRun): Promise<void>;
 }
 
 export class AiUnavailableError extends Error {}
@@ -33,13 +70,12 @@ export interface StoredTurn {
 }
 
 export abstract class ConversationRepository {
-  abstract questionsSince(userId: string, since: Date): Promise<number>;
   /** null si la conversation n'existe pas ou n'appartient pas à l'utilisateur. */
   abstract ownedBy(conversationId: string, userId: string): Promise<boolean>;
   abstract create(userId: string, title: string): Promise<string>;
   abstract turns(conversationId: string): Promise<StoredTurn[]>;
   abstract list(userId: string): Promise<{ id: string; title: string; createdAt: string }[]>;
   /** Enregistre la question, la réponse et la trace d'exécution dans une même transaction ; renvoie l'id de la réponse. */
-  abstract saveTurn(conversationId: string, question: string, res: AiAskResponse | null, failure?: string): Promise<string>;
+  abstract saveTurn(userId: string, conversationId: string, question: string, res: AiAskResponse | null, failure?: string): Promise<string>;
   abstract feedback(messageId: string, userId: string, rating: 1 | -1, comment?: string): Promise<boolean>;
 }

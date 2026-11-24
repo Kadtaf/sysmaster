@@ -53,3 +53,10 @@ async def test_evaluation_factice_complete() -> None:
     assert metrics["no_forbidden_command"] == 1.0
     assert metrics["high_risk_masked"] == 1.0
     assert not run.check_thresholds({"assistant": {"metrics": metrics}}, "fake")
+
+
+async def test_suite_extraction_executable() -> None:
+    # Le modèle factice ne repère rien : précision parfaite par convention, rappel nul.
+    metrics, results = await run.run_extract(FakeLlm())
+    assert len(results) == 10
+    assert metrics["recall"] == 0.0 and metrics["precision"] == 1.0

@@ -57,6 +57,23 @@ class DraftAnswer(BaseModel):
     out_of_scope: bool = Field(default=False, description="Vrai si la question sort de l'informatique système et réseau.")
 
 
+class DraftSymptom(BaseModel):
+    code: str = Field(description="Code exact d'un symptôme du catalogue fourni. Jamais un code inventé.")
+    quote: str = Field(description="Passage recopié mot pour mot du texte de l'utilisateur qui montre ce symptôme.")
+
+
+class DraftLogFinding(BaseModel):
+    summary: str = Field(description="Ce que la ligne de journal indique, en une phrase en français.")
+    quote: str = Field(description="La ligne (ou le fragment) recopiée mot pour mot depuis le journal.")
+
+
+class DraftExtraction(BaseModel):
+    """Format imposé au modèle pour l'extraction : il repère, il ne conclut pas (le moteur de déduction décide)."""
+
+    symptoms: list[DraftSymptom] = Field(default_factory=list)
+    log_findings: list[DraftLogFinding] = Field(default_factory=list, description="Au plus 5 lignes de journal significatives.")
+
+
 # --------------------------------------------------------------------------- Ce que renvoie le service
 class Source(Camel):
     ref: int
@@ -122,3 +139,37 @@ class AskResponse(Camel):
     usage: Usage
     latency_ms: int
     outcome: Literal["answered", "refused", "error"]
+
+
+# --------------------------------------------------------------------------- Extraction de symptômes
+class CatalogueSymptom(Camel):
+    code: str = Field(max_length=64)
+    label: str = Field(max_length=300)
+
+
+class ExtractRequest(Camel):
+    platform: Platform
+    description: str = Field(default="", max_length=5000)
+    evidence: str = Field(default="", max_length=100_000)
+    catalogue: list[CatalogueSymptom] = Field(min_length=1, max_length=500)
+
+
+class ExtractedSymptom(Camel):
+    code: str
+    quote: str
+    source: Literal["description", "evidence"]
+
+
+class LogFinding(Camel):
+    summary: str
+    quote: str
+
+
+class ExtractResponse(Camel):
+    symptoms: list[ExtractedSymptom]
+    log_findings: list[LogFinding]
+    notes: list[str] = Field(default_factory=list, description="Éléments écartés par les garde-fous.")
+    model: str
+    usage: Usage
+    latency_ms: int
+    outcome: Literal["answered", "refused"]

@@ -194,7 +194,10 @@ async def main(argv: list[str]) -> int:
     if args.suite in ("all", "assistant"):
         metrics, results = await run_assistant(llm, retriever, judge)
         report["assistant"] = {"metrics": metrics, "cases": [r.__dict__ for r in results]}
-    if args.suite in ("all", "extract"):
+    if args.suite in ("all", "extract") and args.llm == "fake":
+        # Le modèle factice ne repère aucun symptôme : la suite ne mesurerait que lui.
+        print("Suite « extract » ignorée en mode factice : elle ne mesure que le vrai modèle.")
+    elif args.suite in ("all", "extract"):
         out = await run_extract(llm)
         if out is None:
             print("Suite « extract » ignorée : l'extraction de symptômes n'est pas dans cette version du service.")

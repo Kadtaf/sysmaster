@@ -31,6 +31,6 @@ export class DiagnosticController {
       throw new BadRequestException(parsed.error.issues.map((i) => i.message));
     }
     // Anonyme possible ; si l'utilisateur est connecté, la session est rattachée à son historique.
-    return this.commands.execute(new AnalyzeProblemCommand(parsed.data, user?.id ?? null));
+    return this.commands.execute(new AnalyzeProblemCommand(parsed.data, user));
   }
 }

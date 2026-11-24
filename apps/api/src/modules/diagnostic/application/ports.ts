@@ -1,3 +1,4 @@
+import type { AuthenticatedUser } from '../../iam/domain/identity';
 import { KnowledgeSnapshot, Symptom } from '../domain/model';
 import { DeductionResult } from '../domain/model';
 
@@ -11,7 +12,7 @@ export interface NewDiagnosticSession {
   userId: string | null;
   platform: string;
   description: string;
-  symptoms: { code: string; source: 'user_selected' | 'extracted_text' }[];
+  symptoms: { code: string; source: 'user_selected' | 'extracted_text' | 'extracted_ai' }[];
   result: DeductionResult;
 }
 
@@ -22,3 +23,21 @@ export interface NewDiagnosticSession {
 export abstract class DiagnosticSessionRepository {
   abstract saveCompleted(session: NewDiagnosticSession): Promise<string>;
 }
+
+export interface AssistedExtraction {
+  codes: string[];
+  quotes: { code: string; quote: string; source: 'description' | 'evidence' }[];
+  logFindings: { summary: string; quote: string }[];
+  remainingToday: number;
+}
+
+/**
+ * Repérage des symptômes par l'IA. Facultatif : sans lui (ou s'il est indisponible), le diagnostic
+ * continue avec l'extraction par synonymes. L'adaptateur applique le quota et enregistre l'usage.
+ */
+export abstract class AssistedSymptomExtractor {
+  /** Lève SymptomExtractionUnavailableError si le service IA ne répond pas. */
+  abstract extract(user: AuthenticatedUser, platform: string, description: string, evidence: string, catalogue: Symptom[]): Promise<AssistedExtraction>;
+}
+
+export class SymptomExtractionUnavailableError extends Error {}
