@@ -492,8 +492,11 @@ export interface AssistantSource {
   ref: number;
   title: string;
   url: string;
-  kind: 'kb_command';
+  /** Fiche SysMaster (relue, pédagogique) ou passage de documentation officielle (référence exacte). */
+  kind: 'kb_command' | 'official_doc';
   slug: string | null;
+  /** Mention de licence à afficher avec un passage de documentation officielle (CC BY…). */
+  attribution?: string | null;
 }
 
 export interface AssistantStep {

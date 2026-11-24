@@ -325,6 +325,20 @@ flowchart LR
 
 **Choix de Qdrant** (vs Pinecone, Weaviate) : open source, auto-hébergeable (souveraineté des données pour les licences École/Université européennes), filtrage par payload performant, existe aussi en cloud managé. Pinecone reste une option via le port `VectorStore`.
 
+**Implémenté (Phase 3)** — `services/ai/app/rag/` :
+
+| Étape | Choix | Pourquoi |
+|---|---|---|
+| Sources | `services/ai/sources.toml` : Microsoft Learn (commandes Windows, en français), Ubuntu Server, PostgreSQL, Kubernetes, Docker, chacune avec sa licence et son attribution | Pages de manuel exclues : leur licence varie d'une page à l'autre. Les licences sont à faire valider avant une offre commerciale |
+| Collecte | parcours en largeur limité à des préfixes autorisés, `robots.txt` respecté (inaccessible = abstention), une page par seconde, agent `SysMasterBot` | Être un visiteur correct pour les sites qu'on cite |
+| Découpage | par titre (h1 à h3), 150 à 450 mots, recouvrement de 60 mots, ancre conservée | Une citation pointe vers la bonne section ; une option n'est pas séparée de son explication |
+| Plongements | `paraphrase-multilingual-MiniLM-L12-v2` (384 dimensions, Apache 2.0) exécuté **dans le service** (ONNX), intégré à l'image | Une question en français retrouve une page en anglais ; aucune donnée ne sort, aucun coût par requête |
+| Recherche | vecteur dense + vecteur creux (mots exacts, IDF) fusionnés par RRF, filtre par plateforme | « chkdsk /r » et « mon disque a des secteurs défectueux » trouvent la même section |
+| Mise à jour | `python -m app.rag.ingest` (CronJob hebdomadaire) ; une page inchangée n'est ni réencodée ni réécrite | Coût et charge proportionnels à ce qui change |
+| Citation | chaque passage cité porte son URL avec ancre et la mention de licence, affichées sous la réponse | Exigence des licences CC BY et confiance de l'apprenant |
+
+Le reranking (modèle de réordonnancement) est reporté : il se justifiera avec l'évaluation (golden sets), qui dira si l'ordre des passages est le vrai point faible.
+
 **Évaluation continue** : jeu de questions de référence (« golden set ») par domaine, mesure de *faithfulness* et de précision des citations à chaque changement de prompt ou de modèle.
 
 ### 8.5 Moteur de déduction
@@ -609,6 +623,7 @@ La feuille de route prévoyait OpenSearch, NATS et un BFF GraphQL en Phase 2. Ch
 **ADR-012 — Recherche : PostgreSQL d'abord.**
 - *Constat* : 28 fiches aujourd'hui, 150 visées. Un essai sur **56 000 fiches** synthétiques (index GIN sur `tsvector` et trigrammes, même requête que l'API) répond en **8 ms**. Le même essai a révélé le vrai défaut : « redemarrer » ne trouvait pas « redémarrer ». La migration 007 corrige ce point avec `unaccent`, sans nouveau composant.
 - *Décision* : rester sur PostgreSQL. La recherche hybride du RAG (Phase 3) utilisera Qdrant pour les vecteurs et ce même index pour la partie lexicale (BM25 approché par `ts_rank`).
+- *Mise à jour (Phase 3)* : les fiches restent cherchées dans PostgreSQL (via l'API). La documentation officielle, elle, n'est pas dans PostgreSQL : sa partie lexicale est un vecteur creux dans Qdrant (pondération IDF calculée par Qdrant), à côté du vecteur dense, ce qui évite d'y copier des dizaines de milliers de passages.
 - *Quand revoir* : p95 de `/kb/commands` au-dessus de 150 ms en production (métrique `http_request_duration_seconds`), besoin de facettes ou de tolérance aux fautes sur des phrases entières, ou ouverture du forum (Phase 4, des millions de messages).
 - *Coût du changement* : faible. La recherche passe par le port `CommandReadRepository` ; un adaptateur OpenSearch alimenté par les événements `kb.command.published.v1` le remplacera.
 
@@ -616,6 +631,7 @@ La feuille de route prévoyait OpenSearch, NATS et un BFF GraphQL en Phase 2. Ch
 - *Constat* : tous les consommateurs (gamification, progression) vivent dans le même processus. L'outbox et le relais garantissent déjà la livraison au moins une fois, avec idempotence, reprises et lettre morte. Un bus n'apporterait aujourd'hui qu'un composant de plus.
 - *Décision* : introduire NATS JetStream **avec le service IA de la Phase 3**, premier consommateur dans un autre processus (il doit réindexer le RAG quand une fiche ou une leçon est publiée). Le relais publiera alors les mêmes événements (même `type`, même charge utile) sur des sujets `sysmaster.<type>` ; les consommateurs internes restent en mémoire.
 - *Quand revoir plus tôt* : besoin de rejouer l'historique des événements, ou relais saturé (`outbox_oldest_pending_seconds` durablement au-dessus de 60 s).
+- *Mise à jour (Phase 3, RAG)* : le service IA lit les fiches **en direct** par l'API cœur (déjà insensible aux accents), elles sont donc à jour dès leur publication sans aucune réindexation. Le seul index du service IA est la documentation officielle, qui ne dépend d'aucun événement du cœur (collecte hebdomadaire). Le premier consommateur hors processus n'existe donc toujours pas : NATS attend le premier besoin réel, par exemple indexer les leçons en vecteurs (recherche sémantique dans l'académie) ou extraire un service qui réagit aux événements.
 
 **ADR-014 — GraphQL : pas de BFF pour un seul client.**
 - *Constat* : le seul client est le site Next.js. Ses Server Components appellent l'API REST depuis le serveur, au plus près des données, et assemblent les pages composites (tableau de bord : un seul appel, `/me/dashboard`). Un BFF ajouterait une couche à maintenir sans réduire le nombre d'allers-retours du navigateur.

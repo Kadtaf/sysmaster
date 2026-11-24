@@ -1,25 +1,32 @@
-"""Récupération du contexte (RAG v0) : les fiches commandes publiées, via l'API cœur.
+"""Récupération du contexte : fiches SysMaster (API cœur) puis documentation officielle (Qdrant).
 
-Pourquoi l'API et pas la base : le service IA ne dépend pas du schéma interne du cœur, et
-profite de la recherche déjà en place (insensible aux accents, ADR-012). La recherche hybride
-sur la documentation officielle (Qdrant) arrive dans une PR suivante, derrière ce même port.
+Pourquoi les fiches passent par l'API et pas par la base : le service IA ne dépend pas du schéma
+interne du cœur, et profite de la recherche déjà en place (insensible aux accents, ADR-012). Elles
+sont donc toujours à jour, sans réindexation.
 """
 
+import logging
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Literal, Protocol
 
 import httpx
+
+from app.rag.index import DocsIndex
+from app.rag.text import STOPWORDS
+
+log = logging.getLogger("sysmaster.ai.retriever")
 
 
 @dataclass(frozen=True)
 class Document:
     ref: int
-    kind: Literal["kb_command"]
+    kind: Literal["kb_command", "official_doc"]
     title: str
     url: str
     slug: str | None
     text: str
+    attribution: str | None = None
 
 
 class Retriever(Protocol):
@@ -35,16 +42,6 @@ def _render_command(c: dict) -> str:
         f"Utilité : {c['summary']}\nSyntaxe : {c['syntax']}\nPourquoi : {c['why']}\nQuand : {c['whenToUse']}\n"
         f"Contexte : {c.get('context') or ''}\nRisques : {risks}\nParamètres : {params}\nExemples :\n{examples}"
     )
-
-
-STOPWORDS = set(
-    (
-        "avec dans pour sans sous vers chez entre comment pourquoi quand quoi quel quelle quels quelles est sont etre "
-        "avoir fait faire mon mes ton tes son ses notre votre leur leurs cette ces celui celle plus moins tres tout "
-        "tous toute toutes peux peut veux dois doit fois alors donc mais aussi encore depuis apres avant elle elles "
-        "nous vous ils une des les aux par sur que qui the and what how why "
-    ).split()
-)
 
 
 def keywords(question: str) -> str:
@@ -86,3 +83,45 @@ class CoreApiRetriever:
                 )
             )
         return docs
+
+
+class OfficialDocsRetriever:
+    def __init__(self, index: DocsIndex):
+        self.index = index
+
+    async def search(self, question: str, platform: str | None, limit: int = 3) -> list[Document]:
+        passages = await self.index.search(question, platform, limit)
+        return [
+            Document(
+                ref=i,
+                kind="official_doc",
+                title=f"{p.source_name} : {p.section}",
+                url=p.url,
+                slug=None,
+                text=p.text,
+                attribution=p.attribution,
+            )
+            for i, p in enumerate(passages, start=1)
+        ]
+
+
+class CompositeRetriever:
+    """Fiches d'abord (pédagogie maison, relue), puis documentation officielle (référence exacte).
+
+    Une source en panne n'empêche pas de répondre avec l'autre : la réponse sera simplement moins
+    étayée, et « non vérifiée » si plus rien n'est cité.
+    """
+
+    def __init__(self, parts: list[tuple[Retriever, int]]):
+        self.parts = parts
+
+    async def search(self, question: str, platform: str | None, limit: int = 6) -> list[Document]:
+        docs: list[Document] = []
+        for retriever, n in self.parts:
+            try:
+                found = await retriever.search(question, platform, n)
+            except Exception as err:  # noqa: BLE001 — une source indisponible ne doit pas bloquer la réponse
+                log.warning("source de contexte indisponible (%s) : %s", type(retriever).__name__, err)
+                continue
+            docs += [replace(d, ref=len(docs) + i) for i, d in enumerate(found, start=1)]
+        return docs[:limit]

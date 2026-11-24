@@ -79,8 +79,10 @@ class Source(Camel):
     ref: int
     title: str
     url: str
-    kind: Literal["kb_command"]
+    kind: Literal["kb_command", "official_doc"]
     slug: str | None = None
+    # Mention de licence de la documentation officielle (CC BY… exige l'attribution).
+    attribution: str | None = None
 
 
 class Step(Camel):
