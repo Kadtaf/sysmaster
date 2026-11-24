@@ -1,10 +1,11 @@
-import { earnedBadges, Level, levelFor, nextStreak, xpForLab, xpForLesson, XP_DIAGNOSTIC_COMPLETED, XP_PATH_COMPLETED } from './rules';
+import { earnedBadges, Level, levelFor, nextStreak, xpForLab, xpForLesson, XP_ANSWER_ACCEPTED, XP_DIAGNOSTIC_COMPLETED, XP_PATH_COMPLETED } from './rules';
 
 export type Activity =
   | { kind: 'lesson'; estMinutes: number | null }
   | { kind: 'diagnostic' }
   | { kind: 'path' }
-  | { kind: 'lab'; hintsUsed: number };
+  | { kind: 'lab'; hintsUsed: number }
+  | { kind: 'answer_accepted' };
 
 export interface PlayerStats {
   totalXp: number;
@@ -17,11 +18,12 @@ export interface PlayerStats {
   pathsCompleted: number;
   labsSolved: number;
   labsSolvedWithoutHint: number;
+  answersAccepted: number;
 }
 
 export const EMPTY_STATS: PlayerStats = {
   totalXp: 0, level: 1, streakDays: 0, longestStreak: 0, lastActivityDate: null,
-  lessonsCompleted: 0, diagnosticsCompleted: 0, pathsCompleted: 0, labsSolved: 0, labsSolvedWithoutHint: 0,
+  lessonsCompleted: 0, diagnosticsCompleted: 0, pathsCompleted: 0, labsSolved: 0, labsSolvedWithoutHint: 0, answersAccepted: 0,
 };
 
 export interface AwardResult {
@@ -58,10 +60,15 @@ export function award(
       if (activity.hintsUsed === 0) s.labsSolvedWithoutHint++;
       xp = { amount: xpForLab(activity.hintsUsed), reason: 'lab.solved' };
       break;
+    case 'answer_accepted':
+      s.answersAccepted++;
+      xp = { amount: XP_ANSWER_ACCEPTED, reason: 'community.answer_accepted' };
+      break;
   }
 
-  // La série compte les jours où l'on apprend ou pratique ; terminer un parcours en est la conséquence.
-  if (activity.kind !== 'path') {
+  // La série compte les jours où l'on apprend ou pratique ; terminer un parcours en est la conséquence,
+  // et une réponse acceptée arrive quand l'autre personne la valide, pas quand on travaille.
+  if (activity.kind !== 'path' && activity.kind !== 'answer_accepted') {
     s.streakDays = nextStreak(s.lastActivityDate, ctx.today, s.streakDays);
     s.longestStreak = Math.max(s.longestStreak, s.streakDays);
     if (!s.lastActivityDate || ctx.today > s.lastActivityDate) s.lastActivityDate = ctx.today;

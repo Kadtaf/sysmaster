@@ -73,6 +73,7 @@ La progression d'un parcours tient compte des leçons partagées : une leçon va
 | Valider une leçon | 10 + 1 par minute estimée (50 au plus) |
 | Mener un diagnostic à terme (connecté) | 15 |
 | Terminer un parcours | 200 |
+| Voir sa réponse acceptée dans la communauté (une fois par sujet) | 25 |
 
 La vitesse ne rapporte rien. L'XP récompense ce que vous avez compris, pas la rapidité.
 
@@ -136,11 +137,21 @@ Connecté, ouvrez **Assistant** et posez votre question (choisir la plateforme e
 
 Connecté, cochez « Repérer les symptômes avec l'IA » sur la page Diagnostic. L'IA lit votre description et le journal collé, et montre pour chaque symptôme retenu le passage exact qui le justifie : vous voyez ce qu'elle a compris, et vous pouvez corriger en cochant d'autres symptômes. Les causes, elles, sont toujours classées par le moteur de diagnostic, avec son raisonnement. Chaque analyse par l'IA compte dans le même quota quotidien que l'assistant.
 
+### La communauté (`/communaute`)
+
+Posez une question dans la bonne catégorie : le système, ce que vous avez essayé, le message d'erreur exact. Avant de publier, la page propose les sujets proches. La réponse existe peut-être déjà. **Masquez les mots de passe, adresses IP publiques et noms internes** avant de coller un journal.
+
+- **Votes** : flèche haute si un message vous a aidé, flèche basse s'il est faux ou dangereux. On ne vote pas pour soi.
+- **Réponse acceptée** : si une réponse vous a débloqué, acceptez-la. Elle remonte en tête, le sujet est marqué « Résolue », et son auteur gagne 25 XP d'entraide.
+- **Signaler** : spam, propos blessants, commande dangereuse sans avertissement. Après trois signalements de personnes différentes, le message est masqué jusqu'à la décision d'un modérateur. Si l'un de vos messages est masqué, vous le voyez encore, avec le motif.
+
+Une bonne réponse explique quoi vérifier et pourquoi. Une commande risquée s'accompagne d'un avertissement sur ce qu'elle fait.
+
 ## 5. Ce qui arrive ensuite
 
 Les fonctions suivantes sont prévues dans la [feuille de route](05-feuille-de-route.md) :
 
 - l'enrichissement de l'assistant (documentation officielle, réponses en continu, diagnostic à partir de journaux) ;
 - les labs sur de vraies machines isolées (Phase 4) ;
-- les examens des autres certifications, la communauté et les offres payantes (Phase 5) ;
+- les examens des autres certifications, le mentorat, les groupes d'étude et les offres payantes (Phase 5) ;
 - les applications mobiles (Phase 6).

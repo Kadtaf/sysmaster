@@ -19,6 +19,8 @@ export function xpForLab(hintsUsed: number): number {
   return hintsUsed === 0 ? 60 : Math.max(10, 30 - 10 * (hintsUsed - 1));
 }
 export const XP_PATH_COMPLETED = 200;
+/** Aide en communauté : une réponse acceptée par l'auteur de la question (une fois par sujet). */
+export const XP_ANSWER_ACCEPTED = 25;
 
 export interface Level {
   level: number;
@@ -55,6 +57,7 @@ export interface StatsForBadges {
   streakDays: number;
   labsSolved: number;
   labsSolvedWithoutHint: number;
+  answersAccepted: number;
 }
 
 const CRITERIA_FIELDS: Record<string, keyof StatsForBadges> = {
@@ -64,6 +67,7 @@ const CRITERIA_FIELDS: Record<string, keyof StatsForBadges> = {
   streak_days: 'streakDays',
   labs_solved: 'labsSolved',
   labs_solved_without_hint: 'labsSolvedWithoutHint',
+  answers_accepted: 'answersAccepted',
 };
 
 /**
