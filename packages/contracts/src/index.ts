@@ -520,6 +520,25 @@ export const LabMachineSchema = z.object({
     needsFiles: z.array(absPath).max(20).optional(),
     journal: z.array(z.string().max(500)).max(60),
   })),
+  network: z.object({
+    interfaces: z.array(z.object({
+      name: z.string().regex(/^[a-z0-9]+$/).max(15),
+      address: z.string().regex(/^\d{1,3}(\.\d{1,3}){3}\/\d{1,2}$/, 'adresse CIDR, ex. 10.0.0.15/24'),
+      up: z.boolean(),
+      mac: z.string().max(17).optional(),
+    })).max(6),
+    routes: z.array(z.object({
+      destination: z.string().regex(/^default$|^\d{1,3}(\.\d{1,3}){3}\/\d{1,2}$/, '« default » ou réseau CIDR'),
+      via: z.string().regex(/^\d{1,3}(\.\d{1,3}){3}$/).optional(),
+      dev: z.string().max(15),
+    })).max(20),
+    hosts: z.record(z.string().regex(/^\d{1,3}(\.\d{1,3}){3}$/), z.object({
+      label: z.string().max(60).optional(),
+      respondsToPing: z.boolean(),
+      dns: z.record(z.string().max(253), z.string().regex(/^\d{1,3}(\.\d{1,3}){3}$/)).optional(),
+      http: z.object({ status: z.number().int().min(100).max(599), body: z.string().max(5000) }).optional(),
+    })),
+  }).optional(),
 });
 export type LabMachine = z.infer<typeof LabMachineSchema>;
 export const LabCheckSchema = z.discriminatedUnion('kind', [
@@ -527,6 +546,9 @@ export const LabCheckSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('service_enabled'), service: z.string().max(60), expected: z.boolean() }),
   z.object({ kind: z.literal('disk_usage_below'), mount: absPath, percent: z.number().int().min(1).max(100) }),
   z.object({ kind: z.literal('path_exists'), path: absPath, expected: z.boolean() }),
+  z.object({ kind: z.literal('host_reachable'), target: z.string().min(1).max(253) }),
+  z.object({ kind: z.literal('name_resolves'), name: z.string().min(1).max(253) }),
+  z.object({ kind: z.literal('file_has_line'), path: absPath, line: z.string().min(1).max(300), expected: z.boolean() }),
 ]);
 export type LabCheck = z.infer<typeof LabCheckSchema>;
 export const LabContentSchema = z.object({

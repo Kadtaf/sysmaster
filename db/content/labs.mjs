@@ -244,4 +244,182 @@ démarre automatiquement et écoute le port 80. nginx, lancé ensuite, ne peut p
   ],
 };
 
-export default [diskFull, portTaken];
+// ---------------------------------------------------------------- Réseau ----
+const DEBIAN = '151.101.2.132';
+const debianHttp = { status: 200, body: '<html><head><title>Debian -- Mirror</title></head><body>deb.debian.org</body></html>' };
+
+/** Machine d'un serveur applicatif sans service web : le réseau est le sujet. */
+function netMachine({ hostname, files, network }) {
+  return {
+    hostname,
+    cwd: '/root',
+    clock: '2026-11-24T10:20:00.000Z',
+    nextPid: 2100,
+    dirs: ['/etc', '/etc/network', '/home', '/root', '/tmp', '/usr', '/var', '/var/log'],
+    files: {
+      '/etc/hosts': { size: 60, content: '127.0.0.1\tlocalhost\n127.0.1.1\t' + hostname + '\n' },
+      '/var/log/syslog': { size: 4 * M, content: syslogTail.replaceAll('web01', hostname) },
+      ...files,
+    },
+    mounts: [{ target: '/', device: '/dev/sda1', sizeBytes: 20 * G, baseUsedBytes: Math.round(4.1 * G) }],
+    services: {
+      ssh: {
+        description: 'OpenBSD Secure Shell server', active: 'active', enabled: true, process: 'sshd', pid: 702, ports: [22],
+        journal: [`nov. 24 08:58:04 ${hostname} systemd[1]: Started ssh.service - OpenBSD Secure Shell server.`],
+      },
+    },
+    network,
+  };
+}
+
+const dnsInterne = {
+  slug: 'reseau-dns-interne',
+  title: 'Plus aucun nom ne se résout après la migration DNS',
+  category: 'network',
+  difficulty: 'beginner',
+  ttlMinutes: 45,
+  briefMd: `Depuis ce matin, **app02** ne parvient plus à télécharger ses mises à jour depuis le dépôt interne
+\`depot.exemple.fr\` : « Could not resolve host ». Pourtant, l'équipe réseau affirme que le réseau fonctionne.
+
+Trouvez pourquoi les noms ne se résolvent plus, corrigez la configuration, et vérifiez que le dépôt répond.
+
+> Machine simulée : tapez \`help\` pour voir les commandes disponibles. Un ticket de l'équipe réseau est dans \`/root\`.`,
+  objectives: [
+    'Séparer un problème de résolution de noms d’un problème de connectivité',
+    'Lire /etc/resolv.conf et interroger un serveur DNS précis avec dig @serveur',
+    'Comprendre pourquoi un DNS public ne connaît pas les noms internes',
+  ],
+  hints: [
+    'Le réseau marche-t-il ? Essayez ping vers une adresse IP (la passerelle 10.0.0.1), sans nom.',
+    'Quel serveur DNS la machine interroge-t-elle ? cat /etc/resolv.conf, puis dig depot.exemple.fr.',
+    'Le ticket dans /root donne le nouveau serveur. Testez-le d’abord : dig @10.0.0.2 depot.exemple.fr.',
+    'Remplacez le serveur dans /etc/resolv.conf : echo \'nameserver 10.0.0.2\' > /etc/resolv.conf.',
+  ],
+  solutionMd: `**Cause** : \`/etc/resolv.conf\` pointe encore vers l'ancien serveur DNS \`10.0.0.53\`, arrêté
+lors de la migration. Chaque résolution attend sa réponse en vain : « Temporary failure in name resolution ».
+
+**Démarche** : \`ping 10.0.0.1\` répond → le réseau va bien, c'est la **résolution** qui échoue ;
+\`cat /etc/resolv.conf\` → \`nameserver 10.0.0.53\` ; \`dig depot.exemple.fr\` → « no servers could be reached » ;
+le ticket donne le nouveau serveur ; \`dig @10.0.0.2 depot.exemple.fr\` le valide **avant** de modifier quoi que ce soit ;
+puis \`echo 'nameserver 10.0.0.2' > /etc/resolv.conf\`.
+
+**Pourquoi pas 1.1.1.1** : un DNS public résout \`deb.debian.org\` mais ignore tout de \`depot.exemple.fr\`,
+qui n'existe que dans la zone interne. Le symptôme changerait (NXDOMAIN au lieu d'un délai), sans être réglé.
+
+**Pour que ça ne revienne pas** : sur une machine gérée par DHCP, netplan ou systemd-resolved, \`/etc/resolv.conf\`
+est régénéré. La correction durable se fait dans la source (bail DHCP, fichier netplan, \`resolvectl\`).`,
+  machine: netMachine({
+    hostname: 'app02',
+    files: {
+      '/etc/resolv.conf': { size: 52, content: "# Généré lors de l'installation\nnameserver 10.0.0.53\n" },
+      '/etc/network/interfaces': { size: 90, content: 'auto eth0\niface eth0 inet static\n    address 10.0.0.15/24\n    gateway 10.0.0.1\n' },
+      '/root/ticket-1287.txt': {
+        size: 260,
+        content: "Ticket 1287 — Migration DNS (équipe réseau)\nL'ancien serveur DNS 10.0.0.53 est arrêté depuis le 20/11.\nLe serveur DNS interne est désormais 10.0.0.2 : il résout les noms internes (*.exemple.fr) et publics.\n",
+      },
+    },
+    network: {
+      interfaces: [{ name: 'eth0', address: '10.0.0.15/24', up: true, mac: '52:54:00:3a:1f:02' }],
+      routes: [{ destination: 'default', via: '10.0.0.1', dev: 'eth0' }],
+      hosts: {
+        '10.0.0.1': { label: 'routeur', respondsToPing: true },
+        '10.0.0.2': {
+          label: 'DNS interne', respondsToPing: true,
+          dns: { 'depot.exemple.fr': '10.0.0.80', 'intranet.exemple.fr': '10.0.0.81', 'deb.debian.org': DEBIAN },
+        },
+        '10.0.0.80': { label: 'dépôt interne', respondsToPing: true, http: { status: 200, body: '<html><body><h1>Index of /paquets</h1></body></html>' } },
+        '1.1.1.1': { label: 'DNS public', respondsToPing: true, dns: { 'deb.debian.org': DEBIAN } },
+        [DEBIAN]: { label: 'miroir Debian', respondsToPing: true, http: debianHttp },
+      },
+    },
+  }),
+  validators: [
+    { description: 'depot.exemple.fr se résout', check: { kind: 'name_resolves', name: 'depot.exemple.fr' } },
+    { description: 'Le dépôt interne répond', check: { kind: 'host_reachable', target: 'depot.exemple.fr' } },
+    { description: 'L’ancien serveur DNS n’est plus interrogé', check: { kind: 'file_has_line', path: '/etc/resolv.conf', line: 'nameserver 10.0.0.53', expected: false } },
+  ],
+  walkthrough: [
+    'curl https://depot.exemple.fr',
+    'ping -c 1 10.0.0.1',
+    'cat /etc/resolv.conf',
+    'dig depot.exemple.fr',
+    'cat /root/ticket-1287.txt',
+    'dig @10.0.0.2 depot.exemple.fr',
+    "echo 'nameserver 10.0.0.2' > /etc/resolv.conf",
+    'curl https://depot.exemple.fr',
+  ],
+};
+
+const defaultRoute = {
+  slug: 'reseau-route-par-defaut',
+  title: 'Le réseau local répond, Internet non',
+  category: 'network',
+  difficulty: 'intermediate',
+  ttlMinutes: 45,
+  briefMd: `Après une maintenance faite hier par un collègue, **app03** joint toujours les machines du réseau
+local, mais plus rien au-delà : les mises à jour depuis \`deb.debian.org\` échouent.
+
+Rétablissez l'accès à Internet, et faites en sorte que la correction **survive au prochain redémarrage**.
+
+> Machine simulée : tapez \`help\` pour voir les commandes disponibles.`,
+  objectives: [
+    'Lire une table de routage avec ip route',
+    'Distinguer « Network is unreachable » (pas de route) d’un délai dépassé (pas de réponse)',
+    'Corriger à chaud avec ip route, puis rendre la correction persistante',
+  ],
+  hints: [
+    'Le nom deb.debian.org se résout-il ? Et que dit exactement l’erreur de curl ou de ping vers 1.1.1.1 ?',
+    '« Network is unreachable » veut dire « aucune route ». Regardez ip route : où partent les paquets vers Internet ?',
+    'La passerelle est dans /etc/network/interfaces. Ajoutez la route à chaud : ip route add default via 10.0.0.1.',
+    'Pour le prochain démarrage, décommentez la ligne gateway : sed -i \'s/#    gateway/    gateway/\' /etc/network/interfaces.',
+  ],
+  solutionMd: `**Cause** : la ligne \`gateway 10.0.0.1\` a été commentée dans \`/etc/network/interfaces\` pendant la
+maintenance, puis l'interface a été relancée. La machine n'a plus de **route par défaut** : elle ne sait joindre que
+son propre réseau \`10.0.0.0/24\`.
+
+**Démarche** : la résolution fonctionne (le DNS interne est sur le réseau local), mais \`curl\` et \`ping 1.1.1.1\`
+répondent « Network is unreachable » : le noyau n'a aucune route. \`ip route\` ne montre que \`10.0.0.0/24\`.
+\`ip route add default via 10.0.0.1\` rétablit l'accès **tout de suite** ; décommenter \`gateway\` dans
+\`/etc/network/interfaces\` le rend **durable**.
+
+**À retenir** : « Network is unreachable » (pas de route) n'est pas un délai dépassé (la route existe, la réponse
+ne revient pas). Une correction faite avec \`ip\` disparaît au redémarrage : il faut toujours reporter le changement
+dans la configuration.`,
+  machine: netMachine({
+    hostname: 'app03',
+    files: {
+      '/etc/resolv.conf': { size: 20, content: 'nameserver 10.0.0.2\n' },
+      '/etc/network/interfaces': {
+        size: 120,
+        content: '# Interface principale\nauto eth0\niface eth0 inet static\n    address 10.0.0.16/24\n#    gateway 10.0.0.1\n',
+      },
+    },
+    network: {
+      interfaces: [{ name: 'eth0', address: '10.0.0.16/24', up: true, mac: '52:54:00:3a:1f:03' }],
+      routes: [],
+      hosts: {
+        '10.0.0.1': { label: 'routeur', respondsToPing: true },
+        '10.0.0.2': { label: 'DNS interne', respondsToPing: true, dns: { 'deb.debian.org': DEBIAN, 'depot.exemple.fr': '10.0.0.80' } },
+        '10.0.0.80': { label: 'dépôt interne', respondsToPing: true, http: { status: 200, body: '<html><body><h1>Index of /paquets</h1></body></html>' } },
+        '1.1.1.1': { label: 'DNS public', respondsToPing: true, dns: { 'deb.debian.org': DEBIAN } },
+        [DEBIAN]: { label: 'miroir Debian', respondsToPing: true, http: debianHttp },
+      },
+    },
+  }),
+  validators: [
+    { description: 'Internet répond (1.1.1.1)', check: { kind: 'host_reachable', target: '1.1.1.1' } },
+    { description: 'deb.debian.org est joignable', check: { kind: 'host_reachable', target: 'deb.debian.org' } },
+    { description: 'La passerelle est configurée pour le prochain démarrage', check: { kind: 'file_has_line', path: '/etc/network/interfaces', line: 'gateway 10.0.0.1', expected: true } },
+  ],
+  walkthrough: [
+    'curl -I http://deb.debian.org',
+    'ping -c 1 10.0.0.1',
+    'ip route',
+    'cat /etc/network/interfaces',
+    'ip route add default via 10.0.0.1',
+    "sed -i 's/#    gateway/    gateway/' /etc/network/interfaces",
+    'ping -c 2 1.1.1.1',
+  ],
+};
+
+export default [diskFull, portTaken, dnsInterne, defaultRoute];

@@ -14,6 +14,9 @@ const CHECK_LABELS: Record<LabCheck['kind'], string> = {
   service_enabled: 'Service activé (ou non) au démarrage',
   disk_usage_below: 'Occupation d’un disque sous un seuil',
   path_exists: 'Fichier ou répertoire présent (ou absent)',
+  host_reachable: 'Hôte joignable (nom ou adresse)',
+  name_resolves: 'Nom résolu par le DNS',
+  file_has_line: 'Ligne active présente (ou absente) dans un fichier',
 };
 
 const defaultCheck = (kind: LabCheck['kind']): LabCheck => {
@@ -22,6 +25,9 @@ const defaultCheck = (kind: LabCheck['kind']): LabCheck => {
     case 'service_enabled': return { kind, service: '', expected: true };
     case 'disk_usage_below': return { kind, mount: '/', percent: 90 };
     case 'path_exists': return { kind, path: '/', expected: true };
+    case 'host_reachable': return { kind, target: '' };
+    case 'name_resolves': return { kind, name: '' };
+    case 'file_has_line': return { kind, path: '/etc/', line: '', expected: true };
   }
 };
 
@@ -43,13 +49,22 @@ function CheckEditor({ check, set, ro }: { check: LabCheck; set: (c: LabCheck) =
           <input aria-label="Seuil en %" type="number" min={1} max={100} value={check.percent} disabled={ro} onChange={(e) => set({ ...check, percent: Number(e.target.value) })} className={cn(small, 'w-20')} />
         </>
       )}
-      {check.kind === 'path_exists' && (
+      {(check.kind === 'path_exists' || check.kind === 'file_has_line') && (
         <input aria-label="Chemin" value={check.path} disabled={ro} onChange={(e) => set({ ...check, path: e.target.value })} className={cn(small, 'font-mono')} />
       )}
-      {(check.kind === 'service_enabled' || check.kind === 'path_exists') && (
+      {check.kind === 'file_has_line' && (
+        <input aria-label="Ligne" placeholder="gateway 10.0.0.1" value={check.line} disabled={ro} onChange={(e) => set({ ...check, line: e.target.value })} className={cn(small, 'font-mono')} />
+      )}
+      {check.kind === 'host_reachable' && (
+        <input aria-label="Hôte" placeholder="deb.debian.org" value={check.target} disabled={ro} onChange={(e) => set({ ...check, target: e.target.value })} className={cn(small, 'font-mono')} />
+      )}
+      {check.kind === 'name_resolves' && (
+        <input aria-label="Nom" placeholder="depot.exemple.fr" value={check.name} disabled={ro} onChange={(e) => set({ ...check, name: e.target.value })} className={cn(small, 'font-mono')} />
+      )}
+      {(check.kind === 'service_enabled' || check.kind === 'path_exists' || check.kind === 'file_has_line') && (
         <select aria-label="Attendu" value={String(check.expected)} disabled={ro} onChange={(e) => set({ ...check, expected: e.target.value === 'true' })} className={small}>
-          <option value="true">{check.kind === 'path_exists' ? 'présent' : 'activé'}</option>
-          <option value="false">{check.kind === 'path_exists' ? 'absent' : 'désactivé'}</option>
+          <option value="true">{check.kind === 'service_enabled' ? 'activé' : 'présent'}</option>
+          <option value="false">{check.kind === 'service_enabled' ? 'désactivé' : 'absent'}</option>
         </select>
       )}
     </div>
@@ -67,7 +82,7 @@ function MachineEditor({ value, onChange, ro, issue }: { value: LabContent['mach
   return (
     <Field
       label="Machine de départ (JSON)"
-      hint="L’état EN PANNE : répertoires, fichiers (taille en octets, contenu affiché), montages, services (actif, activé, ports, fichier écrit au démarrage, journal)."
+      hint="L’état EN PANNE : répertoires, fichiers (taille en octets, contenu affiché), montages, services (actif, activé, ports, fichier écrit au démarrage, journal) et, si besoin, réseau (interfaces, routes, hôtes du monde simulé avec leurs enregistrements DNS et leur réponse web)."
       issue={issue}
     >
       <textarea

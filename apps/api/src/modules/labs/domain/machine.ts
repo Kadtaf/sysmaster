@@ -6,6 +6,8 @@
  * (fichiers et tailles, points de montage, services systemd, ports écoutés, journaux).
  */
 
+import type { SimNetwork } from './network';
+
 export interface SimFile {
   /** Taille en octets ; peut dépasser le contenu affiché (gros journal). */
   size: number;
@@ -46,6 +48,8 @@ export interface MachineState {
   mounts: SimMount[];
   services: Record<string, SimService>;
   nextPid: number;
+  /** Réseau (facultatif : les labs sans réseau n'en décrivent pas). */
+  network?: SimNetwork;
 }
 
 /** Espace libre minimal pour qu'un service puisse écrire en démarrant. */

@@ -86,7 +86,7 @@ Règles :
 
 ### 2.6 Laboratoires virtuels — Phase 4
 
-> **Livré (premier incrément)** : labs **simulés** (machine Linux décrite en JSON, commandes interprétées sans rien exécuter), terminal web, panne injectée, indices progressifs qui réduisent score et XP, validation automatique sur l'état final, explication après réussite, XP et badges. Deux labs : disque plein, port 80 occupé. Reste à faire : runtimes réels isolés (conteneur, micro-VM, VM Windows), autres catégories, générateur de labs (agent 11). Rédaction des labs dans le back-office livrée ensuite (démarche de référence rejouée avant publication).
+> **Livré (premier incrément)** : labs **simulés** (machine Linux décrite en JSON, commandes interprétées sans rien exécuter), terminal web, panne injectée, indices progressifs qui réduisent score et XP, validation automatique sur l'état final, explication après réussite, XP et badges. Labs : disque plein, port 80 occupé, DNS après migration, route par défaut absente (réseau simulé : interfaces, routes, DNS, serveurs web). Reste à faire : runtimes réels isolés (conteneur, micro-VM, VM Windows), autres catégories, générateur de labs (agent 11). Rédaction des labs dans le back-office livrée ensuite (démarche de référence rejouée avant publication).
 
 - Catégories : Windows, Linux, macOS (simulé), Docker, Réseau, Cyber, Cloud, Bases de données.
 - Chaque lab : énoncé, objectifs, panne injectée réaliste, indices progressifs (coûtent de l'XP), validation automatique, explication de la solution après réussite.

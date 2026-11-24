@@ -1,4 +1,5 @@
 import { isDir, MachineState, mountUsage } from './machine';
+import { reachable, resolve } from './network';
 
 /**
  * Validateurs déclaratifs : ils lisent l'état final de la machine simulée. Un lab réussi est
@@ -8,7 +9,12 @@ export type Check =
   | { kind: 'service_active'; service: string }
   | { kind: 'service_enabled'; service: string; expected: boolean }
   | { kind: 'disk_usage_below'; mount: string; percent: number }
-  | { kind: 'path_exists'; path: string; expected: boolean };
+  | { kind: 'path_exists'; path: string; expected: boolean }
+  /** Le nom (ou l'adresse) répond au ping de bout en bout : résolution puis routage. */
+  | { kind: 'host_reachable'; target: string }
+  | { kind: 'name_resolves'; name: string }
+  /** Une ligne active (hors commentaire, espaces ignorés) est présente, ou absente, dans le fichier. */
+  | { kind: 'file_has_line'; path: string; line: string; expected: boolean };
 
 export interface Validator {
   description: string;
@@ -35,7 +41,20 @@ export function passes(state: MachineState, check: Check): boolean {
     }
     case 'path_exists':
       return (!!state.files[check.path] || isDir(state, check.path)) === check.expected;
+    case 'host_reachable':
+      return reachable(state, check.target);
+    case 'name_resolves':
+      return resolve(state, check.name).ok;
+    case 'file_has_line': {
+      const wanted = normalizeLine(check.line);
+      const has = (state.files[check.path]?.content ?? '').split('\n').some((l) => normalizeLine(l) === wanted && !l.trim().startsWith('#'));
+      return has === check.expected;
+    }
   }
+}
+
+function normalizeLine(l: string): string {
+  return l.trim().replace(/\s+/g, ' ');
 }
 
 export function evaluate(state: MachineState, validators: Validator[]): { description: string; passed: boolean }[] {
@@ -60,6 +79,9 @@ export function specIssues(spec: SimulationSpec): string[] {
     const c = v.check;
     if ((c.kind === 'service_active' || c.kind === 'service_enabled') && !m.services[c.service]) {
       issues.push(`Validateur « ${v.description} » : service ${c.service} inconnu.`);
+    }
+    if ((c.kind === 'host_reachable' || c.kind === 'name_resolves') && !m.network) {
+      issues.push(`Validateur « ${v.description} » : la machine n’a pas de réseau décrit.`);
     }
     if (c.kind === 'disk_usage_below' && !m.mounts.some((x) => x.target === c.mount)) {
       issues.push(`Validateur « ${v.description} » : montage ${c.mount} inconnu.`);
