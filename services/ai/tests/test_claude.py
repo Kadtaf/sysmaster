@@ -40,3 +40,11 @@ async def test_refus() -> None:
     client, _ = fake_client(SimpleNamespace(stop_reason="refusal", parsed_output=None, model="claude-opus-5-5", usage=USAGE))
     res = await ClaudeLlm("claude-opus-5-5", "medium", 8000, client=client).answer("S", "Q")
     assert res.outcome == "refused" and res.draft is None
+
+
+async def test_lab_plafond_de_sortie_releve() -> None:
+    from app.schemas import DraftLab
+
+    client, messages = fake_client(SimpleNamespace(stop_reason="end_turn", parsed_output=None, model="claude-opus-5-5", usage=USAGE))
+    await ClaudeLlm("claude-opus-5-5", "medium", 8000, client=client).generate_lab("S", "U")
+    assert messages.kwargs["output_format"] is DraftLab and messages.kwargs["max_tokens"] == 16_000

@@ -228,3 +228,56 @@ class QuizResponse(Camel):
     usage: Usage
     latency_ms: int
     outcome: Literal["answered", "refused"]
+
+
+# --------------------------------------------------------------------------- Générateur de labs (agent 11)
+LabCategory = Literal["windows", "linux", "macos", "docker", "network", "cyber", "cloud", "database"]
+
+
+class DraftLab(BaseModel):
+    """Format imposé au modèle. La machine et les vérifications sont des chaînes JSON : leur forme exacte
+    (tables à clés libres) est vérifiée par l'API cœur, qui rejoue aussi la démarche sur le vrai simulateur."""
+
+    slug: str = Field(
+        description="Identifiant d'URL : minuscules, chiffres et tirets, préfixé par la catégorie (ex. linux-inodes-epuises)."
+    )
+    title: str = Field(description="Titre du lab, comme le titre d'un ticket d'incident.")
+    brief_md: str = Field(description="Énoncé en Markdown : ce que voit l'utilisateur, ce qu'on attend. Jamais la cause.")
+    objectives: list[str] = Field(description="2 à 4 objectifs d'apprentissage.")
+    hints: list[str] = Field(description="3 ou 4 indices, du plus général au plus précis.")
+    solution_md: str = Field(description="Cause, démarche, ce qu'il ne fallait pas faire, prévention. En Markdown.")
+    machine_json: str = Field(description="La machine EN PANNE, objet JSON au format de l'exemple.")
+    validators_json: str = Field(description='Tableau JSON des vérifications : [{"description": …, "check": {…}}].')
+    walkthrough: list[str] = Field(description="Démarche de référence : commandes simulées, une par entrée, qui réparent la machine.")
+
+
+class LabRequest(Camel):
+    topic: str = Field(min_length=10, max_length=1000, description="L'incident à mettre en scène, en quelques phrases.")
+    category: LabCategory
+    difficulty: Difficulty = "beginner"
+    example: str = Field(max_length=60_000, description="Un lab publié, en JSON : modèle de forme.")
+    reference: str = Field(max_length=20_000, description="Commandes simulées et vérifications disponibles.")
+    previous: str | None = Field(default=None, max_length=80_000, description="Proposition précédente, à corriger.")
+    issues: list[str] = Field(default_factory=list, max_length=40, description="Problèmes relevés sur la proposition précédente.")
+
+
+class LabDraftOut(Camel):
+    slug: str
+    title: str
+    brief_md: str
+    objectives: list[str]
+    hints: list[str]
+    solution_md: str
+    machine: dict
+    validators: list
+    walkthrough: list[str]
+
+
+class LabResponse(Camel):
+    lab: LabDraftOut | None
+    notes: list[str] = Field(default_factory=list, description="Problèmes de forme relevés par le service.")
+    raw: str | None = Field(default=None, description="Proposition brute (JSON), pour une passe de correction.")
+    model: str
+    usage: Usage
+    latency_ms: int
+    outcome: Literal["answered", "refused"]

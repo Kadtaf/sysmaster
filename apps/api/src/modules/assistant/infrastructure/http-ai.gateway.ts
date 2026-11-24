@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import {
-  AiAskRequest, AiAskResponse, AiExtractRequest, AiExtractResponse, AiGateway, AiQuizRequest, AiQuizResponse, AiStreamEvent, AiUnavailableError,
+  AiAskRequest, AiAskResponse, AiExtractRequest, AiExtractResponse, AiGateway, AiLabRequest, AiLabResponse, AiQuizRequest, AiQuizResponse, AiStreamEvent, AiUnavailableError,
 } from '../application/ports';
 
 /** Client HTTP du service IA. Le jeton partagé prouve au service que l'appel vient du cœur. */
@@ -10,6 +10,8 @@ export class HttpAiGateway extends AiGateway {
   private readonly baseUrl = (process.env.AI_SERVICE_URL ?? 'http://localhost:8000').replace(/\/$/, '');
   private readonly token = process.env.AI_SERVICE_TOKEN ?? 'dev-only-ai-token';
   private readonly timeoutMs = Number(process.env.AI_SERVICE_TIMEOUT_MS ?? 90_000);
+  /** Un lab complet est long à rédiger (machine JSON, démarche, solution) : délai propre. */
+  private readonly labTimeoutMs = Number(process.env.AI_LAB_TIMEOUT_MS ?? 240_000);
 
   ask(req: AiAskRequest): Promise<AiAskResponse> {
     return this.post<AiAskResponse>('/v1/ask', req);
@@ -17,6 +19,10 @@ export class HttpAiGateway extends AiGateway {
 
   generateQuiz(req: AiQuizRequest): Promise<AiQuizResponse> {
     return this.post<AiQuizResponse>('/v1/quiz/generate', req);
+  }
+
+  generateLab(req: AiLabRequest): Promise<AiLabResponse> {
+    return this.post<AiLabResponse>('/v1/labs/generate', req, this.labTimeoutMs);
   }
 
   /** Lit le flux Server-Sent Events du service : meta et delta sont relayés, answer termine, error échoue. */
@@ -57,18 +63,18 @@ export class HttpAiGateway extends AiGateway {
     return this.post<AiExtractResponse>('/v1/diagnostic/extract', req);
   }
 
-  private async post<T>(path: string, body: unknown): Promise<T> {
-    return (await (await this.send(path, body)).json()) as T;
+  private async post<T>(path: string, body: unknown, timeoutMs = this.timeoutMs): Promise<T> {
+    return (await (await this.send(path, body, timeoutMs)).json()) as T;
   }
 
-  private async send(path: string, body: unknown): Promise<Response> {
+  private async send(path: string, body: unknown, timeoutMs = this.timeoutMs): Promise<Response> {
     let res: Response;
     try {
       res = await fetch(`${this.baseUrl}${path}`, {
         method: 'POST',
         headers: { 'content-type': 'application/json', 'x-ai-token': this.token },
         body: JSON.stringify(body),
-        signal: AbortSignal.timeout(this.timeoutMs),
+        signal: AbortSignal.timeout(timeoutMs),
       });
     } catch (err) {
       this.logger.error(`Service IA injoignable : ${(err as Error).message}`);

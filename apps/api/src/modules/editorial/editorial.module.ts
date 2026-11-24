@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { AssistantModule } from '../assistant/assistant.module';
 import { EditorialService } from './application/editorial.service';
+import { LabDraftService } from './application/lab-draft.service';
 import { QuizDraftService } from './application/quiz-draft.service';
 import { CONTENT_KIND_ADAPTERS, RevisionRepository } from './application/ports';
 import { AgentProfileKindAdapter } from './infrastructure/agent-profile-kind.adapter';
@@ -12,6 +13,7 @@ import { PgRevisionRepository } from './infrastructure/pg-revision.repository';
 import { QuizKindAdapter } from './infrastructure/quiz-kind.adapter';
 import { LabKindAdapter } from './infrastructure/lab-kind.adapter';
 import { EditorialController } from './interface/editorial.controller';
+import { LabDraftController } from './interface/lab-draft.controller';
 import { QuizDraftController } from './interface/quiz-draft.controller';
 
 /**
@@ -21,7 +23,7 @@ import { QuizDraftController } from './interface/quiz-draft.controller';
 @Module({
   // La passerelle IA et le quota commun servent aux brouillons de quiz.
   imports: [AssistantModule],
-  controllers: [EditorialController, QuizDraftController],
+  controllers: [EditorialController, QuizDraftController, LabDraftController],
   providers: [
     CommandKindAdapter, CourseKindAdapter, PathKindAdapter, CauseKindAdapter, AgentProfileKindAdapter, QuizKindAdapter, LabKindAdapter,
     {
@@ -31,6 +33,7 @@ import { QuizDraftController } from './interface/quiz-draft.controller';
     },
     EditorialService,
     QuizDraftService,
+    LabDraftService,
     { provide: RevisionRepository, useClass: PgRevisionRepository },
   ],
 })

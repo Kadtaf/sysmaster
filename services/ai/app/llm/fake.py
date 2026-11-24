@@ -1,12 +1,23 @@
 """Modèle factice, déterministe et gratuit : développement local sans clé, et tests.
 Il construit une réponse plausible à partir des documents fournis, sans rien inventer."""
 
+import json
 import re
 from collections.abc import AsyncIterator
 from typing import Any
 
 from app.llm.port import LlmResult
-from app.schemas import DraftAnswer, DraftChoice, DraftExtraction, DraftLogFinding, DraftQuestion, DraftQuiz, DraftStep, DraftSymptom
+from app.schemas import (
+    DraftAnswer,
+    DraftChoice,
+    DraftExtraction,
+    DraftLab,
+    DraftLogFinding,
+    DraftQuestion,
+    DraftQuiz,
+    DraftStep,
+    DraftSymptom,
+)
 
 
 class FakeLlm:
@@ -89,3 +100,57 @@ class FakeLlm:
             for i in range(count)
         ]
         return LlmResult(draft=DraftQuiz(questions=questions), outcome="answered", model=self.model)
+
+    async def generate_lab(self, system: str, user: str) -> LlmResult[DraftLab]:
+        """Un petit lab jouable : un service ne démarre plus, faute de son fichier de configuration."""
+        names = {"Linux": "linux", "Docker": "docker", "Réseau": "network", "Cybersécurité": "cyber"}
+        label = m.group(1) if (m := re.search(r"Catégorie : ([^.]+)\.", user)) else "Linux"
+        prefix = names.get(label, "linux")
+        conf = "/etc/rapports/rapports.conf"
+        machine = {
+            "hostname": "srv-rapports",
+            "cwd": "/root",
+            "clock": "2026-11-24T08:00:00.000Z",
+            "nextPid": 2000,
+            "dirs": ["/etc", "/etc/rapports", "/root", "/tmp", "/var", "/var/log"],
+            "files": {
+                "/etc/rapports/rapports.conf.exemple": {"size": 40, "content": "# Exemple\nport=8080\n"},
+                "/var/log/syslog": {"size": 1048576, "content": ""},
+            },
+            "mounts": [{"target": "/", "device": "/dev/sda1", "sizeBytes": 21474836480, "baseUsedBytes": 5368709120}],
+            "services": {
+                "rapports": {
+                    "description": "Générateur de rapports",
+                    "active": "failed",
+                    "enabled": True,
+                    "process": "rapports",
+                    "ports": [8080],
+                    "needsFiles": [conf],
+                    "journal": [f'nov. 24 07:59:58 srv-rapports rapports[1999]: open() "{conf}" failed (2: No such file or directory)'],
+                }
+            },
+        }
+        validators = [{"description": "Le service rapports tourne", "check": {"kind": "service_active", "service": "rapports"}}]
+        draft = DraftLab(
+            slug=f"{prefix}-brouillon-factice",
+            title="Le service de rapports ne démarre plus (brouillon factice)",
+            brief_md="Le service **rapports** est en échec depuis ce matin. Remettez-le en marche.\n\n"
+            "> Machine simulée : tapez `help` pour voir les commandes disponibles.",
+            objectives=["Lire le journal d'un service en échec", "Rétablir un fichier de configuration manquant"],
+            hints=[
+                "Que dit le journal du service ?",
+                f"Il manque {conf} : un exemple est à côté.",
+                f"echo 'port=8080' > {conf} puis systemctl start rapports",
+            ],
+            solution_md="**Cause** : le fichier de configuration a disparu lors d'un nettoyage. **Démarche** : journalctl -u rapports, "
+            "recréer le fichier à partir de l'exemple, redémarrer. **Prévention** : versionner la configuration (modèle factice).",
+            machine_json=json.dumps(machine, ensure_ascii=False),
+            validators_json=json.dumps(validators, ensure_ascii=False),
+            walkthrough=[
+                "systemctl status rapports",
+                "journalctl -u rapports -n 5",
+                f"echo 'port=8080' > {conf}",
+                "systemctl start rapports",
+            ],
+        )
+        return LlmResult(draft=draft, outcome="answered", model=self.model)

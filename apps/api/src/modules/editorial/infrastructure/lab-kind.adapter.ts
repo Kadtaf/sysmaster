@@ -58,6 +58,16 @@ export class LabKindAdapter implements ContentKindAdapter<LabContent> {
     };
   }
 
+  /** Un lab publié qui sert de modèle de forme au générateur : de la même catégorie si possible. */
+  async example(category: string): Promise<LabContent | null> {
+    const { rows } = await this.db.query<{ slug: string }>(
+      `SELECT slug FROM labs.lab_templates WHERE status = 'published' AND runtime = 'simulation'
+        ORDER BY (category = $1) DESC, created_at LIMIT 1`,
+      [category],
+    );
+    return rows[0] ? ((await this.published(rows[0].slug))?.content ?? null) : null;
+  }
+
   async apply(tx: PoolClient, c: LabContent, targetId: string | null): Promise<string> {
     const params = [
       c.slug, c.title, c.category, c.difficulty, c.briefMd, c.objectives, JSON.stringify(c.hints.map((text) => ({ text }))),

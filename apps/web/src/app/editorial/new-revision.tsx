@@ -3,12 +3,12 @@
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { useState, useTransition } from 'react';
-import { CONTENT_KINDS, type ContentKind, type QuizDraftDto, type RevisionDto } from '@sysmaster/contracts';
+import { CONTENT_KINDS, DIFFICULTIES, LAB_CATEGORIES, type ContentKind, type LabCategory, type LabDraftDto, type QuizDraftDto, type RevisionDto } from '@sysmaster/contracts';
 import { Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardDescription, CardTitle } from '@/components/ui/card';
-import { apiRequest } from '@/lib/client-api';
-import { contentKindMeta } from '@/lib/labels';
+import { ApiError, apiRequest } from '@/lib/client-api';
+import { contentKindMeta, difficultyLabel, labCategoryLabel } from '@/lib/labels';
 
 export function NewRevision() {
   const { data: session } = useSession();
@@ -86,6 +86,84 @@ export function NewRevision() {
         </CardDescription>
       )}
       {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
+      {kind === 'lab' && <LabDraftForm />}
     </Card>
+  );
+}
+
+/**
+ * Brouillon de lab par l'IA : l'auteur décrit l'incident, l'IA propose le lab complet. L'API rejoue
+ * la démarche proposée sur le simulateur (une passe de correction au plus) avant d'ouvrir la révision.
+ */
+function LabDraftForm() {
+  const { data: session } = useSession();
+  const router = useRouter();
+  const [topic, setTopic] = useState('');
+  const [category, setCategory] = useState<LabCategory>('linux');
+  const [difficulty, setDifficulty] = useState<(typeof DIFFICULTIES)[number]>('beginner');
+  const [error, setError] = useState<{ message: string; issues: string[] } | null>(null);
+  const [pending, startTransition] = useTransition();
+  const field = 'mt-1 rounded-md border bg-background px-3 py-2 text-sm';
+
+  const submit = () =>
+    startTransition(async () => {
+      setError(null);
+      try {
+        const r = await apiRequest<LabDraftDto>('POST', '/editorial/lab-drafts', session?.accessToken, { topic: topic.trim(), category, difficulty });
+        router.push(`/editorial/${r.revisionId}`);
+      } catch (e) {
+        const issues = e instanceof ApiError && Array.isArray(e.body.issues) ? (e.body.issues as string[]) : [];
+        setError({ message: e instanceof Error ? e.message : 'Brouillon impossible', issues });
+      }
+    });
+
+  return (
+    <form
+      className="space-y-3 border-t pt-4"
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (topic.trim().length >= 10) submit();
+      }}
+    >
+      <label className="block text-sm">
+        <span className="block text-muted-foreground">Ou faites rédiger un brouillon par l’IA : décrivez l’incident à mettre en scène</span>
+        <textarea
+          value={topic}
+          onChange={(e) => setTopic(e.target.value)}
+          rows={3}
+          maxLength={1000}
+          placeholder="Ex. : après une mise à jour, PostgreSQL refuse les connexions car pg_hba.conf a été remplacé ; l’apprenant doit retrouver la ligne manquante sans tout ouvrir."
+          className={`${field} w-full`}
+        />
+      </label>
+      <div className="flex flex-wrap items-end gap-3">
+        <label className="text-sm">
+          <span className="block text-muted-foreground">Catégorie</span>
+          <select value={category} onChange={(e) => setCategory(e.target.value as LabCategory)} className={field}>
+            {LAB_CATEGORIES.map((c) => <option key={c} value={c}>{labCategoryLabel[c]}</option>)}
+          </select>
+        </label>
+        <label className="text-sm">
+          <span className="block text-muted-foreground">Difficulté</span>
+          <select value={difficulty} onChange={(e) => setDifficulty(e.target.value as (typeof DIFFICULTIES)[number])} className={field}>
+            {DIFFICULTIES.map((d) => <option key={d} value={d}>{difficultyLabel[d]}</option>)}
+          </select>
+        </label>
+        <Button type="submit" variant="outline" disabled={pending || topic.trim().length < 10}>
+          <Sparkles className="size-4" aria-hidden /> {pending ? 'Rédaction et vérification en cours…' : 'Brouillon de lab par l’IA'}
+        </Button>
+      </div>
+      <CardDescription>
+        L’IA propose l’énoncé, la machine en panne, les vérifications, la démarche, les indices et la solution. La démarche est rejouée sur le
+        simulateur ; s’il reste un problème, il lui est renvoyé une fois pour correction. Vous relisez et complétez ensuite le brouillon, puis une autre
+        personne le relit : rien n’est publié sans un second regard. Compte dans votre quota IA quotidien et peut prendre une à deux minutes.
+      </CardDescription>
+      {error && (
+        <div role="alert" className="text-sm text-red-600">
+          <p>{error.message}</p>
+          {error.issues.length > 0 && <ul className="mt-1 list-disc pl-5">{error.issues.slice(0, 8).map((i) => <li key={i}>{i}</li>)}</ul>}
+        </div>
+      )}
+    </form>
   );
 }
