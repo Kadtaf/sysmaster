@@ -85,7 +85,7 @@ Vous y apparaissez sous un nom abrégé (« Alice M. »), jamais avec votre e-ma
 Un lab vous confie une machine en panne et une situation (« le site ne répond plus »). Vous tapez des commandes dans le terminal de la page comme sur un vrai serveur, mais **rien ne s'exécute réellement** : la machine est simulée. Tapez `help` pour la liste des commandes disponibles.
 
 1. Lisez la situation et ce qui sera vérifié.
-2. Observez avant d'agir : `systemctl status`, `journalctl -u`, `df -h`, `ss -tlnp`, pour le réseau `ip a`, `ip route`, `ping`, `dig`, `curl`, et pour Docker `docker ps -a`, `docker logs`, `docker compose up -d`…
+2. Observez avant d'agir : `systemctl status`, `journalctl -u`, `df -h`, `ss -tlnp`, pour le réseau `ip a`, `ip route`, `ping`, `dig`, `curl`, pour Docker `docker ps -a`, `docker logs`, `docker compose up -d`, et pour la sécurité `ls -l`, `stat`, `ufw status numbered`, `grep … | cut | sort | uniq -c`…
 3. Réparez, puis cliquez sur **Vérifier ma réparation**. La validation regarde l'état de la machine, pas la suite exacte de vos commandes.
 4. Une fois réussi, vous voyez votre score et l'explication complète : la cause, la démarche, et comment éviter que ça revienne.
 
@@ -130,6 +130,6 @@ Connecté, cochez « Repérer les symptômes avec l'IA » sur la page Diagnostic
 Les fonctions suivantes sont prévues dans la [feuille de route](05-feuille-de-route.md) :
 
 - l'enrichissement de l'assistant (documentation officielle, réponses en continu, diagnostic à partir de journaux) ;
-- les labs sur de vraies machines isolées, et de nouveaux labs Docker, réseau et cybersécurité (Phase 4) ;
+- les labs sur de vraies machines isolées, et de nouveaux labs Docker, réseau et cybersécurité, dont un générateur de labs relu par l'équipe (Phase 4) ;
 - les certifications, la communauté et les offres payantes (Phase 5) ;
 - les applications mobiles (Phase 6).

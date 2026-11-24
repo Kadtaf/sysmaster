@@ -663,4 +663,255 @@ au prochain démarrage du démon Docker, avant ou à la place du service compose
   ],
 };
 
-export default [diskFull, portTaken, dnsInterne, defaultRoute, dockerVariable, dockerPort];
+
+// --- Cyber ------------------------------------------------------------------------------
+
+/** Machine d'un serveur exposé à Internet, avec pare-feu ufw. */
+function secMachine({ hostname, dirs = [], files, services = {}, firewall }) {
+  return {
+    hostname,
+    cwd: '/root',
+    clock: '2026-11-24T09:40:00.000Z',
+    nextPid: 4100,
+    dirs: ['/etc', '/etc/ssh', '/home', '/root', '/tmp', '/usr', '/var', '/var/log', ...dirs],
+    files: {
+      '/var/log/syslog': { size: 2 * M, content: syslogTail.replaceAll('web01', hostname) },
+      ...files,
+    },
+    mounts: [{ target: '/', device: '/dev/sda1', sizeBytes: 30 * G, baseUsedBytes: Math.round(6.2 * G) }],
+    services: {
+      ssh: {
+        description: 'OpenBSD Secure Shell server', active: 'active', enabled: true, process: 'sshd', pid: 702, ports: [22],
+        needsFiles: ['/etc/ssh/sshd_config'],
+        journal: [`nov. 24 08:58:04 ${hostname} systemd[1]: Started ssh.service - OpenBSD Secure Shell server.`],
+      },
+      ...services,
+    },
+    ...(firewall ? { firewall } : {}),
+  };
+}
+
+const ATTACKER = '203.0.113.45';
+const SCANNER = '198.51.100.77';
+const OFFICE = '192.0.2.10';
+
+/** Journal d'authentification : des centaines d'échecs depuis une adresse, quelques-uns d'un scanner, l'équipe qui se connecte. */
+function authLog(host) {
+  const out = [];
+  let port = 40112;
+  const line = (t, msg) => `Nov 24 ${t} ${host} sshd[${1200 + out.length}]: ${msg}`;
+  out.push(line('07:58:41', `Accepted publickey for deploy from ${OFFICE} port 52210 ssh2: ED25519 SHA256:q3Lk9vXwz`));
+  for (let i = 0; i < 3; i++) out.push(line(`08:0${i}:17`, `Failed password for root from ${SCANNER} port ${port++} ssh2`));
+  for (let i = 0; i < 46; i++) {
+    const s = String(10 + Math.floor(i / 4)).padStart(2, '0');
+    out.push(line(`09:${s}:${String((i * 13) % 60).padStart(2, '0')}`, `Failed password for root from ${ATTACKER} port ${port++} ssh2`));
+  }
+  out.splice(30, 0, line('09:17:02', `Accepted publickey for deploy from ${OFFICE} port 52388 ssh2: ED25519 SHA256:q3Lk9vXwz`));
+  return `${out.join('\n')}\n`;
+}
+
+const sshdConfig = `# Configuration du serveur SSH — voir sshd_config(5)
+Include /etc/ssh/sshd_config.d/*.conf
+
+Port 22
+PermitRootLogin yes
+PasswordAuthentication yes
+KbdInteractiveAuthentication no
+UsePAM yes
+X11Forwarding no
+PrintMotd no
+AcceptEnv LANG LC_*
+Subsystem sftp /usr/lib/openssh/sftp-server
+`;
+
+const sshBruteForce = {
+  slug: 'cyber-ssh-force-brute',
+  title: 'Attaque par force brute sur SSH : bloquer sans se couper l’accès',
+  category: 'cyber',
+  difficulty: 'intermediate',
+  ttlMinutes: 45,
+  briefMd: `La supervision de **bastion01** signale depuis 9 h 10 un pic de connexions SSH refusées. Le serveur héberge
+aussi le site public (ports 80 et 443).
+
+Bloquez l'adresse qui attaque, **sans couper l'accès de l'équipe** (le bureau sort par \`${OFFICE}\`) ni le site
+public, et faites en sorte que plus personne ne puisse se connecter **directement en root** par SSH.
+
+> Machine simulée : tapez \`help\` pour voir les commandes disponibles. Le pare-feu est ufw.`,
+  objectives: [
+    'Lire /var/log/auth.log et compter les échecs par adresse (grep, cut, sort, uniq -c)',
+    'Comprendre que ufw applique la première règle qui correspond, dans l’ordre',
+    'Durcir SSH (PermitRootLogin no) et recharger le service sans perdre la main',
+  ],
+  hints: [
+    'Les tentatives SSH sont dans /var/log/auth.log. Cherchez les lignes « Failed password ».',
+    'Comptez par adresse : grep "Failed password" /var/log/auth.log | cut -d\' \' -f11 | sort | uniq -c',
+    'ufw deny from … ajoute la règle À LA FIN : regardez ufw status numbered. Une règle « allow 22 » placée avant laisse encore passer l’attaquant.',
+    'ufw insert 1 deny from 203.0.113.45 place l’interdiction en tête. Puis corrigez PermitRootLogin dans /etc/ssh/sshd_config et redémarrez ssh.',
+  ],
+  solutionMd: `**Constat** : \`/var/log/auth.log\` contient 46 échecs de mot de passe sur \`root\` depuis \`${ATTACKER}\` en quelques
+minutes, plus 3 essais isolés d'un scanner (\`${SCANNER}\`). L'équipe (\`${OFFICE}\`) se connecte par clé, sans échec.
+
+**Démarche** : \`grep "Failed password" /var/log/auth.log | cut -d' ' -f11 | sort | uniq -c\` ; \`ufw status numbered\` montre
+\`allow 22\` en règle 1 ; \`ufw insert 1 deny from ${ATTACKER}\` ; \`ufw status numbered\` pour vérifier l'ordre ;
+\`sed -i 's/PermitRootLogin yes/PermitRootLogin no/' /etc/ssh/sshd_config\` ; \`systemctl restart ssh\`.
+
+**Le piège** : \`ufw deny from ${ATTACKER}\` répond « Rule added »… mais ajoute la règle en dernière position. ufw
+s'arrête à la **première** règle qui correspond : \`22/tcp ALLOW Anywhere\` laisse encore passer l'attaquant.
+Autre piège : \`ufw default deny\` combiné à la suppression de « allow 22 » coupe aussi l'équipe, et vous avec.
+
+**Pour aller plus loin** : bloquer une adresse ne fait que déplacer le problème (l'attaquant en changera).
+La vraie protection est \`PasswordAuthentication no\` (clés uniquement, ce que l'équipe utilise déjà), complétée
+par fail2ban qui bannit automatiquement après quelques échecs, et un accès SSH réservé au réseau du bureau.`,
+  machine: secMachine({
+    hostname: 'bastion01',
+    dirs: ['/etc/ssh/sshd_config.d', '/etc/ufw', '/var/www', '/var/www/html'],
+    files: {
+      '/var/log/auth.log': { size: 18 * 1024, content: authLog('bastion01'), mode: '640', group: 'adm' },
+      '/etc/ssh/sshd_config': { size: sshdConfig.length, content: sshdConfig },
+      '/var/www/html/index.html': { size: 320, content: '<html><body><h1>Exemple SARL</h1></body></html>\n' },
+    },
+    services: {
+      nginx: {
+        description: 'A high performance web server and a reverse proxy server', active: 'active', enabled: true,
+        process: 'nginx', pid: 731, ports: [80, 443],
+        journal: ['nov. 24 08:58:05 bastion01 systemd[1]: Started nginx.service - A high performance web server and a reverse proxy server.'],
+      },
+    },
+    firewall: {
+      active: true,
+      defaultIncoming: 'deny',
+      rules: [
+        { action: 'allow', port: 22 },
+        { action: 'allow', port: 80 },
+        { action: 'allow', port: 443 },
+      ],
+    },
+  }),
+  validators: [
+    { description: `L’adresse ${ATTACKER} ne peut plus joindre SSH`, check: { kind: 'firewall_allows', from: ATTACKER, port: 22, expected: false } },
+    { description: `L’équipe (${OFFICE}) peut toujours se connecter en SSH`, check: { kind: 'firewall_allows', from: OFFICE, port: 22, expected: true } },
+    { description: 'Le site public reste joignable (port 443)', check: { kind: 'firewall_allows', from: '192.0.2.200', port: 443, expected: true } },
+    { description: 'La connexion directe en root par SSH est interdite', check: { kind: 'file_has_line', path: '/etc/ssh/sshd_config', line: 'PermitRootLogin no', expected: true } },
+    { description: 'Le service SSH tourne', check: { kind: 'service_active', service: 'ssh' } },
+  ],
+  walkthrough: [
+    'tail -n 5 /var/log/auth.log',
+    'grep "Failed password" /var/log/auth.log | cut -d\' \' -f11 | sort | uniq -c',
+    'ufw status numbered',
+    `ufw insert 1 deny from ${ATTACKER}`,
+    'ufw status numbered',
+    "sed -i 's/PermitRootLogin yes/PermitRootLogin no/' /etc/ssh/sshd_config",
+    'systemctl restart ssh',
+    'systemctl status ssh',
+  ],
+};
+
+const boutiqueEnv = `APP_ENV=production
+APP_URL=https://boutique.exemple.fr
+DB_HOST=10.0.3.20
+DB_NAME=boutique
+DB_USER=boutique
+DB_PASSWORD=Tr0ub4dor-boutique-2026
+MAIL_DSN=smtp://relais.exemple.fr:25
+`;
+
+const etcGroup = `root:x:0:
+adm:x:4:syslog
+www-data:x:33:
+users:x:100:
+deploy:x:1001:
+stagiaire:x:1002:
+`;
+
+const secretsReadable = {
+  slug: 'cyber-secrets-lisibles',
+  title: 'Audit : mot de passe et clé lisibles par tous les comptes',
+  category: 'cyber',
+  difficulty: 'beginner',
+  ttlMinutes: 40,
+  briefMd: `Un audit interne de **app04**, qui fait tourner la boutique en ligne (PHP-FPM sous le compte \`www-data\`),
+relève trois points :
+
+1. le fichier de configuration de la boutique, qui contient le mot de passe de la base, est lisible par **tous** les comptes du serveur (dont \`stagiaire\`) ;
+2. une sauvegarde de la base traîne dans le dossier public du site, donc téléchargeable par n'importe qui ;
+3. la clé SSH privée du compte \`deploy\` est lisible par tous.
+
+Corrigez les trois points **sans casser la boutique**. Le code est dans \`/var/www/boutique\`.
+
+> Machine simulée : tapez \`help\` pour voir les commandes disponibles.`,
+  objectives: [
+    'Lire des droits Unix (ls -l, stat) : propriétaire, groupe, autres',
+    'Choisir le bon mode (640, 600) selon QUI doit lire le fichier',
+    'Vérifier qu’un service démarre encore après un durcissement',
+  ],
+  hints: [
+    'ls -la /var/www/boutique : regardez les trois derniers caractères des droits de .env, ceux des « autres ».',
+    'PHP-FPM lit .env sous le compte www-data. Le fichier appartient à root, groupe www-data : qui doit garder la lecture ?',
+    'chmod 640 garde la lecture au groupe www-data et la retire aux autres. Un chmod 600 la retirerait aussi à www-data.',
+    'La sauvegarde est dans /var/www/boutique/public : supprimez-la. La clé privée doit être en 600. Redémarrez php8.2-fpm pour vérifier.',
+  ],
+  solutionMd: `**Constat** : \`.env\` est en \`644\` (\`-rw-r--r--\`) : propriétaire root, groupe www-data, et **lecture pour tous**.
+N'importe quel compte (ou un script compromis sous un autre compte) lit \`DB_PASSWORD\`. La sauvegarde SQL est sous
+\`public/\`, servi tel quel par nginx. La clé \`id_ed25519\` est en \`644\` : tout compte local peut se faire passer pour \`deploy\`.
+
+**Démarche** : \`ls -la /var/www/boutique\` ; \`stat -c '%a %U:%G %n' /var/www/boutique/.env\` ;
+\`chmod 640 /var/www/boutique/.env\` (root écrit, www-data lit, les autres rien) ;
+\`rm /var/www/boutique/public/backup-2026-11-20.sql\` ; \`chmod 600 /home/deploy/.ssh/id_ed25519\` ;
+\`systemctl restart php8.2-fpm\` pour vérifier que la boutique lit toujours sa configuration.
+
+**Le piège** : \`chmod 600 .env\` paraît plus sûr, mais le fichier appartient à root : www-data ne peut plus le lire
+et PHP-FPM échoue au redémarrage (\`Permission denied\`). Le bon mode dépend de **qui** doit lire, pas d'un réflexe.
+Pour la clé, c'est l'inverse : seul son propriétaire doit la lire, d'où \`600\` (ssh refuse d'ailleurs une clé trop ouverte).
+
+**Pour la suite** : le mot de passe a été exposé : faites-le changer côté base. Placez les sauvegardes hors du
+dossier servi par le web, et vérifiez régulièrement avec \`find / -perm -o+r -name "*.env"\` sur un vrai serveur.`,
+  machine: secMachine({
+    hostname: 'app04',
+    dirs: ['/var/www', '/var/www/boutique', '/var/www/boutique/public', '/var/www/boutique/src', '/home/deploy', '/home/deploy/.ssh', '/home/stagiaire', '/etc/php', '/run', '/run/php'],
+    files: {
+      '/etc/group': { size: etcGroup.length, content: etcGroup },
+      '/var/www/boutique/.env': { size: boutiqueEnv.length, content: boutiqueEnv, mode: '644', owner: 'root', group: 'www-data' },
+      '/var/www/boutique/composer.json': { size: 412, content: '{\n  "name": "exemple/boutique",\n  "require": { "php": "^8.2" }\n}\n' },
+      '/var/www/boutique/src/Kernel.php': { size: 2380, content: '<?php\n// Charge la configuration depuis ../.env\n' },
+      '/var/www/boutique/public/index.php': { size: 640, content: "<?php\nrequire __DIR__ . '/../src/Kernel.php';\n" },
+      '/var/www/boutique/public/backup-2026-11-20.sql': { size: 48 * M, mode: '644', owner: 'deploy', group: 'deploy' },
+      '/home/deploy/.ssh/id_ed25519': { size: 411, content: '-----BEGIN OPENSSH PRIVATE KEY-----\n[clé privée simulée]\n-----END OPENSSH PRIVATE KEY-----\n', mode: '644', owner: 'deploy', group: 'deploy' },
+      '/home/deploy/.ssh/id_ed25519.pub': { size: 98, content: 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExempleCleePublique deploy@app04\n', mode: '644', owner: 'deploy', group: 'deploy' },
+      '/home/deploy/.ssh/authorized_keys': { size: 98, content: 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExempleCleePublique deploy@poste\n', mode: '600', owner: 'deploy', group: 'deploy' },
+    },
+    services: {
+      nginx: {
+        description: 'A high performance web server and a reverse proxy server', active: 'active', enabled: true,
+        process: 'nginx', pid: 731, ports: [80, 443],
+        journal: ['nov. 24 08:58:05 app04 systemd[1]: Started nginx.service - A high performance web server and a reverse proxy server.'],
+      },
+      'php8.2-fpm': {
+        description: 'The PHP 8.2 FastCGI Process Manager', active: 'active', enabled: true,
+        process: 'php-fpm', pid: 744, ports: [9000], user: 'www-data',
+        needsFiles: ['/var/www/boutique/.env'],
+        journal: ['nov. 24 08:58:06 app04 systemd[1]: Started php8.2-fpm.service - The PHP 8.2 FastCGI Process Manager.'],
+      },
+    },
+  }),
+  validators: [
+    { description: 'La boutique (www-data) peut lire sa configuration', check: { kind: 'file_readable_by', path: '/var/www/boutique/.env', user: 'www-data', expected: true } },
+    { description: 'Les autres comptes ne lisent plus la configuration', check: { kind: 'file_readable_by', path: '/var/www/boutique/.env', user: 'stagiaire', expected: false } },
+    { description: 'La sauvegarde n’est plus dans le dossier public', check: { kind: 'path_exists', path: '/var/www/boutique/public/backup-2026-11-20.sql', expected: false } },
+    { description: 'La clé privée n’est accessible qu’à son propriétaire', check: { kind: 'file_mode_at_most', path: '/home/deploy/.ssh/id_ed25519', mode: '600' } },
+    { description: 'Le compte deploy peut toujours utiliser sa clé', check: { kind: 'file_readable_by', path: '/home/deploy/.ssh/id_ed25519', user: 'deploy', expected: true } },
+    { description: 'PHP-FPM tourne', check: { kind: 'service_active', service: 'php8.2-fpm' } },
+  ],
+  walkthrough: [
+    'ls -la /var/www/boutique',
+    "stat -c '%a %U:%G %n' /var/www/boutique/.env",
+    'chmod 640 /var/www/boutique/.env',
+    'ls -l /var/www/boutique/public',
+    'rm /var/www/boutique/public/backup-2026-11-20.sql',
+    'ls -l /home/deploy/.ssh',
+    'chmod 600 /home/deploy/.ssh/id_ed25519',
+    'systemctl restart php8.2-fpm',
+    'systemctl status php8.2-fpm',
+  ],
+};
+
+export default [diskFull, portTaken, dnsInterne, defaultRoute, dockerVariable, dockerPort, sshBruteForce, secretsReadable];
