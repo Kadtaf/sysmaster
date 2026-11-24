@@ -1,20 +1,30 @@
 import hmac
 import logging
+from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI, Header, HTTPException
 
-from app.config import Settings, settings
+from app.config import Settings, docs_index, settings
 from app.llm.claude import ClaudeLlm
 from app.llm.fake import FakeLlm
 from app.llm.port import Llm
 from app.orchestrator import ask
-from app.rag.retriever import CoreApiRetriever, Retriever
+from app.rag.retriever import CompositeRetriever, CoreApiRetriever, OfficialDocsRetriever, Retriever
 from app.schemas import AskRequest, AskResponse
 
 logging.basicConfig(level=logging.INFO, format='{"level":"%(levelname)s","logger":"%(name)s","message":"%(message)s"}')
 log = logging.getLogger("sysmaster.ai")
 
-app = FastAPI(title="SysMaster AI", version="0.1.0", docs_url="/docs")
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    # Charge le modèle de plongement au démarrage plutôt qu'à la première question (plusieurs secondes).
+    if docs_index() is not None:
+        log.info("index de documentation officielle activé (%s)", settings().qdrant_collection)
+    yield
+
+
+app = FastAPI(title="SysMaster AI", version="0.1.0", docs_url="/docs", lifespan=lifespan)
 
 
 def get_llm(cfg: Settings = Depends(settings)) -> Llm:
@@ -24,7 +34,11 @@ def get_llm(cfg: Settings = Depends(settings)) -> Llm:
 
 
 def get_retriever(cfg: Settings = Depends(settings)) -> Retriever:
-    return CoreApiRetriever(cfg.core_api_url)
+    parts: list[tuple[Retriever, int]] = [(CoreApiRetriever(cfg.core_api_url), cfg.rag_kb_documents)]
+    index = docs_index()
+    if index is not None:
+        parts.append((OfficialDocsRetriever(index), cfg.rag_official_documents))
+    return CompositeRetriever(parts)
 
 
 def require_token(x_ai_token: str = Header(default=""), cfg: Settings = Depends(settings)) -> None:
@@ -35,7 +49,12 @@ def require_token(x_ai_token: str = Header(default=""), cfg: Settings = Depends(
 
 @app.get("/health")
 def health(cfg: Settings = Depends(settings)) -> dict:
-    return {"status": "ok", "llm": cfg.ai_llm, "model": cfg.ai_model if cfg.ai_llm == "claude" else "fake"}
+    return {
+        "status": "ok",
+        "llm": cfg.ai_llm,
+        "model": cfg.ai_model if cfg.ai_llm == "claude" else "fake",
+        "officialDocs": "qdrant" if cfg.qdrant_url else "disabled",
+    }
 
 
 @app.post("/v1/ask", response_model=AskResponse, response_model_by_alias=True, dependencies=[Depends(require_token)])

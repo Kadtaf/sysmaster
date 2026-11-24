@@ -1,0 +1,17 @@
+<!doctype html>
+<html><head><title>chkdsk | Microsoft Learn</title><script>var x = 1;</script></head>
+<body>
+<nav><a href="/fr-fr/">Accueil</a> menu de navigation à ignorer</nav>
+<main>
+<h1 id="chkdsk">chkdsk</h1>
+<p>Vérifie le système de fichiers et les métadonnées du système de fichiers d'un volume pour détecter les erreurs logiques et physiques. Si elle est utilisée sans paramètres, chkdsk affiche uniquement l'état du volume et ne corrige aucune erreur.</p>
+<p>Vous devez être membre du groupe Administrateurs local, ou équivalent, pour exécuter chkdsk.</p>
+<h2 id="syntax">Syntaxe</h2>
+<pre>chkdsk [&lt;volume&gt;[[&lt;path&gt;]&lt;filename&gt;]] [/f] [/v] [/r] [/x] [/i] [/c]</pre>
+<h2 id="parameters">Paramètres</h2>
+<table><tr><td>/f</td><td>Corrige les erreurs sur le disque. Le disque doit être verrouillé. Si chkdsk ne peut pas verrouiller le lecteur, un message vous demande si vous voulez vérifier le lecteur au prochain redémarrage de l'ordinateur.</td></tr>
+<tr><td>/r</td><td>Localise les secteurs défectueux et récupère les informations lisibles. Le disque doit être verrouillé. /r inclut les fonctionnalités de /f, avec l'analyse supplémentaire des erreurs de disque physique.</td></tr></table>
+<p>Voir aussi <a href="fsutil">fsutil</a>, <a href="../../other/page">hors périmètre</a>, <a href="https://example.com/">externe</a>, <a href="chkntfs#remarks">chkntfs</a>.</p>
+</main>
+<footer>Pied de page à ignorer</footer>
+</body></html>

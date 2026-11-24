@@ -184,7 +184,7 @@ Règles dans `apps/api/src/modules/gamification/domain/rules.ts`, testées unita
 
 Voir [`.env.example`](../.env.example). Principales : `DATABASE_URL`, `REDIS_URL`, `QDRANT_URL`, `API_PORT`, `NEXT_PUBLIC_API_URL`, `CORS_ORIGINS`, et pour l'identité `OIDC_ISSUER`, `OIDC_AUDIENCE`, `OIDC_JWKS_URL`, `NEXTAUTH_URL`, `NEXTAUTH_SECRET`, `KEYCLOAK_ISSUER`, `KEYCLOAK_INTERNAL_ISSUER`, `KEYCLOAK_CLIENT_ID`, `KEYCLOAK_CLIENT_SECRET`.
 
-Assistant : `AI_SERVICE_URL`, `AI_SERVICE_TOKEN`, `AI_SERVICE_TIMEOUT_MS`, `ASSISTANT_DAILY_QUOTA` (API) ; `AI_LLM` (`fake` ou `claude`), `AI_MODEL`, `AI_EFFORT`, `ANTHROPIC_API_KEY`, `CORE_API_URL` (service IA).
+Assistant : `AI_SERVICE_URL`, `AI_SERVICE_TOKEN`, `AI_SERVICE_TIMEOUT_MS`, `ASSISTANT_DAILY_QUOTA` (API) ; `AI_LLM` (`fake` ou `claude`), `AI_MODEL`, `AI_EFFORT`, `ANTHROPIC_API_KEY`, `CORE_API_URL`, `QDRANT_URL`, `AI_EMBEDDER` (`fastembed` ou `hash`), `EMBED_MODEL`, `RAG_MIN_SIMILARITY` (service IA).
 
 Exploitation : `LOG_FORMAT=json` (une ligne JSON par message), `METRICS_PORT` (métriques Prometheus sur `/metrics`, 9464 par défaut, 0 pour désactiver), `APP_VERSION` (renvoyée par `/health`, posée par l'image), `OUTBOX_RELAY_INTERVAL_MS`.
 

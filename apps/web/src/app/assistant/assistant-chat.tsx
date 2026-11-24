@@ -223,7 +223,21 @@ function AnswerView({ answer, agent, messageId, token }: { answer: AssistantAnsw
           <p className="flex items-center gap-2 font-medium"><BookOpen className="size-4" aria-hidden /> Sources</p>
           <ul className="mt-1 space-y-1">
             {answer.sources.map((s) => (
-              <li key={s.ref}>[{s.ref}] <a href={s.url} className="text-primary hover:underline">{s.title}</a></li>
+              <li key={s.ref}>
+                [{s.ref}]{' '}
+                {s.kind === 'official_doc' ? (
+                  <>
+                    <Badge className="mr-1 bg-sky-100 text-sky-900">Doc officielle</Badge>
+                    <a href={s.url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">{s.title}</a>
+                    {s.attribution && <span className="block pl-6 text-xs text-muted-foreground">{s.attribution}</span>}
+                  </>
+                ) : (
+                  <>
+                    <Badge className="mr-1">Fiche SysMaster</Badge>
+                    <a href={s.url} className="text-primary hover:underline">{s.title}</a>
+                  </>
+                )}
+              </li>
             ))}
           </ul>
         </div>

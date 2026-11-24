@@ -5,10 +5,17 @@ description = "Assistant pédagogique SysMaster : routage, réponse structurée 
 requires-python = ">=3.12"
 dependencies = [
     "anthropic>=1",
+    "beautifulsoup4>=4.15.0",
     "fastapi>=0.165.0",
     "httpx>=0.28.1",
     "pydantic-settings>=2.16.3",
+    "qdrant-client>=1.20.0",
     "uvicorn[standard]>=0.54.0",
+]
+
+[project.optional-dependencies]
+fastembed = [
+    "fastembed>=0.9.1",
 ]
 
 [dependency-groups]
@@ -21,6 +28,9 @@ dev = [
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+# Qdrant en mémoire (tests) ignore les index de champs : sans effet sur le résultat.
+filterwarnings = ["ignore:Payload indexes have no effect:UserWarning"]
 testpaths = ["tests"]
 
 [tool.ruff]
