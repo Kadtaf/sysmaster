@@ -403,7 +403,47 @@ export const AgentProfileContentSchema = z.object({
 });
 export type AgentProfileContent = z.infer<typeof AgentProfileContentSchema>;
 
-export const CONTENT_KINDS = ['command', 'course', 'path', 'diagnostic_cause', 'agent_profile'] as const;
+/** Quiz d'entraînement : questions à choix, chacune avec l'explication de la bonne réponse. */
+const choiceId = z.string().regex(/^[a-f]$/, 'lettre de a à f');
+export const QuizQuestionSchema = z.object({
+  type: z.enum(['single', 'multiple']),
+  promptMd: req(2000),
+  choices: z.array(z.object({ id: choiceId, text: req(500) })).max(6).default([]),
+  answer: z.array(choiceId).max(6).default([]),
+  /** Pourquoi la bonne réponse est juste, et pourquoi les autres ne le sont pas. */
+  explanation: text(3000),
+  difficulty: z.enum(DIFFICULTIES),
+  /** Proposée par l'IA : la relecture humaine reste obligatoire avant publication. */
+  generatedByAi: z.boolean().default(false),
+});
+export type QuizQuestion = z.infer<typeof QuizQuestionSchema>;
+export const QuizContentSchema = z.object({
+  slug: text(80).regex(slugRe, 'minuscules, chiffres et tirets'),
+  title: text(200),
+  platform: z.enum(PLATFORMS),
+  /** Fiche dont le quiz vérifie la compréhension (lien affiché sur la fiche). */
+  commandSlug: text(80).nullable().default(null),
+  questions: z.array(QuizQuestionSchema).max(30).default([]),
+});
+export type QuizContent = z.infer<typeof QuizContentSchema>;
+
+/** Demande de brouillon de quiz rédigé par l'IA à partir d'une fiche publiée. */
+export const GenerateQuizDraftSchema = z.object({
+  commandSlug: req(80),
+  count: z.number().int().min(1).max(10).default(5),
+  level: z.enum(DIFFICULTIES).default('beginner'),
+});
+export type GenerateQuizDraftInput = z.infer<typeof GenerateQuizDraftSchema>;
+export interface QuizDraftDto {
+  revisionId: string;
+  /** Questions ajoutées par l'IA (après vérification de forme). */
+  added: number;
+  /** Questions écartées par les vérifications, avec la raison. */
+  notes: string[];
+  remainingToday: number;
+}
+
+export const CONTENT_KINDS = ['command', 'course', 'path', 'diagnostic_cause', 'agent_profile', 'quiz'] as const;
 export type ContentKind = (typeof CONTENT_KINDS)[number];
 
 export const REVISION_STATUSES = ['draft', 'in_review', 'changes_requested', 'published', 'withdrawn'] as const;
@@ -430,7 +470,8 @@ export type RevisionContent =
   | { kind: 'course'; content: CourseContent }
   | { kind: 'path'; content: PathContent }
   | { kind: 'diagnostic_cause'; content: CauseContent }
-  | { kind: 'agent_profile'; content: AgentProfileContent };
+  | { kind: 'agent_profile'; content: AgentProfileContent }
+  | { kind: 'quiz'; content: QuizContent };
 
 export type RevisionDto = RevisionSummaryDto &
   RevisionContent & {

@@ -36,6 +36,31 @@ export interface AiExtractResponse {
   outcome: 'answered' | 'refused';
 }
 
+export interface AiQuizRequest {
+  title: string;
+  platform?: string;
+  level: 'beginner' | 'intermediate' | 'advanced' | 'expert';
+  /** Contenu source (fiche rendue en texte) : seule base des questions. */
+  text: string;
+  count: number;
+}
+
+export interface AiQuizResponse {
+  questions: {
+    type: 'single' | 'multiple';
+    promptMd: string;
+    choices: { id: string; text: string }[];
+    answer: string[];
+    explanation: string;
+    difficulty: 'beginner' | 'intermediate' | 'advanced' | 'expert';
+  }[];
+  notes: string[];
+  model: string;
+  usage: AiUsage;
+  latencyMs: number;
+  outcome: 'answered' | 'refused';
+}
+
 /** Événements intermédiaires du flux : routage et documents consultés, puis texte au fil de la génération. */
 export type AiStreamEvent =
   | { event: 'meta'; data: { agent: 'tutor' | 'diagnostician'; domain: string | null; consulted: { ref: number; title: string; kind: 'kb_command' | 'official_doc' }[] } }
@@ -53,6 +78,10 @@ export abstract class AiGateway {
   }
   /** Repère des symptômes d'un catalogue fermé dans un texte libre ou un journal (le moteur de déduction décide ensuite). */
   abstract extractSymptoms(req: AiExtractRequest): Promise<AiExtractResponse>;
+  /** Propose des questions de quiz à partir d'un contenu ; une personne les relit avant publication. */
+  generateQuiz(_req: AiQuizRequest): Promise<AiQuizResponse> {
+    return Promise.reject(new AiUnavailableError('génération de quiz non prise en charge'));
+  }
 }
 
 export interface AiRun {

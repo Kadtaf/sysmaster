@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import {
-  AiAskRequest, AiAskResponse, AiExtractRequest, AiExtractResponse, AiGateway, AiStreamEvent, AiUnavailableError,
+  AiAskRequest, AiAskResponse, AiExtractRequest, AiExtractResponse, AiGateway, AiQuizRequest, AiQuizResponse, AiStreamEvent, AiUnavailableError,
 } from '../application/ports';
 
 /** Client HTTP du service IA. Le jeton partagé prouve au service que l'appel vient du cœur. */
@@ -13,6 +13,10 @@ export class HttpAiGateway extends AiGateway {
 
   ask(req: AiAskRequest): Promise<AiAskResponse> {
     return this.post<AiAskResponse>('/v1/ask', req);
+  }
+
+  generateQuiz(req: AiQuizRequest): Promise<AiQuizResponse> {
+    return this.post<AiQuizResponse>('/v1/quiz/generate', req);
   }
 
   /** Lit le flux Server-Sent Events du service : meta et delta sont relayés, answer termine, error échoue. */

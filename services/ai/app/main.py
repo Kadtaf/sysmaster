@@ -12,8 +12,9 @@ from app.llm.claude import ClaudeLlm
 from app.llm.fake import FakeLlm
 from app.llm.port import Llm
 from app.orchestrator import ask, ask_stream
+from app.quiz import generate as generate_quiz
 from app.rag.retriever import CompositeRetriever, CoreApiRetriever, OfficialDocsRetriever, Retriever
-from app.schemas import AskRequest, AskResponse, ExtractRequest, ExtractResponse
+from app.schemas import AskRequest, AskResponse, ExtractRequest, ExtractResponse, QuizRequest, QuizResponse
 
 logging.basicConfig(level=logging.INFO, format='{"level":"%(levelname)s","logger":"%(name)s","message":"%(message)s"}')
 log = logging.getLogger("sysmaster.ai")
@@ -121,4 +122,11 @@ async def extract_endpoint(req: ExtractRequest, llm: Llm = Depends(get_llm)) -> 
     log.info(
         "extract symptoms=%s findings=%s dropped=%s latency_ms=%s", len(res.symptoms), len(res.log_findings), len(res.notes), res.latency_ms
     )
+    return res
+
+
+@app.post("/v1/quiz/generate", response_model=QuizResponse, response_model_by_alias=True, dependencies=[Depends(require_token)])
+async def quiz_endpoint(req: QuizRequest, llm: Llm = Depends(get_llm)) -> QuizResponse:
+    res = await generate_quiz(req, llm)
+    log.info("quiz questions=%s dropped=%s latency_ms=%s outcome=%s", len(res.questions), len(res.notes), res.latency_ms, res.outcome)
     return res

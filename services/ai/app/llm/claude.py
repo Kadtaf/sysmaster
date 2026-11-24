@@ -10,7 +10,7 @@ import jiter
 from pydantic import BaseModel
 
 from app.llm.port import LlmResult
-from app.schemas import DraftAnswer, DraftExtraction, Usage
+from app.schemas import DraftAnswer, DraftExtraction, DraftQuiz, Usage
 
 
 class ClaudeLlm:
@@ -26,6 +26,10 @@ class ClaudeLlm:
     async def extract(self, system: str, user: str) -> LlmResult[DraftExtraction]:
         # Repérer des symptômes dans un texte est une tâche simple : effort « low » suffit et répond plus vite.
         return await self._parse(system, user, DraftExtraction, "low")
+
+    async def generate_quiz(self, system: str, user: str) -> LlmResult[DraftQuiz]:
+        # Rédiger de bons distracteurs et des explications justes demande de la réflexion : effort de réglage.
+        return await self._parse(system, user, DraftQuiz, self.effort)
 
     async def answer_stream(self, system: str, user: str) -> AsyncIterator[dict[str, Any] | LlmResult[DraftAnswer]]:
         """Même requête que answer(), en flux : le JSON partiel est décodé à chaque fragment pour que l'appelant
