@@ -2,6 +2,8 @@
 Il construit une réponse plausible à partir des documents fournis, sans rien inventer."""
 
 import re
+from collections.abc import AsyncIterator
+from typing import Any
 
 from app.llm.port import LlmResult
 from app.schemas import DraftAnswer, DraftExtraction, DraftLogFinding, DraftStep, DraftSymptom
@@ -34,6 +36,17 @@ class FakeLlm:
             check_questions=["Quelle étape est sans risque, et pourquoi ?"],
         )
         return LlmResult(draft=draft, outcome="answered", model=self.model)
+
+    async def answer_stream(self, system: str, user: str) -> AsyncIterator[dict[str, Any] | LlmResult]:
+        """Rejoue la réponse factice mot à mot, comme un vrai flux (résumé puis explication)."""
+        result = await self.answer(system, user)
+        partial: dict[str, Any] = {}
+        for field in ("summary", "explanation"):
+            words = getattr(result.draft, field).split(" ")
+            for i in range(1, len(words) + 1):
+                partial[field] = " ".join(words[:i])
+                yield dict(partial)
+        yield result
 
     async def extract(self, system: str, user: str) -> LlmResult[DraftExtraction]:
         """Repère les libellés du catalogue présents tels quels dans le texte (sans accents ni casse)."""

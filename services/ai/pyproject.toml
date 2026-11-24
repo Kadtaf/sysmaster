@@ -8,6 +8,7 @@ dependencies = [
     "beautifulsoup4>=4.15.0",
     "fastapi>=0.165.0",
     "httpx>=0.28.1",
+    "jiter>=0.19.0",
     "pydantic-settings>=2.16.3",
     "qdrant-client>=1.20.0",
     "uvicorn[standard]>=0.54.0",

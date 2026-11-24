@@ -36,9 +36,10 @@ export AI_LLM=claude ANTHROPIC_API_KEY=…   # clé créée sur console.anthropi
 |---|---|
 | `GET /health` | état et mode (`fake` ou `claude`) |
 | `POST /v1/ask` | en-tête `x-ai-token` ; `{ question, platform?, level, history[≤6] }` → `{ answer, agent, domain, model, usage, latencyMs, outcome }` |
+| `POST /v1/ask/stream` | même requête ; Server-Sent Events `meta` (`agent`, `domain`, `consulted`), `delta`* (`field` : `summary` ou `explanation`, `text`), puis `answer` (même contenu que `/v1/ask`) ou `error`. Les étapes et commandes n'arrivent qu'avec `answer`, après les garde-fous |
 | `POST /v1/diagnostic/extract` | en-tête `x-ai-token` ; `{ platform, description, evidence, catalogue[{code,label}] }` → `{ symptoms[{code, quote, source}], logFindings[{summary, quote}], notes, model, usage, latencyMs, outcome }`. Codes hors catalogue et citations introuvables écartés (`app/diagnostic/extract.py`) |
 
-Prévus : `POST /v1/quiz/generate` (relu avant publication), streaming.
+Prévu : `POST /v1/quiz/generate` (relu avant publication).
 
 ## Chemin d'une question
 
