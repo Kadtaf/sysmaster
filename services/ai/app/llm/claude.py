@@ -2,7 +2,11 @@
 renvoyer autre chose que le schéma demandé (DraftAnswer, DraftExtraction), que les garde-fous
 vérifient ensuite."""
 
+from collections.abc import AsyncIterator
+from typing import Any
+
 import anthropic
+import jiter
 from pydantic import BaseModel
 
 from app.llm.port import LlmResult
@@ -27,19 +31,41 @@ class ClaudeLlm:
         # Rédiger de bons distracteurs et des explications justes demande de la réflexion : effort de réglage.
         return await self._parse(system, user, DraftQuiz, self.effort)
 
+    async def answer_stream(self, system: str, user: str) -> AsyncIterator[dict[str, Any] | LlmResult[DraftAnswer]]:
+        """Même requête que answer(), en flux : le JSON partiel est décodé à chaque fragment pour que l'appelant
+        affiche le résumé et l'explication pendant la génération. La réponse validée arrive en dernier."""
+        buffer = ""
+        async with self.client.beta.messages.stream(**self._params(system, user, DraftAnswer, self.effort)) as stream:
+            async for text in stream.text_stream:
+                buffer += text
+                try:
+                    partial = jiter.from_json(buffer.encode(), partial_mode="trailing-strings")
+                except ValueError:
+                    continue
+                if isinstance(partial, dict):
+                    yield partial
+            final = await stream.get_final_message()
+        yield self._result(final)
+
     async def _parse[T: BaseModel](self, system: str, user: str, schema: type[T], effort: str) -> LlmResult[T]:
-        response = await self.client.beta.messages.parse(
-            model=self.model,
-            max_tokens=self.max_tokens,
+        return self._result(await self.client.beta.messages.parse(**self._params(system, user, schema, effort)))
+
+    def _params(self, system: str, user: str, schema: type[BaseModel], effort: str) -> dict[str, Any]:
+        return {
+            "model": self.model,
+            "max_tokens": self.max_tokens,
             # Prompt système stable : mis en cache d'une requête à l'autre (le contexte variable est dans le message).
-            system=[{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}],
-            messages=[{"role": "user", "content": user}],
-            output_format=schema,
-            output_config={"effort": effort},
+            "system": [{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}],
+            "messages": [{"role": "user", "content": user}],
+            "output_format": schema,
+            "output_config": {"effort": effort},
             # Si le modèle décline par prudence, l'API rejoue la requête sur un modèle de repli adapté.
-            betas=["server-side-fallback-2026-07-01"],
-            fallbacks="default",
-        )
+            "betas": ["server-side-fallback-2026-07-01"],
+            "fallbacks": "default",
+        }
+
+    @staticmethod
+    def _result(response: Any) -> LlmResult:
         u = response.usage
         usage = Usage(
             input_tokens=u.input_tokens,

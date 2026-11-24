@@ -1,12 +1,13 @@
 """Chaîne d'une question : routage → contexte → modèle → garde-fous."""
 
 import time
-from collections.abc import Mapping
+from collections.abc import AsyncIterator, Mapping
+from typing import Any
 
 from app.agents.profiles import system_prompt
 from app.agents.router import route
 from app.guardrails.output import enforce
-from app.llm.port import Llm
+from app.llm.port import Llm, LlmResult
 from app.rag.retriever import Document, Retriever
 from app.schemas import Answer, AskRequest, AskResponse
 
@@ -39,11 +40,10 @@ def build_user_message(req: AskRequest, documents: list[Document]) -> str:
     return "\n\n".join(parts)
 
 
-async def ask(req: AskRequest, llm: Llm, retriever: Retriever, profiles: Mapping[str, str] | None = None) -> AskResponse:
-    started = time.monotonic()
-    r = route(req.question, req.platform)
-    documents = await retriever.search(req.question, req.platform)
-    result = await llm.answer(system_prompt(r.agent, r.domain, profiles), build_user_message(req, documents))
+STREAMED_FIELDS = ("summary", "explanation")
+
+
+def _response(r, result: LlmResult, documents: list[Document], started: float) -> AskResponse:
     answer = enforce(result.draft, documents) if result.draft else REFUSED
     return AskResponse(
         answer=answer,
@@ -54,3 +54,47 @@ async def ask(req: AskRequest, llm: Llm, retriever: Retriever, profiles: Mapping
         latency_ms=int((time.monotonic() - started) * 1000),
         outcome=result.outcome,
     )
+
+
+async def ask(req: AskRequest, llm: Llm, retriever: Retriever, profiles: Mapping[str, str] | None = None) -> AskResponse:
+    started = time.monotonic()
+    r = route(req.question, req.platform)
+    documents = await retriever.search(req.question, req.platform)
+    result = await llm.answer(system_prompt(r.agent, r.domain, profiles), build_user_message(req, documents))
+    return _response(r, result, documents, started)
+
+
+async def ask_stream(
+    req: AskRequest, llm: Llm, retriever: Retriever, profiles: Mapping[str, str] | None = None
+) -> AsyncIterator[tuple[str, dict[str, Any]]]:
+    """Même chaîne que ask(), en événements :
+
+    - « meta » : agent, domaine et documents consultés, dès qu'ils sont connus ;
+    - « delta » : morceaux du résumé et de l'explication pendant la génération (texte seul, sans commande) ;
+    - « answer » : la réponse complète, une fois passée par les garde-fous.
+
+    Les étapes et leurs commandes ne sont jamais envoyées en avance : elles n'existent pour l'utilisateur
+    qu'après validation (risque relevé, masquage, citations vérifiées).
+    """
+    started = time.monotonic()
+    r = route(req.question, req.platform)
+    documents = await retriever.search(req.question, req.platform)
+    yield (
+        "meta",
+        {"agent": r.agent, "domain": r.domain, "consulted": [{"ref": d.ref, "title": d.title, "kind": d.kind} for d in documents]},
+    )
+    sent = dict.fromkeys(STREAMED_FIELDS, "")
+    result: LlmResult | None = None
+    async for item in llm.answer_stream(system_prompt(r.agent, r.domain, profiles), build_user_message(req, documents)):
+        if isinstance(item, LlmResult):
+            result = item
+            break
+        for name in STREAMED_FIELDS:
+            value = item.get(name)
+            # Le texte partiel ne fait que s'allonger ; on n'envoie que la suite.
+            if isinstance(value, str) and len(value) > len(sent[name]) and value.startswith(sent[name]):
+                yield "delta", {"field": name, "text": value[len(sent[name]) :]}
+                sent[name] = value
+    if result is None:
+        raise RuntimeError("flux du modèle interrompu sans réponse finale")
+    yield "answer", _response(r, result, documents, started).model_dump(by_alias=True)

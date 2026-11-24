@@ -83,11 +83,12 @@ Préfixe `/api/v1`. Documentation OpenAPI générée sur `/api/docs`. Authentifi
 | POST | `/editorial/revisions/:id/withdraw` | Retire une révision non publiée (auteur ou admin) |
 | GET | `/admin/users` | Liste des utilisateurs (rôles `admin` ou `support`) |
 | POST | `/assistant/ask` | `{ question, platform?, level?, conversationId? }` → réponse structurée (étapes pourquoi/comment/quand/risques, sources, questions de vérification), `remainingToday`. **429** au-delà du quota sur 24 h (`ASSISTANT_DAILY_QUOTA`, ×3 auteurs et relecteurs, ×10 administrateurs), commun à toutes les requêtes à l'IA (assistant et diagnostic) et compté dans `ai.agent_runs`. **503** si le service IA est indisponible (question conservée). **404** sur la conversation d'un autre |
+| POST | `/assistant/ask/stream` | Même requête et mêmes règles (quota, historique, enregistrement), en Server-Sent Events : `meta` (agent, domaine, documents consultés), `delta` (résumé et explication pendant la génération), puis `reply` (même contenu que `/assistant/ask`, seul porteur des étapes et commandes) ou `error` (`{ message, status }`). 429 et 503 avant le premier événement restent des réponses HTTP ordinaires. Utilisé par la page `/assistant` |
 | GET | `/assistant/conversations` | Mes 50 dernières conversations |
 | GET | `/assistant/conversations/:id` | Questions et réponses d'une de mes conversations |
 | PUT | `/assistant/messages/:id/feedback` | `{ rating: 1 \| -1, comment? }` (204) : alimente l'évaluation continue |
 
-Le service IA (`services/ai`, interne) lit les profils d'agents publiés sur `GET /ai/profiles` (interne, en-tête `x-ai-token`, hors documentation publique) et expose `GET /health` et `POST /v1/ask` (en-tête `x-ai-token`) ; voir [son README](../services/ai/README.md).
+Le service IA (`services/ai`, interne) lit les profils d'agents publiés sur `GET /ai/profiles` (interne, en-tête `x-ai-token`, hors documentation publique) et expose `GET /health`, `POST /v1/ask` et `POST /v1/ask/stream` (en-tête `x-ai-token`) ; voir [son README](../services/ai/README.md).
 
 Exemple de réponse `POST /diagnostic/analyze` :
 

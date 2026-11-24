@@ -2,12 +2,12 @@
 
 import { useState } from 'react';
 import { useSession } from 'next-auth/react';
-import { AlertTriangle, BookOpen, Loader2, MessageSquarePlus, ThumbsDown, ThumbsUp } from 'lucide-react';
+import { AlertTriangle, BookOpen, Loader2, MessageSquarePlus, Search, ThumbsDown, ThumbsUp } from 'lucide-react';
 import {
   ASSISTANT_LEVELS,
   type AssistantAnswer,
   type AssistantConversationSummary,
-  type AssistantReplyDto,
+  type AssistantStreamEvent,
   type AssistantTurnDto,
 } from '@sysmaster/contracts';
 import { CommandReveal } from '@/components/command-reveal';
@@ -16,7 +16,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardDescription, CardTitle } from '@/components/ui/card';
 import { publicApiBase } from '@/lib/api';
-import { ApiError, apiPost, apiPut } from '@/lib/client-api';
+import { ApiError, apiPut, apiStream } from '@/lib/client-api';
 
 const levelLabel: Record<(typeof ASSISTANT_LEVELS)[number], string> = {
   beginner: 'Débutant', intermediate: 'Intermédiaire', advanced: 'Avancé',
@@ -27,6 +27,15 @@ const PLATFORM_CHOICES = [
 ] as const;
 
 interface Turn { messageId: string | null; question: string; reply: AssistantAnswer | null; agent: string | null }
+
+/** Réponse en cours de génération : texte seulement, les étapes arrivent avec la réponse validée. */
+interface Pending {
+  question: string;
+  agent: string | null;
+  consulted: { ref: number; title: string }[];
+  summary: string;
+  explanation: string;
+}
 
 export function AssistantChat({ conversations: initial }: { conversations: AssistantConversationSummary[] }) {
   const { data: session } = useSession();
@@ -39,6 +48,7 @@ export function AssistantChat({ conversations: initial }: { conversations: Assis
   const [level, setLevel] = useState<(typeof ASSISTANT_LEVELS)[number]>('beginner');
   const [remaining, setRemaining] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
+  const [pending, setPending] = useState<Pending | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function open(id: string) {
@@ -54,20 +64,37 @@ export function AssistantChat({ conversations: initial }: { conversations: Assis
     setLoading(true);
     setError(null);
     const asked = question;
+    setPending({ question: asked, agent: null, consulted: [], summary: '', explanation: '' });
     try {
-      const res = await apiPost<AssistantReplyDto>('/assistant/ask', token, {
+      await apiStream<AssistantStreamEvent>('/assistant/ask/stream', token, {
         question: asked, level, platform: platform || undefined, conversationId,
+      }, (e) => {
+        switch (e.event) {
+          case 'meta':
+            setPending((p) => p && { ...p, agent: e.data.agent, consulted: e.data.consulted });
+            break;
+          case 'delta':
+            setPending((p) => p && { ...p, [e.data.field]: p[e.data.field] + e.data.text });
+            break;
+          case 'reply': {
+            const res = e.data;
+            setTurns((t) => [...t, { messageId: res.messageId, question: asked, reply: res.answer, agent: res.agent }]);
+            setRemaining(res.remainingToday);
+            setQuestion('');
+            if (!conversationId) {
+              setConversationId(res.conversationId);
+              setConversations((c) => [{ id: res.conversationId, title: asked.slice(0, 80), createdAt: new Date().toISOString() }, ...c]);
+            }
+            break;
+          }
+          case 'error':
+            throw new ApiError(e.data.status, { message: e.data.message });
+        }
       });
-      setTurns((t) => [...t, { messageId: res.messageId, question: asked, reply: res.answer, agent: res.agent }]);
-      setRemaining(res.remainingToday);
-      setQuestion('');
-      if (!conversationId) {
-        setConversationId(res.conversationId);
-        setConversations((c) => [{ id: res.conversationId, title: asked.slice(0, 80), createdAt: new Date().toISOString() }, ...c]);
-      }
     } catch (e) {
       setError(e instanceof ApiError || e instanceof Error ? e.message : 'Erreur inconnue');
     } finally {
+      setPending(null);
       setLoading(false);
     }
   }
@@ -105,6 +132,7 @@ export function AssistantChat({ conversations: initial }: { conversations: Assis
               )}
             </div>
           ))}
+          {pending && <PendingView pending={pending} />}
         </div>
 
         <form
@@ -147,6 +175,31 @@ export function AssistantChat({ conversations: initial }: { conversations: Assis
           {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
         </form>
       </div>
+    </div>
+  );
+}
+
+function PendingView({ pending }: { pending: Pending }) {
+  return (
+    <div className="space-y-3">
+      <p className="ml-auto max-w-xl rounded-lg bg-primary/10 p-3 text-sm">{pending.question}</p>
+      <Card className="space-y-3" aria-busy="true">
+        {pending.summary ? (
+          <CardTitle>{pending.summary}</CardTitle>
+        ) : (
+          <p className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Search className="size-4" aria-hidden /> Recherche dans la base de connaissances…
+          </p>
+        )}
+        {pending.explanation && <CardDescription className="whitespace-pre-line">{pending.explanation}</CardDescription>}
+        {pending.consulted.length > 0 && (
+          <p className="text-xs text-muted-foreground">Consulté : {pending.consulted.map((d) => d.title).join(' · ')}</p>
+        )}
+        <p className="flex items-center gap-2 text-xs text-muted-foreground">
+          <Loader2 className="size-3 animate-spin" aria-hidden />
+          Les étapes et les commandes s&apos;afficheront une fois vérifiées par les garde-fous.
+        </p>
+      </Card>
     </div>
   );
 }

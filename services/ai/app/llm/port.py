@@ -1,5 +1,6 @@
+from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
-from typing import Literal, Protocol
+from typing import Any, Literal, Protocol
 
 from pydantic import BaseModel
 
@@ -16,6 +17,10 @@ class LlmResult[T: BaseModel]:
 
 class Llm(Protocol):
     async def answer(self, system: str, user: str) -> LlmResult[DraftAnswer]: ...
+
+    def answer_stream(self, system: str, user: str) -> AsyncIterator["dict[str, Any] | LlmResult[DraftAnswer]"]:
+        """Brouillons partiels (JSON incomplet décodé) au fil de la génération, puis le résultat validé en dernier."""
+        ...
 
     async def extract(self, system: str, user: str) -> LlmResult[DraftExtraction]: ...
 

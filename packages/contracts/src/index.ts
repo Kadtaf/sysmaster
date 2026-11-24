@@ -595,6 +595,17 @@ export interface AssistantReplyDto {
   remainingToday: number;
 }
 
+/**
+ * Événements du flux `POST /assistant/ask/stream` (Server-Sent Events, dans cet ordre) :
+ * `meta` (routage et documents consultés), `delta`* (résumé et explication au fil de la génération),
+ * puis `reply` (réponse validée par les garde-fous, seule à porter les étapes et commandes) ou `error`.
+ */
+export type AssistantStreamEvent =
+  | { event: 'meta'; data: { agent: 'tutor' | 'diagnostician'; domain: string | null; consulted: { ref: number; title: string; kind: 'kb_command' | 'official_doc' }[] } }
+  | { event: 'delta'; data: { field: 'summary' | 'explanation'; text: string } }
+  | { event: 'reply'; data: AssistantReplyDto }
+  | { event: 'error'; data: { message: string; status: number } };
+
 export interface AssistantConversationSummary {
   id: string;
   title: string;
