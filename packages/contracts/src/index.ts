@@ -73,6 +73,8 @@ export const AnalyzeRequestSchema = z
     description: z.string().trim().max(5000).optional(),
     symptoms: z.array(z.string().max(64)).max(30).optional(),
     evidence: z.string().max(100_000).optional(),
+    /** Repérage des symptômes par l'IA (connecté, compte dans le quota quotidien) ; sinon par synonymes. */
+    useAi: z.boolean().default(false),
   })
   .refine((v) => Boolean(v.description?.length || v.symptoms?.length || v.evidence?.length), {
     message: 'Décrivez le problème, sélectionnez au moins un symptôme ou fournissez un extrait de journal.',
@@ -90,9 +92,22 @@ export interface HypothesisDto {
   actionPlan: ActionStep[];
 }
 
+export interface SymptomExtraction {
+  /** « ai » : repérés par le modèle (citation vérifiée) ; « rules » : par synonymes. */
+  method: 'ai' | 'rules';
+  /** Pourquoi la méthode demandée n'a pas pu servir (IA indisponible…), ou null. */
+  note: string | null;
+  /** Pour chaque symptôme repéré par l'IA, le passage du texte de l'utilisateur qui le montre. */
+  quotes: { code: string; label: string; quote: string; source: 'description' | 'evidence' }[];
+  /** Lignes du journal relevées par l'IA, expliquées en une phrase. */
+  logFindings: { summary: string; quote: string }[];
+  remainingToday: number | null;
+}
+
 export interface AnalyzeResponse {
   sessionId: string | null;
   detectedSymptoms: { code: string; label: string }[];
+  extraction: SymptomExtraction;
   matchedEvidence: { name: string; cause: string }[];
   confidence: number;
   hypotheses: HypothesisDto[];

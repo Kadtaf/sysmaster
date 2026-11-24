@@ -22,6 +22,9 @@ const answer: AssistantAnswer = {
 class FakeAi extends AiGateway {
   calls: AiAskRequest[] = [];
   down = false;
+  extractSymptoms(): never {
+    throw new Error('non utilisé ici');
+  }
   async ask(req: AiAskRequest): Promise<AiAskResponse> {
     this.calls.push(req);
     if (this.down) throw new AiUnavailableError('service IA injoignable');
@@ -101,7 +104,7 @@ describeDb('Assistant (e2e)', () => {
     const ask = () => http().post('/api/v1/assistant/ask').auth(token, { type: 'bearer' }).send({ question: 'Que fait ls -la ?' });
     for (let i = 0; i < 3; i++) await ask().expect(200);
     const res = await ask().expect(429);
-    expect(res.body.message).toContain('3 questions');
+    expect(res.body.message).toContain('3 demandes');
     expect(ai.calls).toHaveLength(3);
   });
 

@@ -4,7 +4,7 @@ Il construit une réponse plausible à partir des documents fournis, sans rien i
 import re
 
 from app.llm.port import LlmResult
-from app.schemas import DraftAnswer, DraftStep
+from app.schemas import DraftAnswer, DraftExtraction, DraftLogFinding, DraftStep, DraftSymptom
 
 
 class FakeLlm:
@@ -34,3 +34,23 @@ class FakeLlm:
             check_questions=["Quelle étape est sans risque, et pourquoi ?"],
         )
         return LlmResult(draft=draft, outcome="answered", model=self.model)
+
+    async def extract(self, system: str, user: str) -> LlmResult[DraftExtraction]:
+        """Repère les libellés du catalogue présents tels quels dans le texte (sans accents ni casse)."""
+        from app.diagnostic.extract import unaccent
+
+        catalogue = re.findall(r"^- (\S+) : (.+)$", system, re.MULTILINE)
+        text = user
+        flat = unaccent(text).lower()
+        symptoms = []
+        for code, label in catalogue:
+            i = flat.find(unaccent(label).lower())
+            if i >= 0:
+                symptoms.append(DraftSymptom(code=code, quote=text[i : i + len(label)]))
+        journal = re.search(r"<journal>\n(.*)\n</journal>", user, re.DOTALL)
+        findings = [
+            DraftLogFinding(summary="Ligne d'erreur relevée (modèle factice).", quote=line.strip())
+            for line in (journal.group(1).splitlines() if journal else [])
+            if re.search(r"error|erreur|critical|critique|fail", line, re.IGNORECASE)
+        ][:5]
+        return LlmResult(draft=DraftExtraction(symptoms=symptoms, log_findings=findings), outcome="answered", model=self.model)

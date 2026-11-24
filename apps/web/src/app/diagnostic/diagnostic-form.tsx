@@ -21,6 +21,8 @@ export function DiagnosticForm() {
   const [result, setResult] = useState<AnalyzeResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [useAi, setUseAi] = useState(false);
+  const signedIn = Boolean(session?.accessToken);
 
   useEffect(() => {
     fetch(`${publicApiBase}/diagnostic/symptoms?platform=windows`)
@@ -42,7 +44,9 @@ export function DiagnosticForm() {
           // Connecté : le diagnostic rejoint l'historique de l'utilisateur. Anonyme : il reste possible.
           ...(session?.accessToken ? { Authorization: `Bearer ${session.accessToken}` } : {}),
         },
-        body: JSON.stringify({ platform: 'windows', description, symptoms: allSelected, evidence: evidence || undefined }),
+        body: JSON.stringify({
+          platform: 'windows', description, symptoms: allSelected, evidence: evidence || undefined, useAi: useAi && signedIn,
+        }),
       });
       const body = await res.json();
       if (!res.ok) throw new Error(Array.isArray(body.message) ? body.message.join(' ') : body.message);
@@ -111,6 +115,24 @@ export function DiagnosticForm() {
           <p className="mt-1 text-xs text-muted-foreground">Ne collez pas de mots de passe ni de données personnelles.</p>
         </div>
 
+        <label className="flex items-start gap-2 text-sm">
+          <input
+            type="checkbox"
+            className="mt-1"
+            checked={useAi && signedIn}
+            disabled={!signedIn}
+            onChange={(e) => setUseAi(e.target.checked)}
+          />
+          <span>
+            Repérer les symptômes avec l&apos;IA
+            <span className="block text-xs text-muted-foreground">
+              {signedIn
+                ? 'L’IA lit votre description et le journal, et cite le passage qui justifie chaque symptôme. Les causes restent classées par le moteur de diagnostic. Compte dans votre quota quotidien.'
+                : 'Connectez-vous pour utiliser l’IA. Sans elle, les symptômes sont repérés par mots-clés.'}
+            </span>
+          </span>
+        </label>
+
         <Button type="submit" disabled={loading}>
           {loading && <Loader2 className="size-4 animate-spin" aria-hidden />} Analyser
         </Button>
@@ -123,10 +145,35 @@ export function DiagnosticForm() {
             <Card>
               <CardTitle>Confiance : {Math.round(result.confidence * 100)} %</CardTitle>
               <CardDescription>
-                Symptômes retenus : {result.detectedSymptoms.map((s) => s.label).join(', ') || 'aucun'}.
+                Symptômes retenus : {result.detectedSymptoms.map((s) => s.label).join(', ') || 'aucun'}
+                {result.extraction.method === 'ai' ? ' (repérés par l’IA)' : ''}.
                 {result.matchedEvidence.length > 0 &&
                   ` Indices trouvés dans le journal : ${result.matchedEvidence.map((e) => e.name).join(', ')}.`}
               </CardDescription>
+              {result.extraction.note && <p className="mt-2 text-xs text-amber-700">{result.extraction.note}</p>}
+              {result.extraction.quotes.length > 0 && (
+                <ul className="mt-3 space-y-1 text-sm">
+                  {result.extraction.quotes.map((q) => (
+                    <li key={q.code}>
+                      <span className="font-medium">{q.label}</span>
+                      <span className="text-muted-foreground"> : « {q.quote} » ({q.source === 'evidence' ? 'journal' : 'votre description'})</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {result.extraction.logFindings.length > 0 && (
+                <details className="mt-3 text-sm" open>
+                  <summary className="cursor-pointer font-medium">Lignes du journal relevées</summary>
+                  <ul className="mt-2 space-y-2">
+                    {result.extraction.logFindings.map((f) => (
+                      <li key={f.quote}>
+                        <code className="block rounded bg-muted px-2 py-1 font-mono text-xs">{f.quote}</code>
+                        <span className="text-muted-foreground">{f.summary}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </details>
+              )}
               {result.clarifyingQuestions.length > 0 && (
                 <div className="mt-4">
                   <p className="text-sm font-medium">Pour affiner, répondez « oui » si c&apos;est le cas :</p>

@@ -36,8 +36,9 @@ export AI_LLM=claude ANTHROPIC_API_KEY=…   # clé créée sur console.anthropi
 |---|---|
 | `GET /health` | état et mode (`fake` ou `claude`) |
 | `POST /v1/ask` | en-tête `x-ai-token` ; `{ question, platform?, level, history[≤6] }` → `{ answer, agent, domain, model, usage, latencyMs, outcome }` |
+| `POST /v1/diagnostic/extract` | en-tête `x-ai-token` ; `{ platform, description, evidence, catalogue[{code,label}] }` → `{ symptoms[{code, quote, source}], logFindings[{summary, quote}], notes, model, usage, latencyMs, outcome }`. Codes hors catalogue et citations introuvables écartés (`app/diagnostic/extract.py`) |
 
-Prévus : `POST /v1/diagnostic/extract` (texte libre ou journaux → symptômes pour le moteur de déduction), `POST /v1/quiz/generate` (relu avant publication), streaming.
+Prévus : `POST /v1/quiz/generate` (relu avant publication), streaming.
 
 ## Chemin d'une question
 

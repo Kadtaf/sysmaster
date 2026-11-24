@@ -5,12 +5,13 @@ from contextlib import asynccontextmanager
 from fastapi import Depends, FastAPI, Header, HTTPException
 
 from app.config import Settings, docs_index, settings
+from app.diagnostic.extract import extract
 from app.llm.claude import ClaudeLlm
 from app.llm.fake import FakeLlm
 from app.llm.port import Llm
 from app.orchestrator import ask
 from app.rag.retriever import CompositeRetriever, CoreApiRetriever, OfficialDocsRetriever, Retriever
-from app.schemas import AskRequest, AskResponse
+from app.schemas import AskRequest, AskResponse, ExtractRequest, ExtractResponse
 
 logging.basicConfig(level=logging.INFO, format='{"level":"%(levelname)s","logger":"%(name)s","message":"%(message)s"}')
 log = logging.getLogger("sysmaster.ai")
@@ -67,5 +68,14 @@ async def ask_endpoint(req: AskRequest, llm: Llm = Depends(get_llm), retriever: 
         res.outcome,
         res.latency_ms,
         len(res.answer.sources),
+    )
+    return res
+
+
+@app.post("/v1/diagnostic/extract", response_model=ExtractResponse, response_model_by_alias=True, dependencies=[Depends(require_token)])
+async def extract_endpoint(req: ExtractRequest, llm: Llm = Depends(get_llm)) -> ExtractResponse:
+    res = await extract(req, llm)
+    log.info(
+        "extract symptoms=%s findings=%s dropped=%s latency_ms=%s", len(res.symptoms), len(res.log_findings), len(res.notes), res.latency_ms
     )
     return res

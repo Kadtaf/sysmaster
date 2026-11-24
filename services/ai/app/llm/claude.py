@@ -1,10 +1,12 @@
 """Adaptateur Claude (Anthropic). Sortie structurée validée par Pydantic : le modèle ne peut pas
-renvoyer autre chose qu'un DraftAnswer, que les garde-fous complètent ensuite."""
+renvoyer autre chose que le schéma demandé (DraftAnswer, DraftExtraction), que les garde-fous
+vérifient ensuite."""
 
 import anthropic
+from pydantic import BaseModel
 
 from app.llm.port import LlmResult
-from app.schemas import DraftAnswer, Usage
+from app.schemas import DraftAnswer, DraftExtraction, Usage
 
 
 class ClaudeLlm:
@@ -14,15 +16,22 @@ class ClaudeLlm:
         self.max_tokens = max_tokens
         self.client = client or anthropic.AsyncAnthropic()
 
-    async def answer(self, system: str, user: str) -> LlmResult:
+    async def answer(self, system: str, user: str) -> LlmResult[DraftAnswer]:
+        return await self._parse(system, user, DraftAnswer, self.effort)
+
+    async def extract(self, system: str, user: str) -> LlmResult[DraftExtraction]:
+        # Repérer des symptômes dans un texte est une tâche simple : effort « low » suffit et répond plus vite.
+        return await self._parse(system, user, DraftExtraction, "low")
+
+    async def _parse[T: BaseModel](self, system: str, user: str, schema: type[T], effort: str) -> LlmResult[T]:
         response = await self.client.beta.messages.parse(
             model=self.model,
             max_tokens=self.max_tokens,
             # Prompt système stable : mis en cache d'une requête à l'autre (le contexte variable est dans le message).
             system=[{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}],
             messages=[{"role": "user", "content": user}],
-            output_format=DraftAnswer,
-            output_config={"effort": self.effort},
+            output_format=schema,
+            output_config={"effort": effort},
             # Si le modèle décline par prudence, l'API rejoue la requête sur un modèle de repli adapté.
             betas=["server-side-fallback-2026-07-01"],
             fallbacks="default",
