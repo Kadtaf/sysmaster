@@ -3,7 +3,7 @@ from typing import Literal, Protocol
 
 from pydantic import BaseModel
 
-from app.schemas import DraftAnswer, DraftExtraction, Usage
+from app.schemas import DraftAnswer, DraftExtraction, DraftQuiz, Usage
 
 
 @dataclass
@@ -18,3 +18,5 @@ class Llm(Protocol):
     async def answer(self, system: str, user: str) -> LlmResult[DraftAnswer]: ...
 
     async def extract(self, system: str, user: str) -> LlmResult[DraftExtraction]: ...
+
+    async def generate_quiz(self, system: str, user: str) -> LlmResult[DraftQuiz]: ...

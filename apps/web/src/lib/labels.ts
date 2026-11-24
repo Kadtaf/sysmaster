@@ -70,6 +70,11 @@ export const contentKindMeta: Record<string, { label: string; newLabel: string; 
     label: 'Cause de diagnostic', newLabel: 'Nouvelle cause', placeholder: 'psu_failure', href: () => '/diagnostic',
     rule: 'Une cause n’est publiable que si chaque probabilité est justifiée et que le plan d’action commence sans danger',
   },
+  quiz: {
+    // Un quiz est rattaché à une fiche : « quiz-linux-df » se lit depuis /commandes/linux-df.
+    label: 'Quiz', newLabel: 'Nouveau quiz', placeholder: 'quiz-linux-df', href: (k) => `/commandes/${k.replace(/^quiz-/, '')}`,
+    rule: 'Un quiz n’est publiable que si chaque question a une bonne réponse parmi ses choix et explique pourquoi',
+  },
   agent_profile: {
     label: 'Profil d’agent IA', newLabel: 'Nouveau profil', placeholder: 'network_expert', href: () => '/assistant',
     rule: 'Réservé aux administrateurs, relu par un second administrateur ; les règles de sécurité de l’assistant restent dans le code',

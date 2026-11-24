@@ -3,7 +3,8 @@
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { useState, useTransition } from 'react';
-import { CONTENT_KINDS, type ContentKind, type RevisionDto } from '@sysmaster/contracts';
+import { CONTENT_KINDS, type ContentKind, type QuizDraftDto, type RevisionDto } from '@sysmaster/contracts';
+import { Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardDescription, CardTitle } from '@/components/ui/card';
 import { apiRequest } from '@/lib/client-api';
@@ -17,6 +18,17 @@ export function NewRevision() {
   const meta = contentKindMeta[kind];
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+
+  const draftQuiz = () =>
+    startTransition(async () => {
+      setError(null);
+      try {
+        const r = await apiRequest<QuizDraftDto>('POST', '/editorial/quiz-drafts', session?.accessToken, { commandSlug: slug.trim(), count: 5 });
+        router.push(`/editorial/${r.revisionId}`);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Brouillon impossible');
+      }
+    });
 
   const create = (fromSlug?: string) =>
     startTransition(async () => {
@@ -58,10 +70,21 @@ export function NewRevision() {
           </label>
           <Button type="submit" variant="outline" disabled={pending || !slug.trim()}>Proposer une modification</Button>
         </form>
+        {kind === 'quiz' && (
+          <Button variant="outline" disabled={pending || !slug.trim()} onClick={draftQuiz} title="Identifiant d’une fiche publiée, ex. linux-df">
+            <Sparkles className="size-4" aria-hidden /> Brouillon par l’IA depuis la fiche
+          </Button>
+        )}
       </div>
       <CardDescription>
         L&apos;identifiant est la fin de l&apos;adresse (par exemple {meta.href(meta.placeholder)}) ; pour une cause de diagnostic, c&apos;est son code.
       </CardDescription>
+      {kind === 'quiz' && (
+        <CardDescription>
+          Brouillon par l’IA : saisissez l’identifiant d’une fiche publiée (ex. linux-df). L’IA propose cinq questions, que vous corrigez puis
+          soumettez à la relecture ; rien n’est publié sans un second regard. Compte dans votre quota IA quotidien.
+        </CardDescription>
+      )}
       {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
     </Card>
   );

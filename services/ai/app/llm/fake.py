@@ -4,7 +4,7 @@ Il construit une réponse plausible à partir des documents fournis, sans rien i
 import re
 
 from app.llm.port import LlmResult
-from app.schemas import DraftAnswer, DraftExtraction, DraftLogFinding, DraftStep, DraftSymptom
+from app.schemas import DraftAnswer, DraftChoice, DraftExtraction, DraftLogFinding, DraftQuestion, DraftQuiz, DraftStep, DraftSymptom
 
 
 class FakeLlm:
@@ -54,3 +54,25 @@ class FakeLlm:
             if re.search(r"error|erreur|critical|critique|fail", line, re.IGNORECASE)
         ][:5]
         return LlmResult(draft=DraftExtraction(symptoms=symptoms, log_findings=findings), outcome="answered", model=self.model)
+
+    async def generate_quiz(self, system: str, user: str) -> LlmResult[DraftQuiz]:
+        """Une question par demande, construite sur le titre du contenu (aucune invention)."""
+        title = re.search(r'<contenu titre="([^"]*)">', user)
+        count = int(m.group(1)) if (m := re.search(r"Rédige (\d+) question", user)) else 1
+        name = title.group(1) if title else "ce contenu"
+        questions = [
+            DraftQuestion(
+                type="single",
+                prompt=f"Question {i + 1} (modèle factice) : avant d'utiliser {name}, que faut-il faire ?",
+                choices=[
+                    DraftChoice(id="a", text="Comprendre ce que fait la commande et ses risques"),
+                    DraftChoice(id="b", text="L'exécuter tout de suite pour voir"),
+                    DraftChoice(id="c", text="Copier la première commande trouvée en ligne"),
+                ],
+                answer=["a"],
+                explanation="Comprendre avant d'exécuter : les autres choix agissent sans savoir ce qui va se passer.",
+                difficulty="beginner",
+            )
+            for i in range(count)
+        ]
+        return LlmResult(draft=DraftQuiz(questions=questions), outcome="answered", model=self.model)

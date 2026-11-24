@@ -173,3 +173,58 @@ class ExtractResponse(Camel):
     usage: Usage
     latency_ms: int
     outcome: Literal["answered", "refused"]
+
+
+# --------------------------------------------------------------------------- Génération de quiz
+Difficulty = Literal["beginner", "intermediate", "advanced", "expert"]
+
+
+class DraftChoice(BaseModel):
+    id: str = Field(description="Lettre du choix : a, b, c…")
+    text: str
+
+
+class DraftQuestion(BaseModel):
+    """Question proposée par le modèle, vérifiée par le service puis relue par une personne avant publication."""
+
+    type: Literal["single", "multiple"] = Field(description="single : une seule bonne réponse ; multiple : plusieurs.")
+    prompt: str = Field(description="L'énoncé, en Markdown court. Il porte sur le pourquoi, le quand ou les risques.")
+    choices: list[DraftChoice] = Field(description="De 3 à 5 choix plausibles.")
+    answer: list[str] = Field(description="Identifiants des choix corrects.")
+    explanation: str = Field(description="Pourquoi la bonne réponse est juste, et pourquoi chaque autre choix est faux.")
+    difficulty: Difficulty
+
+
+class DraftQuiz(BaseModel):
+    questions: list[DraftQuestion] = Field(default_factory=list)
+
+
+class QuizRequest(Camel):
+    title: str = Field(min_length=1, max_length=200)
+    platform: Platform | None = None
+    level: Difficulty = "beginner"
+    text: str = Field(min_length=50, max_length=30_000, description="Contenu source (fiche ou leçon), seule base des questions.")
+    count: int = Field(default=5, ge=1, le=10)
+
+
+class QuizChoice(Camel):
+    id: str
+    text: str
+
+
+class QuizQuestion(Camel):
+    type: Literal["single", "multiple"]
+    prompt_md: str
+    choices: list[QuizChoice]
+    answer: list[str]
+    explanation: str
+    difficulty: Difficulty
+
+
+class QuizResponse(Camel):
+    questions: list[QuizQuestion]
+    notes: list[str] = Field(default_factory=list, description="Questions écartées par les vérifications.")
+    model: str
+    usage: Usage
+    latency_ms: int
+    outcome: Literal["answered", "refused"]
