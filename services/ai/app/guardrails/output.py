@@ -18,7 +18,7 @@ def enforce(draft: DraftAnswer, documents: list[Document]) -> Answer:
         if doc is None:
             notes.append(f"Citation [{ref}] ignorée : ce document n'a pas été fourni.")
             continue
-        sources.append(Source(ref=ref, title=doc.title, url=doc.url, kind=doc.kind, slug=doc.slug))
+        sources.append(Source(ref=ref, title=doc.title, url=doc.url, kind=doc.kind, slug=doc.slug, attribution=doc.attribution))
 
     steps: list[Step] = []
     for s in draft.steps:

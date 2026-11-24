@@ -1,0 +1,55 @@
+# Documentation officielle ingérée par le RAG : python -m app.rag.ingest
+#
+# Règles (docs/01 §8.4) :
+# - seules les sources dont la licence autorise la réutilisation avec attribution figurent ici ;
+# - robots.txt est respecté, avec une pause entre deux pages ;
+# - l'attribution est affichée avec chaque citation.
+# Les licences ci-dessous sont celles publiées par chaque projet au moment de l'ajout :
+# à faire valider avant une mise en production commerciale.
+
+[[source]]
+id = "microsoft-learn-windows-commands"
+name = "Microsoft Learn – Commandes Windows"
+platform = "windows"
+licence = "CC BY 4.0"
+attribution = "© Microsoft, contenu sous licence CC BY 4.0 (dépôt MicrosoftDocs/windowsserverdocs)"
+seeds = ["https://learn.microsoft.com/fr-fr/windows-server/administration/windows-commands/windows-commands"]
+allow = ["https://learn.microsoft.com/fr-fr/windows-server/administration/windows-commands/"]
+max_pages = 400
+
+[[source]]
+id = "ubuntu-server"
+name = "Ubuntu Server documentation"
+platform = "linux"
+licence = "CC BY-SA 3.0"
+attribution = "© Canonical Ltd., contenu sous licence CC BY-SA 3.0"
+seeds = ["https://documentation.ubuntu.com/server/"]
+allow = ["https://documentation.ubuntu.com/server/"]
+deny = ["/_sources/", "/genindex", "/search"]
+
+[[source]]
+id = "postgresql"
+name = "Documentation PostgreSQL"
+platform = "postgresql"
+licence = "PostgreSQL License"
+attribution = "© The PostgreSQL Global Development Group, licence PostgreSQL"
+seeds = ["https://www.postgresql.org/docs/current/admin.html", "https://www.postgresql.org/docs/current/reference-client.html"]
+allow = ["https://www.postgresql.org/docs/current/"]
+
+[[source]]
+id = "kubernetes"
+name = "Documentation Kubernetes"
+platform = "kubernetes"
+licence = "CC BY 4.0"
+attribution = "© The Kubernetes Authors, contenu sous licence CC BY 4.0"
+seeds = ["https://kubernetes.io/docs/tasks/debug/", "https://kubernetes.io/docs/reference/kubectl/"]
+allow = ["https://kubernetes.io/docs/tasks/", "https://kubernetes.io/docs/reference/kubectl/", "https://kubernetes.io/docs/concepts/"]
+
+[[source]]
+id = "docker"
+name = "Documentation Docker"
+platform = "docker"
+licence = "Apache 2.0"
+attribution = "© Docker Inc., contenu sous licence Apache 2.0"
+seeds = ["https://docs.docker.com/reference/cli/docker/", "https://docs.docker.com/engine/storage/"]
+allow = ["https://docs.docker.com/reference/cli/docker/", "https://docs.docker.com/engine/"]

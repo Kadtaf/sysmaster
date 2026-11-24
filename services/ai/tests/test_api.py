@@ -41,7 +41,14 @@ def test_reponse_structuree_citee_en_camel_case() -> None:
     assert body["agent"] == "diagnostician" and body["domain"] == "linux" and body["outcome"] == "answered"
     assert body["answer"]["verified"] is True
     assert body["answer"]["sources"] == [
-        {"ref": 1, "title": "Fiche SysMaster : df", "url": "/commandes/linux-df", "kind": "kb_command", "slug": "linux-df"}
+        {
+            "ref": 1,
+            "title": "Fiche SysMaster : df",
+            "url": "/commandes/linux-df",
+            "kind": "kb_command",
+            "slug": "linux-df",
+            "attribution": None,
+        }
     ]
     step = body["answer"]["steps"][0]
     assert {"maskedUntilRisksRead", "copyAllowed", "riskNote"} <= step.keys()

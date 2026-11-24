@@ -9,6 +9,7 @@ from app.llm.port import Llm
 from app.rag.retriever import Document, Retriever
 from app.schemas import Answer, AskRequest, AskResponse
 
+KIND_LABEL = {"kb_command": "Fiche SysMaster", "official_doc": "Documentation officielle"}
 LEVELS = {"beginner": "débutant", "intermediate": "intermédiaire", "advanced": "avancé"}
 
 REFUSED = Answer(
@@ -25,7 +26,7 @@ REFUSED = Answer(
 def build_user_message(req: AskRequest, documents: list[Document]) -> str:
     """Ordre stable : contexte, historique, puis la question (seule partie qui change toujours)."""
     parts = ["<documents>"]
-    parts += [f"[{d.ref}] {d.title}\n{d.text}" for d in documents] or ["(aucun document trouvé)"]
+    parts += [f"[{d.ref}] {KIND_LABEL[d.kind]} — {d.title}\n{d.text}" for d in documents] or ["(aucun document trouvé)"]
     parts.append("</documents>")
     if req.history:
         parts.append("<historique>")

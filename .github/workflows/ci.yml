@@ -96,6 +96,9 @@ jobs:
             helm template ci infra/helm/sysmaster -f infra/helm/sysmaster/$values --set image.tag=ci \
               | ./kubeconform -strict -summary -ignore-missing-schemas -kubernetes-version 1.30.0
           done
+          # Options désactivées par défaut : la collecte de documentation officielle (CronJob).
+          helm template ci infra/helm/sysmaster --set image.tag=ci --set ai.qdrantUrl=http://qdrant:6333 --set ai.ingest.enabled=true \
+            | ./kubeconform -strict -summary -ignore-missing-schemas -kubernetes-version 1.30.0
 
   docker:
     name: Images Docker

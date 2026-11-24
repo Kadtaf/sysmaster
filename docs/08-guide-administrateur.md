@@ -185,6 +185,20 @@ kubectl -n sysmaster-staging patch secret sysmaster-secrets --type merge \
 
 Risque : chaque question consomme des jetons facturés. Le quota par utilisateur (`ai.assistantDailyQuota`, 30 par défaut) borne la dépense ; le coût réel se lit dans `ai.agent_runs` (tokens d'entrée, de sortie et de cache par réponse).
 
+**Documentation officielle de l'assistant (facultatif).** Sans Qdrant, l'assistant s'appuie seulement sur les fiches SysMaster. Pour lui donner la documentation officielle :
+
+1. Installer Qdrant (chart officiel `qdrant/qdrant` ou service géré), comme Postgres hors de ce chart.
+2. Passer `--set ai.qdrantUrl=http://<qdrant>:6333 --set ai.ingest.enabled=true` : un CronJob collecte les sources de `services/ai/sources.toml` chaque dimanche à 3 h 17.
+3. Lancer une première collecte sans attendre :
+
+```bash
+# Pourquoi create job --from : exécute tout de suite le même Job que le CronJob, avec les mêmes réglages.
+kubectl -n sysmaster-staging create job --from=cronjob/sysmaster-ai-ingest ingest-initial
+kubectl -n sysmaster-staging logs -f job/ingest-initial
+```
+
+Risque faible : la collecte ne fait que lire des sites publics (une page par seconde, `robots.txt` respecté) et écrire dans Qdrant. Elle exige un accès Internet sortant depuis le cluster. Changer de modèle de plongement (`EMBED_MODEL`) impose de supprimer la collection `official_docs` puis de relancer la collecte : le service le signale clairement au lieu de mélanger deux modèles.
+
 Sans `STAGING_KUBECONFIG`, la CD publie les images et s'arrête là, avec une note dans le résumé du workflow.
 
 **Revenir en arrière** : `helm -n sysmaster-staging rollback sysmaster`. Le code revient, **pas le schéma de la base**. C'est pourquoi chaque migration doit rester compatible avec la version précédente du code : on ajoute une colonne dans une version, on la rend obligatoire dans la suivante.

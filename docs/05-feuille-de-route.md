@@ -57,8 +57,8 @@ Les durées sont indicatives et supposent une équipe dédiée ; avec un dévelo
 ## Phase 3 — Assistant IA multi-agents et RAG
 
 - ✅ Socle de l'assistant : `services/ai` (FastAPI) avec routeur tuteur / diagnosticien et domaines, profils d'agents, sortie structurée validée, garde-fous (risque relevé par motifs destructifs, citations limitées aux documents fournis, réponse « non vérifiée » sans source), mode factice sans clé ; module API (quota sur 24 h, conversations, historique, avis) ; page `/assistant` (commande masquée tant que les risques ne sont pas lus, copie interdite si critique) ; image, Helm (service interne, `NetworkPolicy`), CI Python. ⏳ Streaming ; profils lus depuis `ai.agent_profiles`.
-- 🟡 Pipeline RAG : v0 sur la base de connaissances SysMaster (recherche plein texte de l'API cœur). ⏳ Ingestion des 6 sources officielles (dans le respect des licences), Qdrant, recherche hybride, reranking.
-- NATS JetStream (ADR-013) : le relais outbox publie les événements de publication de contenu, que le service IA consomme pour réindexer le RAG.
+- ✅ Pipeline RAG : fiches SysMaster lues en direct par l'API cœur, plus documentation officielle (Microsoft Learn, Ubuntu Server, PostgreSQL, Kubernetes, Docker) collectée dans le respect des licences et de `robots.txt`, indexée dans Qdrant (vecteurs denses multilingues locaux + vecteurs creux), recherche hybride filtrée par plateforme, citations avec attribution. ⏳ Reranking, selon ce que montrera l'évaluation.
+- ⏸ NATS JetStream (ADR-013, mis à jour) : pas encore nécessaire, les fiches étant lues en direct par le service IA ; il arrivera avec le premier consommateur hors processus réel.
 - Diagnostic : extraction de symptômes par LLM, analyse de captures (OCR + vision), analyse de logs (agent 10 + `evidence_patterns`).
 - Génération de quiz et d'exercices (relue avant publication).
 - ✅ Évaluation continue : jeux de référence (assistant, extraction), contrôles déterministes en CI, évaluation avec le vrai modèle et juge par modèle via un workflow manuel. ⏳ Suivi des coûts, quotas par plan.

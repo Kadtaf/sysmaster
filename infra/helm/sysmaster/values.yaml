@@ -41,6 +41,17 @@ ai:
   effort: medium
   assistantDailyQuota: 30
   timeoutMs: 90000
+  # Documentation officielle (RAG). Qdrant n'est pas installé par ce chart (comme Postgres) :
+  # vide, l'assistant ne s'appuie que sur les fiches SysMaster.
+  qdrantUrl: ""
+  # Collecte hebdomadaire de la documentation officielle (exige qdrantUrl et un accès Internet sortant).
+  ingest:
+    enabled: false
+    schedule: "17 3 * * 0"   # dimanche 3 h 17 : hors trafic, minute non ronde pour ne pas charger les sites cités
+    maxPagesPerSource: 400
+    resources:
+      requests: { cpu: 200m, memory: 512Mi }
+      limits: { memory: 1Gi }
   networkPolicy:
     enabled: true
   extraEnv: {}
