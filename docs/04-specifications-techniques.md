@@ -66,6 +66,13 @@ Préfixe `/api/v1`. Documentation OpenAPI générée sur `/api/docs`. Authentifi
 | GET | `/me/learning` | Parcours suivis et progression |
 | GET | `/kb/commands?q=&platform=` | Recherche de fiches commandes |
 | GET | `/kb/commands/:slug` | Fiche complète (paramètres, exemples, alternatives, sources) |
+| GET | `/labs` | Catalogue des labs publiés (`runtime` : seuls les labs `simulation` sont démarrables aujourd'hui) |
+| GET | `/labs/:slug` | Énoncé, objectifs, nombre d'indices et liste de ce qui sera vérifié ; jamais les indices ni la solution |
+| POST | `/labs/:slug/instances?fresh=` | Démarre le lab (connecté) ou reprend la session ouverte ; `fresh=true` repart d'une machine neuve. **409** pour un lab qui demande un environnement réel |
+| GET | `/lab-instances/:id` | Session : historique du terminal, indices révélés, score et solution une fois résolu (propriétaire seulement, **403** sinon) |
+| POST | `/lab-instances/:id/commands` | `{ command }` (500 caractères max) → `{ command, output, exitCode, warning?, prompt }`. Une commande à la fois (pas de `;`, `&&`, `$()`) ; filtres `grep`, `head`, `tail`, `sort` après `|`. **409** si la session est résolue ou si une autre commande est passée en même temps, **410** si elle a expiré |
+| POST | `/lab-instances/:id/hints` | Révèle l'indice suivant ; chaque indice retire 15 points au score (plancher 40) et réduit l'XP |
+| POST | `/lab-instances/:id/check` | Évalue les validateurs sur l'état de la machine → `{ solved, checks, instance }`. Si tout passe : session résolue, solution révélée, `labs.lab.solved.v1` publié |
 | GET | `/diagnostic/symptoms?platform=` | Symptômes connus |
 | POST | `/diagnostic/analyze` | Analyse : `{ platform, description?, symptoms?, evidence?, useAi? }` → hypothèses classées, plus `extraction` (méthode, citations, lignes de journal relevées). Anonyme ou connecté (la session rejoint alors l'historique). `useAi: true` exige une connexion (**401** sinon) et compte dans le quota IA (**429**) ; si l'IA est indisponible, repli sur les synonymes avec `extraction.note` |
 | GET | `/me` | Profil, rôles et droits de l'utilisateur connecté (jeton requis) |

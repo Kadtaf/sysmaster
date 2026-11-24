@@ -1,4 +1,4 @@
-import type { Difficulty, RiskLevel } from '@sysmaster/contracts';
+import type { Difficulty, LabCategory, RiskLevel } from '@sysmaster/contracts';
 
 export const difficultyLabel: Record<Difficulty, string> = {
   beginner: 'Débutant',
@@ -29,6 +29,12 @@ export const xpReasonLabel: Record<string, string> = {
   'lesson.completed': 'Leçon validée',
   'diagnostic.completed': 'Diagnostic mené à terme',
   'path.completed': 'Parcours terminé',
+  'lab.solved': 'Lab résolu',
+};
+
+export const labCategoryLabel: Record<LabCategory, string> = {
+  windows: 'Windows', linux: 'Linux', macos: 'macOS', docker: 'Docker', network: 'Réseau',
+  cyber: 'Cybersécurité', cloud: 'Cloud', database: 'Bases de données',
 };
 
 export const rarityLabel: Record<string, string> = {

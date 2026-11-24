@@ -86,6 +86,8 @@ Règles :
 
 ### 2.6 Laboratoires virtuels — Phase 4
 
+> **Livré (premier incrément)** : labs **simulés** (machine Linux décrite en JSON, commandes interprétées sans rien exécuter), terminal web, panne injectée, indices progressifs qui réduisent score et XP, validation automatique sur l'état final, explication après réussite, XP et badges. Deux labs : disque plein, port 80 occupé. Reste à faire : runtimes réels isolés (conteneur, micro-VM, VM Windows), autres catégories, générateur de labs (agent 11), rédaction des labs dans le back-office.
+
 - Catégories : Windows, Linux, macOS (simulé), Docker, Réseau, Cyber, Cloud, Bases de données.
 - Chaque lab : énoncé, objectifs, panne injectée réaliste, indices progressifs (coûtent de l'XP), validation automatique, explication de la solution après réussite.
 - Terminal web ; durée de vie limitée ; sauvegarde de l'état non garantie (pédagogique).
@@ -101,7 +103,7 @@ Règles :
 
 ### 2.8 Gamification — Phase 2
 
-> **Livré (PR gamification)** : XP sur leçons, diagnostics et parcours terminés, niveaux, badges, séries, classement anonymisé avec retrait, page `/classement`. Reste à faire : défis hebdomadaires, classements amis et organisation, XP communauté et labs.
+> **Livré (PR gamification)** : XP sur leçons, diagnostics et parcours terminés, niveaux, badges, séries, classement anonymisé avec retrait, page `/classement`. XP des labs livrée en Phase 4 (60 XP sans indice, 30 avec un indice, puis 10 de moins par indice, jamais moins de 10 ; badges « Les mains dans le système » et « Sans filet »). Reste à faire : défis hebdomadaires, classements amis et organisation, XP communauté.
 
 XP (leçons, labs, diagnostics clos, aide en communauté), niveaux (Curieux → Maître système), badges (dont « Lire avant d'exécuter »), séries quotidiennes, défis hebdomadaires, classements (global, amis, organisation). **Règle** : l'XP ne récompense jamais la vitesse de copie ; un lab résolu sans indice rapporte plus.
 

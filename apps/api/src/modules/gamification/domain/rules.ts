@@ -10,6 +10,14 @@ export function xpForLesson(estMinutes: number | null): number {
 }
 
 export const XP_DIAGNOSTIC_COMPLETED = 15;
+
+/**
+ * XP d'un lab résolu : 60 sans indice, 30 avec un indice, puis 10 de moins par indice
+ * (jamais moins de 10). Un lab résolu sans indice rapporte plus.
+ */
+export function xpForLab(hintsUsed: number): number {
+  return hintsUsed === 0 ? 60 : Math.max(10, 30 - 10 * (hintsUsed - 1));
+}
 export const XP_PATH_COMPLETED = 200;
 
 export interface Level {
@@ -45,6 +53,8 @@ export interface StatsForBadges {
   diagnosticsCompleted: number;
   pathsCompleted: number;
   streakDays: number;
+  labsSolved: number;
+  labsSolvedWithoutHint: number;
 }
 
 const CRITERIA_FIELDS: Record<string, keyof StatsForBadges> = {
@@ -52,6 +62,8 @@ const CRITERIA_FIELDS: Record<string, keyof StatsForBadges> = {
   diagnostics_completed: 'diagnosticsCompleted',
   paths_completed: 'pathsCompleted',
   streak_days: 'streakDays',
+  labs_solved: 'labsSolved',
+  labs_solved_without_hint: 'labsSolvedWithoutHint',
 };
 
 /**

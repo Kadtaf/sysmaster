@@ -1,4 +1,4 @@
-import { earnedBadges, leaderboardName, levelFor, nextStreak, xpForLesson } from './rules';
+import { earnedBadges, leaderboardName, levelFor, nextStreak, xpForLab, xpForLesson } from './rules';
 
 const levels = [
   { level: 1, minXp: 0, title: 'Curieux' },
@@ -34,8 +34,15 @@ describe('gamification', () => {
       { code: 'lab_no_hint', criteria: { event: 'labs.lab.solved.v1', hints_used: 0 } },
       { code: 'vide', criteria: {} },
     ];
-    const stats = { lessonsCompleted: 3, diagnosticsCompleted: 0, pathsCompleted: 0, streakDays: 2 };
+    const stats = { lessonsCompleted: 3, diagnosticsCompleted: 0, pathsCompleted: 0, streakDays: 2, labsSolved: 0, labsSolvedWithoutHint: 0 };
     expect(earnedBadges(badges, stats)).toEqual(['first_lesson']);
+    const labBadges = [{ code: 'lab_no_hint', criteria: { labs_solved_without_hint: 1 } }];
+    expect(earnedBadges(labBadges, stats)).toEqual([]);
+    expect(earnedBadges(labBadges, { ...stats, labsSolved: 1, labsSolvedWithoutHint: 1 })).toEqual(['lab_no_hint']);
+  });
+
+  it('XP de lab : sans indice rapporte le plus, jamais moins de 10', () => {
+    expect([0, 1, 2, 3, 4, 9].map(xpForLab)).toEqual([60, 30, 20, 10, 10, 10]);
   });
 
   it('nom abrégé au classement', () => {

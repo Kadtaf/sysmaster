@@ -125,6 +125,14 @@ export interface DiagnosticSessionCompletedV1 {
   confidence: number;
 }
 
+export interface LabSolvedV1 {
+  instanceId: string;
+  labSlug: string;
+  userId: string;
+  hintsUsed: number;
+  score: number;
+}
+
 // ---------- Académie (Phase 2) ----------
 export type LessonStatus = 'completed' | 'available' | 'locked';
 export type LessonType = 'reading' | 'video' | 'interactive' | 'lab' | 'quiz' | 'case_study';
@@ -441,6 +449,58 @@ export interface QuizDraftDto {
   /** Questions écartées par les vérifications, avec la raison. */
   notes: string[];
   remainingToday: number;
+}
+
+// ---------- Labs simulés (Phase 4) ----------
+export const LAB_CATEGORIES = ['windows', 'linux', 'macos', 'docker', 'network', 'cyber', 'cloud', 'database'] as const;
+export type LabCategory = (typeof LAB_CATEGORIES)[number];
+
+export interface LabSummaryDto {
+  slug: string;
+  title: string;
+  category: LabCategory;
+  difficulty: Difficulty;
+  runtime: 'simulation' | 'container' | 'microvm' | 'windows_vm';
+  ttlMinutes: number;
+  objectives: string[];
+}
+export interface LabDetailDto extends LabSummaryDto {
+  briefMd: string;
+  hintCount: number;
+  /** Ce que la validation vérifiera : l'objectif est connu, pas le chemin pour y arriver. */
+  checks: string[];
+}
+export interface LabTranscriptEntry {
+  command: string;
+  output: string;
+  exitCode: number;
+  /** Explication quand la commande a été refusée par prudence. */
+  warning?: string;
+}
+export type LabInstanceStatus = 'running' | 'solved' | 'expired';
+export interface LabInstanceDto {
+  id: string;
+  labSlug: string;
+  status: LabInstanceStatus;
+  /** Invite du terminal, ex. « root@web01:/root# ». */
+  prompt: string;
+  transcript: LabTranscriptEntry[];
+  hints: string[];
+  hintCount: number;
+  expiresAt: string;
+  /** Renseignés une fois le lab résolu. */
+  score: number | null;
+  solutionMd: string | null;
+}
+export const LabCommandSchema = z.object({ command: z.string().max(500) });
+export type LabCommandInput = z.infer<typeof LabCommandSchema>;
+export interface LabCommandResultDto extends LabTranscriptEntry {
+  prompt: string;
+}
+export interface LabCheckResultDto {
+  solved: boolean;
+  checks: { description: string; passed: boolean }[];
+  instance: LabInstanceDto;
 }
 
 export const CONTENT_KINDS = ['command', 'course', 'path', 'diagnostic_cause', 'agent_profile', 'quiz'] as const;

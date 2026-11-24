@@ -5,7 +5,9 @@ INSERT INTO gamification.badges (code, name, description, icon, rarity, criteria
   ('first_diagnostic','Premier diagnostic','A mené un premier diagnostic jusqu''au bout.','stethoscope','common','{"diagnostics_completed":1}'),
   ('path_completed','Parcours terminé','A terminé un parcours complet.','graduation-cap','epic','{"paths_completed":1}'),
   ('streak_7','Une semaine d''affilée','7 jours consécutifs d''apprentissage.','flame','rare','{"streak_days":7}'),
-  ('streak_30','30 jours d''affilée','30 jours consécutifs d''apprentissage.','flame','legendary','{"streak_days":30}')
+  ('streak_30','30 jours d''affilée','30 jours consécutifs d''apprentissage.','flame','legendary','{"streak_days":30}'),
+  ('first_lab','Les mains dans le système','A réparé sa première machine en lab.','terminal','common','{"labs_solved":1}'),
+  ('lab_no_hint','Sans filet','A résolu un lab sans aucun indice.','shield-check','rare','{"labs_solved_without_hint":1}')
 ON CONFLICT (code) DO UPDATE SET name = EXCLUDED.name, description = EXCLUDED.description,
   icon = EXCLUDED.icon, rarity = EXCLUDED.rarity, criteria = EXCLUDED.criteria;
 

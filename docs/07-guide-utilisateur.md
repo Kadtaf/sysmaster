@@ -76,6 +76,17 @@ La vitesse ne rapporte rien. L'XP récompense ce que vous avez compris, pas la r
 
 Vous y apparaissez sous un nom abrégé (« Alice M. »), jamais avec votre e-mail. Le bouton **Me retirer du classement** vous en retire sans toucher à votre XP ni à vos badges.
 
+### Les labs (`/labs`)
+
+Un lab vous confie une machine en panne et une situation (« le site ne répond plus »). Vous tapez des commandes dans le terminal de la page comme sur un vrai serveur, mais **rien ne s'exécute réellement** : la machine est simulée. Tapez `help` pour la liste des commandes disponibles.
+
+1. Lisez la situation et ce qui sera vérifié.
+2. Observez avant d'agir : `systemctl status`, `journalctl -u`, `df -h`, `ss -tlnp`…
+3. Réparez, puis cliquez sur **Vérifier ma réparation**. La validation regarde l'état de la machine, pas la suite exacte de vos commandes.
+4. Une fois réussi, vous voyez votre score et l'explication complète : la cause, la démarche, et comment éviter que ça revienne.
+
+Les **indices** sont révélés un par un ; chacun retire des points. Un lab résolu sans indice rapporte 60 XP et le badge « Sans filet ». Une commande trop dangereuse (effacer `/var/log` entier, par exemple) est refusée avec une explication. **Recommencer** vous rend une machine neuve. Une session dure le temps indiqué sur le lab ; il faut être connecté.
+
 ## 3. Contribuer aux fiches (auteurs et relecteurs)
 
 Le lien **Rédaction** apparaît si vous avez le rôle *author*, *reviewer* ou *admin*.
@@ -113,6 +124,6 @@ Connecté, cochez « Repérer les symptômes avec l'IA » sur la page Diagnostic
 Les fonctions suivantes sont prévues dans la [feuille de route](05-feuille-de-route.md) :
 
 - l'enrichissement de l'assistant (documentation officielle, réponses en continu, diagnostic à partir de journaux) ;
-- les labs pratiques (Phase 4) ;
+- les labs sur de vraies machines isolées, et de nouveaux labs Docker, réseau et cybersécurité (Phase 4) ;
 - les certifications, la communauté et les offres payantes (Phase 5) ;
 - les applications mobiles (Phase 6).

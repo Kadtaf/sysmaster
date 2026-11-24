@@ -1,9 +1,10 @@
-import { earnedBadges, Level, levelFor, nextStreak, xpForLesson, XP_DIAGNOSTIC_COMPLETED, XP_PATH_COMPLETED } from './rules';
+import { earnedBadges, Level, levelFor, nextStreak, xpForLab, xpForLesson, XP_DIAGNOSTIC_COMPLETED, XP_PATH_COMPLETED } from './rules';
 
 export type Activity =
   | { kind: 'lesson'; estMinutes: number | null }
   | { kind: 'diagnostic' }
-  | { kind: 'path' };
+  | { kind: 'path' }
+  | { kind: 'lab'; hintsUsed: number };
 
 export interface PlayerStats {
   totalXp: number;
@@ -14,11 +15,13 @@ export interface PlayerStats {
   lessonsCompleted: number;
   diagnosticsCompleted: number;
   pathsCompleted: number;
+  labsSolved: number;
+  labsSolvedWithoutHint: number;
 }
 
 export const EMPTY_STATS: PlayerStats = {
   totalXp: 0, level: 1, streakDays: 0, longestStreak: 0, lastActivityDate: null,
-  lessonsCompleted: 0, diagnosticsCompleted: 0, pathsCompleted: 0,
+  lessonsCompleted: 0, diagnosticsCompleted: 0, pathsCompleted: 0, labsSolved: 0, labsSolvedWithoutHint: 0,
 };
 
 export interface AwardResult {
@@ -49,6 +52,11 @@ export function award(
     case 'path':
       s.pathsCompleted++;
       xp = { amount: XP_PATH_COMPLETED, reason: 'path.completed' };
+      break;
+    case 'lab':
+      s.labsSolved++;
+      if (activity.hintsUsed === 0) s.labsSolvedWithoutHint++;
+      xp = { amount: xpForLab(activity.hintsUsed), reason: 'lab.solved' };
       break;
   }
 
