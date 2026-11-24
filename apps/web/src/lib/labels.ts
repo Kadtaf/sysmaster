@@ -80,6 +80,10 @@ export const contentKindMeta: Record<string, { label: string; newLabel: string; 
     label: 'Quiz', newLabel: 'Nouveau quiz', placeholder: 'quiz-linux-df', href: (k) => `/quiz/${k}`,
     rule: 'Un quiz n’est publiable que si chaque question a une bonne réponse parmi ses choix et explique pourquoi',
   },
+  lab: {
+    label: 'Lab simulé', newLabel: 'Nouveau lab', placeholder: 'linux-disque-plein-nginx', href: (k) => `/labs/${k}`,
+    rule: 'Un lab n’est publiable que s’il part d’une vraie panne et que sa démarche de référence répare la machine',
+  },
   agent_profile: {
     label: 'Profil d’agent IA', newLabel: 'Nouveau profil', placeholder: 'network_expert', href: () => '/assistant',
     rule: 'Réservé aux administrateurs, relu par un second administrateur ; les règles de sécurité de l’assistant restent dans le code',

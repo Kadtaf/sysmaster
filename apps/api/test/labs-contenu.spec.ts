@@ -1,5 +1,7 @@
+import { LabContentSchema } from '@sysmaster/contracts';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { labIssues } from '../src/modules/editorial/domain/lab-rules';
 import { evaluate, specIssues, type SimulationSpec } from '../src/modules/labs/domain/lab';
 import type { MachineState } from '../src/modules/labs/domain/machine';
 import { run } from '../src/modules/labs/domain/shell';
@@ -33,6 +35,17 @@ describe('Labs du seed 007', () => {
       expect({ slug: l.slug, issues: specIssues(l.simulation) }).toEqual({ slug: l.slug, issues: [] });
       expect(l.hints.length).toBeGreaterThanOrEqual(2);
       expect(l.solutionMd.length).toBeGreaterThan(200);
+    }
+  });
+
+  it('chaque lab passe les règles de publication du back-office (démarche de référence comprise)', () => {
+    for (const l of labs) {
+      const raw = l as unknown as Record<string, unknown> & { simulation: SimulationSpec };
+      const content = LabContentSchema.parse({
+        ...raw, hints: l.hints.map((h) => h.text), machine: raw.simulation.machine,
+        validators: raw.simulation.validators, walkthrough: raw.simulation.walkthrough,
+      });
+      expect({ slug: l.slug, issues: labIssues(content) }).toEqual({ slug: l.slug, issues: [] });
     }
   });
 

@@ -19,6 +19,8 @@ export interface SimulationSpec {
   /** Machine dans son état de panne, telle que l'apprenant la reçoit. */
   machine: MachineState;
   validators: Validator[];
+  /** Démarche de référence, rejouée avant publication (back-office). */
+  walkthrough?: string[];
 }
 
 export function passes(state: MachineState, check: Check): boolean {
