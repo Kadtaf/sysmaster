@@ -14,6 +14,7 @@ import {
 } from './machine';
 import { docker } from './docker';
 import { curl, dns, ip, ping } from './network-commands';
+import { chmod, chown, modeOf, modeString, stat, ufw } from './security';
 
 /**
  * Interpréteur de commandes de la machine simulée. Il ne lance jamais rien de réel : chaque
@@ -34,7 +35,8 @@ export const MAX_COMMAND_LENGTH = 500;
 const SUPPORTED = [
   'pwd', 'cd', 'ls', 'cat', 'head', 'tail', 'df', 'du', 'rm', 'truncate',
   'systemctl', 'journalctl', 'ss', 'ps', 'echo', 'sed',
-  'ip', 'ping', 'dig', 'nslookup', 'host', 'curl', 'docker', 'help',
+  'ip', 'ping', 'dig', 'nslookup', 'host', 'curl', 'docker',
+  'grep', 'chmod', 'chown', 'stat', 'ufw', 'help',
 ] as const;
 
 /** Découpe une ligne en mots, avec les guillemets simples et doubles. */
@@ -138,7 +140,10 @@ function longLine(state: MachineState, path: string, human: boolean): string {
   const dir = isDir(state, path);
   const size = dir ? 4096 : state.files[path].size;
   const name = path.split('/').pop();
-  return `${dir ? 'drwxr-xr-x' : '-rw-r-----'} 1 root root ${(human ? humanSize(size) : String(size)).padStart(6)} nov. 24 09:12 ${name}`;
+  const f = state.files[path];
+  const owner = (f?.owner ?? 'root').padEnd(5);
+  const group = (f?.group ?? 'root').padEnd(5);
+  return `${dir ? 'drwxr-xr-x' : `-${modeString(modeOf(state, path))}`} 1 ${owner} ${group} ${(human ? humanSize(size) : String(size)).padStart(6)} nov. 24 09:12 ${name}`;
 }
 
 function df(state: MachineState, args: string[]): ShellResult {
@@ -218,7 +223,7 @@ function truncate(state: MachineState, args: string[]): ShellResult {
   for (const t of rest) {
     const path = normalize(t, state.cwd);
     if (!next.files[path]) return err(state, `truncate: cannot open '${t}' for writing: No such file or directory`);
-    next = { ...next, files: { ...next.files, [path]: { size: 0, content: '' } } };
+    next = { ...next, files: { ...next.files, [path]: { ...next.files[path], size: 0, content: '' } } };
   }
   return ok(next, '');
 }
@@ -337,7 +342,7 @@ function write(state: MachineState, target: string, text: string, append: boolea
   if (!isDir(state, parentOf(path))) return err(state, `bash: ${target}: No such file or directory`);
   const before = state.files[path]?.content ?? '';
   const content = append ? `${before}${before && !before.endsWith('\n') ? '\n' : ''}${text}\n` : `${text}\n`;
-  return ok({ ...state, files: { ...state.files, [path]: { size: content.length, content } } }, '');
+  return ok({ ...state, files: { ...state.files, [path]: { ...state.files[path], size: content.length, content } } }, '');
 }
 
 /**
@@ -362,12 +367,12 @@ function sed(state: MachineState, args: string[]): ShellResult {
     .split('\n')
     .map((l) => (flags.includes('g') ? l.split(from).join(to) : l.replace(from, () => to)))
     .join('\n');
-  return ok({ ...state, files: { ...state.files, [path]: { size: replaced.length, content: replaced } } }, '');
+  return ok({ ...state, files: { ...state.files, [path]: { ...f, size: replaced.length, content: replaced } } }, '');
 }
 
 const HELP = `Machine simulée : les commandes ne s'exécutent nulle part, elles transforment un état.
 Commandes disponibles : ${SUPPORTED.join(', ')}.
-Filtres après | : grep MOT, head [-n N], tail [-n N].
+Filtres après | : grep [-i -v -c] MOT, head [-n N], tail [-n N], sort [-n -r], uniq [-c], wc -l, cut -d' ' -f N.
 Vider un fichier : truncate -s 0 FICHIER ou > FICHIER.
 Écrire : echo 'texte' > FICHIER (>> pour ajouter) ; corriger : sed -i 's/ancien/nouveau/' FICHIER (motif littéral).`;
 
@@ -439,25 +444,121 @@ function runOne(state: MachineState, words: string[]): ShellResult {
       return curl(state, args);
     case 'docker':
       return docker(state, args);
+    case 'grep':
+      return grepFiles(state, args);
+    case 'chmod':
+      return chmod(state, args);
+    case 'chown':
+      return chown(state, args);
+    case 'stat':
+      return stat(state, args);
+    case 'ufw':
+      return ufw(state, args);
     default:
       return err(state, `${cmd}: commande non simulée dans ce lab. Tapez help pour la liste.`, 127);
   }
 }
 
+interface GrepOptions {
+  pattern: string;
+  ignoreCase: boolean;
+  invert: boolean;
+  count: boolean;
+  files: string[];
+}
+
+/** grep [-i] [-v] [-c] MOTIF [FICHIER…] : motif littéral, pas d'expression régulière. */
+function grepOptions(args: string[]): GrepOptions | null {
+  const o: GrepOptions = { pattern: '', ignoreCase: false, invert: false, count: false, files: [] };
+  let havePattern = false;
+  for (const a of args) {
+    if (a.startsWith('-') && a.length > 1 && !havePattern) {
+      for (const c of a.slice(1)) {
+        if (c === 'i') o.ignoreCase = true;
+        else if (c === 'v') o.invert = true;
+        else if (c === 'c') o.count = true;
+        else if (c !== 'F' && c !== 'a') return null;
+      }
+    } else if (!havePattern) {
+      o.pattern = a;
+      havePattern = true;
+    } else {
+      o.files.push(a);
+    }
+  }
+  return havePattern ? o : null;
+}
+
+function grepText(text: string, o: GrepOptions): string[] {
+  const needle = o.ignoreCase ? o.pattern.toLowerCase() : o.pattern;
+  return text
+    .replace(/\n$/, '')
+    .split('\n')
+    .filter((l) => l !== '' && (o.ignoreCase ? l.toLowerCase() : l).includes(needle) !== o.invert);
+}
+
+function grepFiles(state: MachineState, args: string[]): ShellResult {
+  const o = grepOptions(args);
+  if (!o) return err(state, 'grep : forme simulée grep [-i] [-v] [-c] MOTIF FICHIER (motif littéral)', 2);
+  if (!o.files.length) return err(state, 'grep : précisez un fichier, ou utilisez-le après | (ex. cat FICHIER | grep MOT)', 2);
+  const out: string[] = [];
+  let found = false;
+  for (const f of o.files) {
+    const r = readable(state, 'grep', f);
+    if (r.error) return err(state, r.error, 2);
+    const hits = grepText(r.text!, o);
+    found ||= hits.length > 0;
+    const prefix = o.files.length > 1 ? `${f}:` : '';
+    if (o.count) out.push(`${prefix}${hits.length}`);
+    else out.push(...hits.map((h) => `${prefix}${h}`));
+  }
+  return { state, output: out.join('\n'), exitCode: found ? 0 : 1 };
+}
+
 function filter(output: string, words: string[]): string | null {
   const [cmd, ...args] = words;
-  const { rest, values, opts } = flags(args);
-  if (cmd === 'grep') {
-    const needle = rest[0] ?? '';
-    const ci = opts.has('-i');
-    return output
-      .split('\n')
-      .filter((l) => (ci ? l.toLowerCase().includes(needle.toLowerCase()) : l.includes(needle)))
-      .join('\n');
+  const { values, opts } = flags(args);
+  const rows = output === '' ? [] : output.replace(/\n$/, '').split('\n');
+  switch (cmd) {
+    case 'grep': {
+      const o = grepOptions(args);
+      if (!o) return null;
+      const hits = grepText(output, o);
+      return o.count ? String(hits.length) : hits.join('\n');
+    }
+    case 'head':
+    case 'tail':
+      return lines(output, Number(values.get('-n') ?? 10) || 10, cmd === 'tail');
+    case 'sort': {
+      const numeric = opts.has('-n') || values.has('-n');
+      const sorted = [...rows].sort((a, b) => (numeric ? parseFloat(a) - parseFloat(b) || a.localeCompare(b) : a < b ? -1 : a > b ? 1 : 0));
+      return (opts.has('-r') ? sorted.reverse() : sorted).join('\n');
+    }
+    case 'uniq': {
+      const out: { line: string; n: number }[] = [];
+      for (const l of rows) {
+        if (out.length && out[out.length - 1].line === l) out[out.length - 1].n++;
+        else out.push({ line: l, n: 1 });
+      }
+      return out.map((x) => (opts.has('-c') ? `${String(x.n).padStart(7)} ${x.line}` : x.line)).join('\n');
+    }
+    case 'wc':
+      return opts.has('-l') ? String(rows.length) : null;
+    case 'cut': {
+      // cut -d' ' -f11 (ou -d ' ' -f 11, -f2,3)
+      let delim = '\t';
+      let fields: number[] = [];
+      for (let i = 0; i < args.length; i++) {
+        const a = args[i];
+        if (a.startsWith('-d')) delim = a.length > 2 ? a.slice(2) : args[++i] ?? '';
+        else if (a.startsWith('-f')) fields = (a.length > 2 ? a.slice(2) : args[++i] ?? '').split(',').map(Number);
+      }
+      if (delim.length !== 1 || !fields.length || fields.some((n) => !Number.isInteger(n) || n < 1)) return null;
+      return rows.map((l) => fields.map((n) => l.split(delim)[n - 1] ?? '').filter((x, i, a) => x !== '' || a.length === 1).join(delim)).join('\n');
+    }
+    default:
+      return null;
   }
-  if (cmd === 'head' || cmd === 'tail') return lines(output, Number(values.get('-n') ?? 10) || 10, cmd === 'tail');
-  if (cmd === 'sort') return output.split('\n').sort().join('\n');
-  return null;
 }
 
 /** Exécute une ligne : préfixe sudo accepté, redirection « > fichier » et filtres après « | ». */
@@ -484,7 +585,7 @@ export function run(state: MachineState, line: string): ShellResult {
   let result = runOne(clocked, words);
   for (const p of pipes) {
     const filtered = filter(result.output, p);
-    if (filtered === null) return err(clocked, `${p[0] ?? ''}: filtre non simulé (grep, head, tail, sort)`, 127);
+    if (filtered === null) return err(clocked, `${p[0] ?? ''}: filtre non simulé (grep, head, tail, sort, uniq, wc -l, cut)`, 127);
     result = { ...result, output: filtered };
   }
   return result;

@@ -148,4 +148,36 @@ describe('Labs du seed 007', () => {
       expect(evaluate(state, lab.simulation.validators).map((c) => c.passed)).toEqual([true, true, false]);
     });
   });
+
+  describe('Cyber', () => {
+    it('force brute : ufw deny ajouté en fin de liste ne bloque pas l’attaquant', () => {
+      const lab = bySlug('cyber-ssh-force-brute');
+      const { state, outputs } = play(lab.simulation.machine, [
+        'grep "Failed password" /var/log/auth.log | cut -d\' \' -f11 | sort | uniq -c',
+        'ufw deny from 203.0.113.45',
+      ]);
+      expect(outputs[0]).toContain('46 203.0.113.45');
+      expect(outputs[0]).toContain('3 198.51.100.77');
+      expect(evaluate(state, lab.simulation.validators)[0].passed).toBe(false);
+    });
+
+    it('force brute : tout fermer bloque l’attaquant mais coupe aussi l’équipe', () => {
+      const lab = bySlug('cyber-ssh-force-brute');
+      const { state } = play(lab.simulation.machine, ['ufw delete allow 22']);
+      expect(evaluate(state, lab.simulation.validators).slice(0, 3).map((c) => c.passed)).toEqual([true, false, true]);
+    });
+
+    it('secrets : chmod 600 sur la configuration casse la boutique au redémarrage', () => {
+      const lab = bySlug('cyber-secrets-lisibles');
+      const { state, outputs } = play(lab.simulation.machine, [
+        'chmod 600 /var/www/boutique/.env',
+        'systemctl restart php8.2-fpm',
+        'journalctl -u php8.2-fpm -n 5',
+      ]);
+      expect(outputs[2]).toContain('Permission denied');
+      const checks = evaluate(state, lab.simulation.validators);
+      expect(checks[0].passed).toBe(false);
+      expect(checks[5].passed).toBe(false);
+    });
+  });
 });

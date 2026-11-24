@@ -20,6 +20,9 @@ const CHECK_LABELS: Record<LabCheck['kind'], string> = {
   container_running: 'Conteneur démarré (ou non)',
   container_autostart: 'Conteneur relancé (ou non) au démarrage du serveur',
   http_ok: 'URL qui répond (et contient un texte)',
+  file_mode_at_most: 'Droits d’un fichier au plus égaux à',
+  file_readable_by: 'Fichier lisible (ou non) par un compte',
+  firewall_allows: 'Pare-feu qui laisse passer (ou bloque) une origine',
 };
 
 const defaultCheck = (kind: LabCheck['kind']): LabCheck => {
@@ -34,6 +37,9 @@ const defaultCheck = (kind: LabCheck['kind']): LabCheck => {
     case 'container_running': return { kind, name: '', expected: true };
     case 'container_autostart': return { kind, name: '', expected: false };
     case 'http_ok': return { kind, url: 'http://localhost:8080', contains: '' };
+    case 'file_mode_at_most': return { kind, path: '/etc/', mode: '640' };
+    case 'file_readable_by': return { kind, path: '/etc/', user: 'www-data', expected: true };
+    case 'firewall_allows': return { kind, from: '', port: 22, expected: false };
   }
 };
 
@@ -55,11 +61,23 @@ function CheckEditor({ check, set, ro }: { check: LabCheck; set: (c: LabCheck) =
           <input aria-label="Seuil en %" type="number" min={1} max={100} value={check.percent} disabled={ro} onChange={(e) => set({ ...check, percent: Number(e.target.value) })} className={cn(small, 'w-20')} />
         </>
       )}
-      {(check.kind === 'path_exists' || check.kind === 'file_has_line') && (
+      {(check.kind === 'path_exists' || check.kind === 'file_has_line' || check.kind === 'file_mode_at_most' || check.kind === 'file_readable_by') && (
         <input aria-label="Chemin" value={check.path} disabled={ro} onChange={(e) => set({ ...check, path: e.target.value })} className={cn(small, 'font-mono')} />
       )}
       {check.kind === 'file_has_line' && (
         <input aria-label="Ligne" placeholder="gateway 10.0.0.1" value={check.line} disabled={ro} onChange={(e) => set({ ...check, line: e.target.value })} className={cn(small, 'font-mono')} />
+      )}
+      {check.kind === 'file_mode_at_most' && (
+        <input aria-label="Droits au plus" placeholder="640" maxLength={3} value={check.mode} disabled={ro} onChange={(e) => set({ ...check, mode: e.target.value })} className={cn(small, 'w-16 font-mono')} />
+      )}
+      {check.kind === 'file_readable_by' && (
+        <input aria-label="Compte" placeholder="www-data" value={check.user} disabled={ro} onChange={(e) => set({ ...check, user: e.target.value })} className={cn(small, 'font-mono')} />
+      )}
+      {check.kind === 'firewall_allows' && (
+        <>
+          <input aria-label="Adresse d’origine" placeholder="203.0.113.45" value={check.from} disabled={ro} onChange={(e) => set({ ...check, from: e.target.value })} className={cn(small, 'font-mono')} />
+          <input aria-label="Port" type="number" min={1} max={65535} value={check.port} disabled={ro} onChange={(e) => set({ ...check, port: Number(e.target.value) })} className={cn(small, 'w-24')} />
+        </>
       )}
       {check.kind === 'host_reachable' && (
         <input aria-label="Hôte" placeholder="deb.debian.org" value={check.target} disabled={ro} onChange={(e) => set({ ...check, target: e.target.value })} className={cn(small, 'font-mono')} />
@@ -76,10 +94,10 @@ function CheckEditor({ check, set, ro }: { check: LabCheck; set: (c: LabCheck) =
           <input aria-label="Texte attendu" placeholder="texte attendu (facultatif)" value={check.contains ?? ''} disabled={ro} onChange={(e) => set({ ...check, contains: e.target.value || undefined })} className={small} />
         </>
       )}
-      {(check.kind === 'service_enabled' || check.kind === 'path_exists' || check.kind === 'file_has_line' || check.kind === 'container_running' || check.kind === 'container_autostart') && (
+      {(check.kind === 'service_enabled' || check.kind === 'path_exists' || check.kind === 'file_has_line' || check.kind === 'container_running' || check.kind === 'container_autostart' || check.kind === 'firewall_allows' || check.kind === 'file_readable_by') && (
         <select aria-label="Attendu" value={String(check.expected)} disabled={ro} onChange={(e) => set({ ...check, expected: e.target.value === 'true' })} className={small}>
-          <option value="true">{check.kind === 'service_enabled' || check.kind === 'container_autostart' ? 'oui' : check.kind === 'container_running' ? 'démarré' : 'présent'}</option>
-          <option value="false">{check.kind === 'service_enabled' || check.kind === 'container_autostart' ? 'non' : check.kind === 'container_running' ? 'arrêté' : 'absent'}</option>
+          <option value="true">{check.kind === 'firewall_allows' ? 'laisse passer' : check.kind === 'file_readable_by' ? 'lisible' : check.kind === 'service_enabled' || check.kind === 'container_autostart' ? 'oui' : check.kind === 'container_running' ? 'démarré' : 'présent'}</option>
+          <option value="false">{check.kind === 'firewall_allows' ? 'bloque' : check.kind === 'file_readable_by' ? 'illisible' : check.kind === 'service_enabled' || check.kind === 'container_autostart' ? 'non' : check.kind === 'container_running' ? 'arrêté' : 'absent'}</option>
         </select>
       )}
     </div>
@@ -97,7 +115,7 @@ function MachineEditor({ value, onChange, ro, issue }: { value: LabContent['mach
   return (
     <Field
       label="Machine de départ (JSON)"
-      hint="L’état EN PANNE : répertoires, fichiers (taille en octets, contenu affiché), montages, services (actif, activé, ports, fichier écrit au démarrage, journal) et, si besoin, réseau (interfaces, routes, hôtes du monde simulé avec leurs enregistrements DNS et leur réponse web) et Docker (images avec leurs variables obligatoires, conteneurs, fichier compose)."
+      hint="L’état EN PANNE : répertoires, fichiers (taille en octets, contenu affiché), montages, services (actif, activé, ports, fichier écrit au démarrage, journal) et, si besoin, réseau (interfaces, routes, hôtes du monde simulé avec leurs enregistrements DNS et leur réponse web) Docker (images avec leurs variables obligatoires, conteneurs, fichier compose) et pare-feu (actif, politique par défaut, règles appliquées dans l’ordre). Chaque fichier peut porter ses droits en octal (mode, ex. 640), son propriétaire et son groupe ; un service peut tourner sous un compte (user) qui doit pouvoir lire ses fichiers indispensables."
       issue={issue}
     >
       <textarea

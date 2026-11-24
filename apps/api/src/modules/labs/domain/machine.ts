@@ -8,11 +8,16 @@
 
 import type { SimDocker } from './docker';
 import type { SimNetwork } from './network';
+import type { SimFirewall } from './security';
 
 export interface SimFile {
   /** Taille en octets ; peut dépasser le contenu affiché (gros journal). */
   size: number;
   content?: string;
+  /** Droits en octal (« 640 ») ; 644 par défaut. */
+  mode?: string;
+  owner?: string;
+  group?: string;
 }
 
 export interface SimMount {
@@ -36,6 +41,8 @@ export interface SimService {
   writes?: string;
   /** Fichiers indispensables au démarrage. */
   needsFiles?: string[];
+  /** Compte sous lequel tourne le service : il doit pouvoir LIRE ses needsFiles (root lit tout). */
+  user?: string;
   journal: string[];
 }
 
@@ -53,6 +60,8 @@ export interface MachineState {
   network?: SimNetwork;
   /** Docker (facultatif) : images, conteneurs et fichier compose du projet. */
   docker?: SimDocker;
+  /** Pare-feu façon ufw (facultatif : absent, tout passe). */
+  firewall?: SimFirewall;
 }
 
 /** Espace libre minimal pour qu'un service puisse écrire en démarrant. */
@@ -139,6 +148,31 @@ export function stamp(state: MachineState): string {
   return `${months[d.getUTCMonth()]} ${String(d.getUTCDate()).padStart(2, '0')} ${hh}:${mm}:${ss}`;
 }
 
+/**
+ * Le compte peut-il lire le fichier ? Droits du propriétaire, du groupe, puis des autres,
+ * comme le noyau. Appartenance aux groupes : groupe du même nom que le compte (groupe
+ * principal) et membres listés dans le vrai /etc/group de la machine.
+ */
+export function canRead(state: MachineState, path: string, user: string): boolean {
+  const f = state.files[path];
+  if (!f) return false;
+  if (user === 'root') return true;
+  const digits = (f.mode ?? '644').padStart(3, '0').slice(-3);
+  const bit = (i: number) => (Number(digits[i]) & 4) !== 0;
+  if ((f.owner ?? 'root') === user) return bit(0);
+  if (inGroup(state, user, f.group ?? 'root')) return bit(1);
+  return bit(2);
+}
+
+export function inGroup(state: MachineState, user: string, group: string): boolean {
+  if (user === group) return true;
+  for (const line of (state.files['/etc/group']?.content ?? '').split('\n')) {
+    const [name, , , members = ''] = line.trim().split(':');
+    if (name === group && members.split(',').map((m) => m.trim()).includes(user)) return true;
+  }
+  return false;
+}
+
 /** Service actif qui écoute déjà un port, autre que `except`. */
 export function portHolder(state: MachineState, port: number, except?: string): string | null {
   for (const [name, s] of Object.entries(state.services)) {
@@ -173,6 +207,7 @@ export function startService(state: MachineState, name: string): { state: Machin
 
   for (const f of s.needsFiles ?? []) {
     if (!state.files[f]) return fail([`open() "${f}" failed (2: No such file or directory)`]);
+    if (s.user && !canRead(state, f, s.user)) return fail([`open() "${f}" failed (13: Permission denied)`]);
   }
   for (const port of s.ports) {
     const holder = portHolder(state, port, name);

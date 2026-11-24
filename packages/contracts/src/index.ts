@@ -502,7 +502,14 @@ export const LabMachineSchema = z.object({
   clock: z.string().datetime(),
   nextPid: z.number().int().min(2).max(4_000_000),
   dirs: z.array(absPath).max(300),
-  files: z.record(absPath, z.object({ size: z.number().int().min(0).max(2 ** 50), content: z.string().max(20_000).optional() })),
+  files: z.record(absPath, z.object({
+    size: z.number().int().min(0).max(2 ** 50),
+    content: z.string().max(20_000).optional(),
+    /** Droits en octal, ex. « 640 » (644 si absent). */
+    mode: z.string().regex(/^[0-7]{3}$/, 'droits en octal, ex. 640').optional(),
+    owner: z.string().regex(/^[a-z_][a-z0-9_-]*$/).max(32).optional(),
+    group: z.string().regex(/^[a-z_][a-z0-9_-]*$/).max(32).optional(),
+  })),
   mounts: z.array(z.object({
     target: absPath,
     device: z.string().min(1).max(60),
@@ -518,6 +525,7 @@ export const LabMachineSchema = z.object({
     ports: z.array(z.number().int().min(1).max(65535)).max(10),
     writes: absPath.optional(),
     needsFiles: z.array(absPath).max(20).optional(),
+    user: z.string().regex(/^[a-z_][a-z0-9_-]*$/).max(32).optional(),
     journal: z.array(z.string().max(500)).max(60),
   })),
   network: z.object({
@@ -559,6 +567,15 @@ export const LabMachineSchema = z.object({
       stoppedByUser: z.boolean().optional(),
     })),
   }).optional(),
+  firewall: z.object({
+    active: z.boolean(),
+    defaultIncoming: z.enum(['allow', 'deny']),
+    rules: z.array(z.object({
+      action: z.enum(['allow', 'deny', 'reject']),
+      from: z.string().regex(/^\d{1,3}(\.\d{1,3}){3}(\/\d{1,2})?$/, 'adresse IP ou réseau CIDR').optional(),
+      port: z.number().int().min(1).max(65535).optional(),
+    })).max(30),
+  }).optional(),
 });
 export type LabMachine = z.infer<typeof LabMachineSchema>;
 export const LabCheckSchema = z.discriminatedUnion('kind', [
@@ -572,6 +589,9 @@ export const LabCheckSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('container_running'), name: z.string().min(1).max(100), expected: z.boolean() }),
   z.object({ kind: z.literal('container_autostart'), name: z.string().min(1).max(100), expected: z.boolean() }),
   z.object({ kind: z.literal('http_ok'), url: z.string().min(1).max(300), contains: z.string().max(200).optional() }),
+  z.object({ kind: z.literal('file_mode_at_most'), path: absPath, mode: z.string().regex(/^[0-7]{3}$/, 'droits en octal, ex. 640') }),
+  z.object({ kind: z.literal('file_readable_by'), path: absPath, user: z.string().regex(/^[a-z_][a-z0-9_-]*$/).max(32), expected: z.boolean() }),
+  z.object({ kind: z.literal('firewall_allows'), from: z.string().regex(/^\d{1,3}(\.\d{1,3}){3}$/, 'adresse IP'), port: z.number().int().min(1).max(65535), expected: z.boolean() }),
 ]);
 export type LabCheck = z.infer<typeof LabCheckSchema>;
 export const LabContentSchema = z.object({

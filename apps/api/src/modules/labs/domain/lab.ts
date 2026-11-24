@@ -1,7 +1,8 @@
-import { isDir, MachineState, mountUsage } from './machine';
+import { canRead, isDir, MachineState, mountUsage } from './machine';
 import { autostarts } from './docker';
 import { reachable, resolve } from './network';
 import { httpGet } from './network-commands';
+import { firewallAllows, modeAtMost, modeOf } from './security';
 
 /**
  * Validateurs déclaratifs : ils lisent l'état final de la machine simulée. Un lab réussi est
@@ -22,7 +23,13 @@ export type Check =
   /** Le conteneur repartira au prochain démarrage de la machine (politique de redémarrage). */
   | { kind: 'container_autostart'; name: string; expected: boolean }
   /** L'URL répond en 2xx, et contient le texte s'il est donné. */
-  | { kind: 'http_ok'; url: string; contains?: string };
+  | { kind: 'http_ok'; url: string; contains?: string }
+  /** Le fichier existe et ses droits n'accordent rien de plus que « mode » (ex. 640 au plus). */
+  | { kind: 'file_mode_at_most'; path: string; mode: string }
+  /** Le pare-feu laisse passer (ou non) une connexion venant de « from » vers ce port local. */
+  | { kind: 'firewall_allows'; from: string; port: number; expected: boolean }
+  /** Le compte peut (ou ne peut pas) lire le fichier : droits, propriétaire, groupe et /etc/group. */
+  | { kind: 'file_readable_by'; path: string; user: string; expected: boolean };
 
 export interface Validator {
   description: string;
@@ -68,6 +75,12 @@ export function passes(state: MachineState, check: Check): boolean {
       const r = httpGet(state, check.url);
       return r.ok && r.status >= 200 && r.status < 300 && (!check.contains || r.body.includes(check.contains));
     }
+    case 'file_mode_at_most':
+      return !!state.files[check.path] && modeAtMost(modeOf(state, check.path), check.mode);
+    case 'firewall_allows':
+      return firewallAllows(state, check.from, check.port) === check.expected;
+    case 'file_readable_by':
+      return canRead(state, check.path, check.user) === check.expected;
   }
 }
 
@@ -103,6 +116,12 @@ export function specIssues(spec: SimulationSpec): string[] {
     }
     if ((c.kind === 'container_running' || c.kind === 'container_autostart') && !m.docker) {
       issues.push(`Validateur « ${v.description} » : la machine n’a pas de Docker décrit.`);
+    }
+    if ((c.kind === 'file_mode_at_most' || c.kind === 'file_readable_by') && !m.files[c.path]) {
+      issues.push(`Validateur « ${v.description} » : fichier ${c.path} absent de la machine.`);
+    }
+    if (c.kind === 'firewall_allows' && !m.firewall) {
+      issues.push(`Validateur « ${v.description} » : la machine n’a pas de pare-feu décrit.`);
     }
     if (c.kind === 'disk_usage_below' && !m.mounts.some((x) => x.target === c.mount)) {
       issues.push(`Validateur « ${v.description} » : montage ${c.mount} inconnu.`);
