@@ -71,8 +71,7 @@ export const contentKindMeta: Record<string, { label: string; newLabel: string; 
     rule: 'Une cause n’est publiable que si chaque probabilité est justifiée et que le plan d’action commence sans danger',
   },
   quiz: {
-    // Un quiz est rattaché à une fiche : « quiz-linux-df » se lit depuis /commandes/linux-df.
-    label: 'Quiz', newLabel: 'Nouveau quiz', placeholder: 'quiz-linux-df', href: (k) => `/commandes/${k.replace(/^quiz-/, '')}`,
+    label: 'Quiz', newLabel: 'Nouveau quiz', placeholder: 'quiz-linux-df', href: (k) => `/quiz/${k}`,
     rule: 'Un quiz n’est publiable que si chaque question a une bonne réponse parmi ses choix et explique pourquoi',
   },
   agent_profile: {

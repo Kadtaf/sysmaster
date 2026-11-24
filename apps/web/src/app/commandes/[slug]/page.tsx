@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import type { CommandDetail } from '@sysmaster/contracts';
+import type { CommandDetail, QuizSummaryDto } from '@sysmaster/contracts';
 import { ApiUnavailable } from '@/components/api-unavailable';
 import { CommandReveal } from '@/components/command-reveal';
 import { RiskBadge } from '@/components/risk-badge';
@@ -38,6 +38,8 @@ export default async function CommandPage({ params }: Props) {
     throw e;
   }
   if (!cmd) notFound();
+  // Le quiz est un complément : s'il ne se charge pas, la fiche reste lisible.
+  const quizzes = await apiGet<QuizSummaryDto[]>(`/quizzes?command=${encodeURIComponent(slug)}`).catch(() => null);
 
   return (
     <article className="space-y-8">
@@ -120,6 +122,19 @@ export default async function CommandPage({ params }: Props) {
       {cmd.bestPractices.length > 0 && (
         <Section title="Bonnes pratiques">
           <ul className="list-disc space-y-1 pl-6">{cmd.bestPractices.map((b) => <li key={b}>{b}</li>)}</ul>
+        </Section>
+      )}
+
+      {quizzes && quizzes.length > 0 && (
+        <Section title="Tester ma compréhension">
+          <ul className="space-y-2">
+            {quizzes.map((q) => (
+              <li key={q.slug}>
+                <Link href={`/quiz/${q.slug}`} className="font-semibold text-primary hover:underline">{q.title}</Link>
+                <span className="text-muted-foreground"> · {q.questionCount} question{q.questionCount > 1 ? 's' : ''}</span>
+              </li>
+            ))}
+          </ul>
         </Section>
       )}
 

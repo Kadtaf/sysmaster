@@ -103,7 +103,7 @@ erDiagram
 | `editorial` | revisions (une par modification de contenu : fiche, cours, parcours ou cause ; une seule ouverte par cible), revision_events |
 | `diagnostic` | symptoms, causes, rules, evidence_patterns, reference_cases (cas rejoués avant publication d'une cause), sessions, session_symptoms, attachments, hypotheses, probe_devices |
 | `labs` | lab_templates, fault_scenarios, validators, instances |
-| `assessment` | questions (`generated_by_ai`, `reviewed` toujours vrai à la publication), question_skills, quizzes (publiés depuis le back-office, liés à leur fiche par `kb.command_links` — migration 010), quiz_questions, attempts, certifications, certificates |
+| `assessment` | questions (`generated_by_ai`, `reviewed` toujours vrai à la publication), question_skills, quizzes (publiés depuis le back-office, liés à leur fiche par `kb.command_links` — migration 010), quiz_questions, attempts (une ligne par tentative d'un apprenant connecté : réponses, score, réussite), certifications, certificates |
 | `gamification` | xp_ledger (partitionnée), user_stats, levels, badges, user_badges, challenges, challenge_participants, leaderboard (vue) |
 | `community` | categories, threads, posts, votes, shared_scripts, reports, study_groups, study_group_members, mentorships |
 | `billing` | plans, customers, subscriptions, invoices, coupons, affiliates, referrals, marketplace_products, marketplace_orders, stripe_webhook_events |

@@ -11,8 +11,9 @@ import { HealthModule } from './modules/health/health.module';
 import { KnowledgeModule } from './modules/knowledge/knowledge.module';
 import { DiagnosticModule } from './modules/diagnostic/diagnostic.module';
 import { LearningModule } from './modules/learning/learning.module';
+import { AssessmentModule } from './modules/assessment/assessment.module';
 
 @Module({
-  imports: [DatabaseModule, EventsModule, ObservabilityModule, IamModule, HealthModule, LearningModule, KnowledgeModule, DiagnosticModule, GamificationModule, DashboardModule, EditorialModule, AssistantModule],
+  imports: [DatabaseModule, EventsModule, ObservabilityModule, IamModule, HealthModule, LearningModule, KnowledgeModule, DiagnosticModule, GamificationModule, DashboardModule, EditorialModule, AssistantModule, AssessmentModule],
 })
 export class AppModule {}

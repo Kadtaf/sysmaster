@@ -66,6 +66,9 @@ Préfixe `/api/v1`. Documentation OpenAPI générée sur `/api/docs`. Authentifi
 | GET | `/me/learning` | Parcours suivis et progression |
 | GET | `/kb/commands?q=&platform=` | Recherche de fiches commandes |
 | GET | `/kb/commands/:slug` | Fiche complète (paramètres, exemples, alternatives, sources) |
+| GET | `/quizzes?command=` | Quiz d'entraînement publiés liés à une fiche : `{ slug, title, questionCount }[]` |
+| GET | `/quizzes/:slug` | Quiz sans les réponses ni les explications (404 s'il n'est pas publié) |
+| POST | `/quizzes/:slug/attempts` | `{ answers: { [questionId]: ['a', …] } }` → score, réussite, puis pour chaque question la bonne réponse et son explication. Une question à choix multiples n'est juste que si les lettres cochées sont exactement les bonnes. Anonyme ou connecté : la tentative n'est enregistrée (`recorded: true`) que si vous êtes connecté |
 | GET | `/diagnostic/symptoms?platform=` | Symptômes connus |
 | POST | `/diagnostic/analyze` | Analyse : `{ platform, description?, symptoms?, evidence?, useAi? }` → hypothèses classées, plus `extraction` (méthode, citations, lignes de journal relevées). Anonyme ou connecté (la session rejoint alors l'historique). `useAi: true` exige une connexion (**401** sinon) et compte dans le quota IA (**429**) ; si l'IA est indisponible, repli sur les synonymes avec `extraction.note` |
 | GET | `/me` | Profil, rôles et droits de l'utilisateur connecté (jeton requis) |
