@@ -10,6 +10,7 @@ import { CourseKindAdapter } from './infrastructure/course-kind.adapter';
 import { PathKindAdapter } from './infrastructure/path-kind.adapter';
 import { PgRevisionRepository } from './infrastructure/pg-revision.repository';
 import { QuizKindAdapter } from './infrastructure/quiz-kind.adapter';
+import { LabKindAdapter } from './infrastructure/lab-kind.adapter';
 import { EditorialController } from './interface/editorial.controller';
 import { QuizDraftController } from './interface/quiz-draft.controller';
 
@@ -22,11 +23,11 @@ import { QuizDraftController } from './interface/quiz-draft.controller';
   imports: [AssistantModule],
   controllers: [EditorialController, QuizDraftController],
   providers: [
-    CommandKindAdapter, CourseKindAdapter, PathKindAdapter, CauseKindAdapter, AgentProfileKindAdapter, QuizKindAdapter,
+    CommandKindAdapter, CourseKindAdapter, PathKindAdapter, CauseKindAdapter, AgentProfileKindAdapter, QuizKindAdapter, LabKindAdapter,
     {
       provide: CONTENT_KIND_ADAPTERS,
       useFactory: (...adapters: unknown[]) => adapters,
-      inject: [CommandKindAdapter, CourseKindAdapter, PathKindAdapter, CauseKindAdapter, AgentProfileKindAdapter, QuizKindAdapter],
+      inject: [CommandKindAdapter, CourseKindAdapter, PathKindAdapter, CauseKindAdapter, AgentProfileKindAdapter, QuizKindAdapter, LabKindAdapter],
     },
     EditorialService,
     QuizDraftService,

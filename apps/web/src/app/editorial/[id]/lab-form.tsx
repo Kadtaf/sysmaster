@@ -1,0 +1,166 @@
+'use client';
+
+import { DIFFICULTIES, LAB_CATEGORIES, type LabCheck, type LabContent } from '@sysmaster/contracts';
+import { useState } from 'react';
+import { Card, CardDescription, CardTitle } from '@/components/ui/card';
+import { difficultyLabel, labCategoryLabel } from '@/lib/labels';
+import { cn } from '@/lib/utils';
+import { Field, FormProps, inputClass, LinesInput, ListEditor } from './form-kit';
+
+type Validator = LabContent['validators'][number];
+
+const CHECK_LABELS: Record<LabCheck['kind'], string> = {
+  service_active: 'Service démarré',
+  service_enabled: 'Service activé (ou non) au démarrage',
+  disk_usage_below: 'Occupation d’un disque sous un seuil',
+  path_exists: 'Fichier ou répertoire présent (ou absent)',
+};
+
+const defaultCheck = (kind: LabCheck['kind']): LabCheck => {
+  switch (kind) {
+    case 'service_active': return { kind, service: '' };
+    case 'service_enabled': return { kind, service: '', expected: true };
+    case 'disk_usage_below': return { kind, mount: '/', percent: 90 };
+    case 'path_exists': return { kind, path: '/', expected: true };
+  }
+};
+
+const emptyValidator: Validator = { description: '', check: { kind: 'service_active', service: '' } };
+
+function CheckEditor({ check, set, ro }: { check: LabCheck; set: (c: LabCheck) => void; ro: boolean }) {
+  const small = 'rounded-md border bg-background px-2 py-1 text-xs';
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <select aria-label="Type de vérification" value={check.kind} disabled={ro} onChange={(e) => set(defaultCheck(e.target.value as LabCheck['kind']))} className={small}>
+        {Object.entries(CHECK_LABELS).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+      </select>
+      {(check.kind === 'service_active' || check.kind === 'service_enabled') && (
+        <input aria-label="Service" placeholder="nginx" value={check.service} disabled={ro} onChange={(e) => set({ ...check, service: e.target.value })} className={cn(small, 'font-mono')} />
+      )}
+      {check.kind === 'disk_usage_below' && (
+        <>
+          <input aria-label="Point de montage" value={check.mount} disabled={ro} onChange={(e) => set({ ...check, mount: e.target.value })} className={cn(small, 'font-mono')} />
+          <input aria-label="Seuil en %" type="number" min={1} max={100} value={check.percent} disabled={ro} onChange={(e) => set({ ...check, percent: Number(e.target.value) })} className={cn(small, 'w-20')} />
+        </>
+      )}
+      {check.kind === 'path_exists' && (
+        <input aria-label="Chemin" value={check.path} disabled={ro} onChange={(e) => set({ ...check, path: e.target.value })} className={cn(small, 'font-mono')} />
+      )}
+      {(check.kind === 'service_enabled' || check.kind === 'path_exists') && (
+        <select aria-label="Attendu" value={String(check.expected)} disabled={ro} onChange={(e) => set({ ...check, expected: e.target.value === 'true' })} className={small}>
+          <option value="true">{check.kind === 'path_exists' ? 'présent' : 'activé'}</option>
+          <option value="false">{check.kind === 'path_exists' ? 'absent' : 'désactivé'}</option>
+        </select>
+      )}
+    </div>
+  );
+}
+
+/**
+ * La machine est éditée en JSON : c'est l'outil le plus direct pour décrire fichiers, montages et
+ * services. Le texte n'est repris dans le contenu que s'il est du JSON valide ; la forme précise
+ * est vérifiée à l'enregistrement.
+ */
+function MachineEditor({ value, onChange, ro, issue }: { value: LabContent['machine']; onChange: (m: LabContent['machine']) => void; ro: boolean; issue: boolean }) {
+  const [text, setText] = useState(() => JSON.stringify(value, null, 2));
+  const [error, setError] = useState<string | null>(null);
+  return (
+    <Field
+      label="Machine de départ (JSON)"
+      hint="L’état EN PANNE : répertoires, fichiers (taille en octets, contenu affiché), montages, services (actif, activé, ports, fichier écrit au démarrage, journal)."
+      issue={issue}
+    >
+      <textarea
+        aria-label="Machine de départ"
+        rows={18}
+        value={text}
+        disabled={ro}
+        spellCheck={false}
+        onChange={(e) => {
+          setText(e.target.value);
+          try {
+            onChange(JSON.parse(e.target.value));
+            setError(null);
+          } catch (err) {
+            setError(err instanceof Error ? err.message : 'JSON invalide');
+          }
+        }}
+        className={cn(inputClass, 'font-mono text-xs')}
+      />
+      {error && <span role="alert" className="mt-1 block text-xs text-red-600">JSON invalide, non repris : {error}</span>}
+    </Field>
+  );
+}
+
+/** Formulaire d'un lab simulé : situation, machine en panne, validateurs, démarche de référence, indices, solution. */
+export function LabForm({ c, set, ro, flagged, isNew }: FormProps<LabContent>) {
+  return (
+    <>
+      <Card className="space-y-4">
+        <CardTitle>Présentation</CardTitle>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="Titre" issue={flagged('title')}><input value={c.title} disabled={ro} onChange={(e) => set('title', e.target.value)} className={inputClass} /></Field>
+          <Field label="Identifiant d’URL" hint={isNew ? 'ex. linux-disque-plein-nginx' : 'fixe pour un lab publié'} issue={flagged('slug')}>
+            <input value={c.slug} disabled={ro || !isNew} onChange={(e) => set('slug', e.target.value)} className={cn(inputClass, 'font-mono')} />
+          </Field>
+          <Field label="Catégorie">
+            <select value={c.category} disabled={ro} onChange={(e) => set('category', e.target.value as LabContent['category'])} className={inputClass}>
+              {LAB_CATEGORIES.map((k) => <option key={k} value={k}>{labCategoryLabel[k]}</option>)}
+            </select>
+          </Field>
+          <Field label="Difficulté">
+            <select value={c.difficulty} disabled={ro} onChange={(e) => set('difficulty', e.target.value as LabContent['difficulty'])} className={inputClass}>
+              {DIFFICULTIES.map((d) => <option key={d} value={d}>{difficultyLabel[d]}</option>)}
+            </select>
+          </Field>
+          <Field label="Durée d’une session (minutes)">
+            <input type="number" min={10} max={240} value={c.ttlMinutes} disabled={ro} onChange={(e) => set('ttlMinutes', Number(e.target.value))} className={inputClass} />
+          </Field>
+        </div>
+        <Field label="Situation (Markdown)" hint="Racontez l’incident comme un ticket : ce que voit l’utilisateur, ce qu’on attend. Ne donnez pas la cause." issue={flagged('briefMd')}>
+          <textarea rows={6} value={c.briefMd} disabled={ro} onChange={(e) => set('briefMd', e.target.value)} className={inputClass} />
+        </Field>
+        <Field label="Objectifs d’apprentissage (un par ligne)" issue={flagged('objectives')}>
+          <LinesInput label="Objectifs" value={c.objectives} disabled={ro} onChange={(v) => set('objectives', v)} />
+        </Field>
+      </Card>
+
+      <Card className="space-y-4">
+        <CardTitle>La panne</CardTitle>
+        <CardDescription>
+          Décrivez la machine déjà en panne. Les causes d’échec au démarrage d’un service sont génériques : port déjà écouté par un autre service actif,
+          disque plein là où il écrit (« writes »), fichier indispensable absent (« needsFiles »).
+        </CardDescription>
+        <MachineEditor value={c.machine} onChange={(m) => set('machine', m)} ro={ro} issue={flagged('machine')} />
+        <ListEditor<Validator>
+          title="Ce qui sera vérifié" hint="Le résultat attendu, pas la méthode : l’apprenant peut réparer autrement que vous."
+          issue={flagged('validators')} addLabel="Ajouter une vérification" items={c.validators} disabled={ro} empty={emptyValidator}
+          onChange={(v) => set('validators', v)}
+          render={(v, upd) => (
+            <div className="space-y-2">
+              <input aria-label="Description" placeholder="nginx est démarré" value={v.description} disabled={ro} onChange={(e) => upd({ ...v, description: e.target.value })} className={inputClass} />
+              <CheckEditor check={v.check} set={(check) => upd({ ...v, check })} ro={ro} />
+            </div>
+          )}
+        />
+        <Field
+          label="Démarche de référence (une commande par ligne)"
+          hint="Rejouée à chaque enregistrement : le lab n’est publiable que si elle répare la machine."
+          issue={flagged('walkthrough')}
+        >
+          <LinesInput label="Démarche de référence" rows={6} value={c.walkthrough} disabled={ro} onChange={(v) => set('walkthrough', v)} />
+        </Field>
+      </Card>
+
+      <Card className="space-y-4">
+        <CardTitle>Aide et explication</CardTitle>
+        <Field label="Indices (un par ligne, du plus général au plus précis)" hint="Chaque indice révélé coûte des points à l’apprenant." issue={flagged('hints')}>
+          <LinesInput label="Indices" rows={4} value={c.hints} disabled={ro} onChange={(v) => set('hints', v)} />
+        </Field>
+        <Field label="Solution expliquée (Markdown)" hint="Montrée après la réussite : la cause, la démarche, ce qu’il ne fallait pas faire, comment éviter que ça revienne." issue={flagged('solutionMd')}>
+          <textarea rows={8} value={c.solutionMd} disabled={ro} onChange={(e) => set('solutionMd', e.target.value)} className={inputClass} />
+        </Field>
+      </Card>
+    </>
+  );
+}

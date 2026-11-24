@@ -105,6 +105,8 @@ Le lien **Rédaction** apparaît si vous avez le rôle *author*, *reviewer* ou *
 3. **Soumettre à la relecture** : la fiche est figée pendant la relecture.
 4. Un relecteur **approuve**, ce qui publie la fiche, ou **demande des changements** avec une explication. Vous retrouvez son commentaire en haut de la révision.
 
+Les quiz et les labs suivent le même circuit. Pour un lab, vous décrivez la machine en panne, ce qui sera vérifié, et votre **démarche de référence** (une commande par ligne) : elle est rejouée à chaque enregistrement, et l'encadré vous dit si elle répare bien la machine.
+
 Personne ne relit sa propre révision, administrateurs compris. Un second regard est la raison d'être de la relecture.
 
 ## 4. L'assistant

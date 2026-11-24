@@ -493,6 +493,64 @@ export interface LabInstanceDto {
   solutionMd: string | null;
 }
 export const LabCommandSchema = z.object({ command: z.string().max(500) });
+// Contenu éditable d'un lab simulé (back-office). La machine est décrite dans son état de panne.
+const absPath = z.string().max(300).regex(/^\/[^\0]*$/, 'chemin absolu (commence par /)');
+export const LabMachineSchema = z.object({
+  hostname: z.string().min(1).max(40).regex(/^[a-z0-9-]+$/, 'minuscules, chiffres et tirets'),
+  cwd: absPath,
+  /** Horloge de départ (ISO 8601) : les journaux produits pendant le lab la suivent. */
+  clock: z.string().datetime(),
+  nextPid: z.number().int().min(2).max(4_000_000),
+  dirs: z.array(absPath).max(300),
+  files: z.record(absPath, z.object({ size: z.number().int().min(0).max(2 ** 50), content: z.string().max(20_000).optional() })),
+  mounts: z.array(z.object({
+    target: absPath,
+    device: z.string().min(1).max(60),
+    sizeBytes: z.number().int().positive().max(2 ** 50),
+    baseUsedBytes: z.number().int().min(0).max(2 ** 50),
+  })).min(1).max(10),
+  services: z.record(z.string().regex(/^[a-z0-9@._-]+$/).max(60), z.object({
+    description: z.string().max(200),
+    active: z.enum(['active', 'inactive', 'failed']),
+    enabled: z.boolean(),
+    process: z.string().min(1).max(60),
+    pid: z.number().int().positive().optional(),
+    ports: z.array(z.number().int().min(1).max(65535)).max(10),
+    writes: absPath.optional(),
+    needsFiles: z.array(absPath).max(20).optional(),
+    journal: z.array(z.string().max(500)).max(60),
+  })),
+});
+export type LabMachine = z.infer<typeof LabMachineSchema>;
+export const LabCheckSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('service_active'), service: z.string().max(60) }),
+  z.object({ kind: z.literal('service_enabled'), service: z.string().max(60), expected: z.boolean() }),
+  z.object({ kind: z.literal('disk_usage_below'), mount: absPath, percent: z.number().int().min(1).max(100) }),
+  z.object({ kind: z.literal('path_exists'), path: absPath, expected: z.boolean() }),
+]);
+export type LabCheck = z.infer<typeof LabCheckSchema>;
+export const LabContentSchema = z.object({
+  slug: text(80).regex(slugRe, 'minuscules, chiffres et tirets'),
+  title: text(200),
+  category: z.enum(LAB_CATEGORIES),
+  difficulty: z.enum(DIFFICULTIES),
+  ttlMinutes: z.number().int().min(10).max(240).default(60),
+  briefMd: text(8000),
+  objectives: z.array(text(300)).max(10).default([]),
+  /** Indices progressifs : du plus général au plus précis. */
+  hints: z.array(text(500)).max(8).default([]),
+  /** Explication montrée après la réussite : cause, démarche, prévention. */
+  solutionMd: text(10_000),
+  machine: LabMachineSchema,
+  validators: z.array(z.object({ description: text(200), check: LabCheckSchema })).max(10).default([]),
+  /**
+   * Démarche de référence : commandes qui doivent réparer la machine. Rejouée à chaque
+   * enregistrement : un lab n'est publiable que si elle passe tous les validateurs.
+   */
+  walkthrough: z.array(z.string().max(500)).max(40).default([]),
+});
+export type LabContent = z.infer<typeof LabContentSchema>;
+
 export type LabCommandInput = z.infer<typeof LabCommandSchema>;
 export interface LabCommandResultDto extends LabTranscriptEntry {
   prompt: string;
@@ -533,7 +591,7 @@ export interface QuizAttemptResultDto {
   results: { questionId: string; correct: boolean; given: string[]; answer: string[]; explanation: string }[];
 }
 
-export const CONTENT_KINDS = ['command', 'course', 'path', 'diagnostic_cause', 'agent_profile', 'quiz'] as const;
+export const CONTENT_KINDS = ['command', 'course', 'path', 'diagnostic_cause', 'agent_profile', 'quiz', 'lab'] as const;
 export type ContentKind = (typeof CONTENT_KINDS)[number];
 
 export const REVISION_STATUSES = ['draft', 'in_review', 'changes_requested', 'published', 'withdrawn'] as const;
@@ -561,7 +619,8 @@ export type RevisionContent =
   | { kind: 'path'; content: PathContent }
   | { kind: 'diagnostic_cause'; content: CauseContent }
   | { kind: 'agent_profile'; content: AgentProfileContent }
-  | { kind: 'quiz'; content: QuizContent };
+  | { kind: 'quiz'; content: QuizContent }
+  | { kind: 'lab'; content: LabContent };
 
 export type RevisionDto = RevisionSummaryDto &
   RevisionContent & {

@@ -66,7 +66,7 @@ Les durées sont indicatives et supposent une équipe dédiée ; avec un dévelo
 
 ## Phase 4 — Labs virtuels et diagnostic avancé
 
-**En cours.** ✅ Premier incrément : labs simulés (machine Linux en JSON, commandes interprétées par le domaine, aucune exécution réelle), terminal web `/labs/:slug`, indices qui coûtent des points, validation sur l'état final, solution après réussite, XP et badges. Labs « disque plein » et « port 80 occupé ». ⏳ Runtimes réels isolés, labs Docker, Réseau et Cyber, rédaction des labs dans le back-office, générateur de labs.
+**En cours.** ✅ Premier incrément : labs simulés (machine Linux en JSON, commandes interprétées par le domaine, aucune exécution réelle), terminal web `/labs/:slug`, indices qui coûtent des points, validation sur l'état final, solution après réussite, XP et badges. Labs « disque plein » et « port 80 occupé ». ✅ Rédaction des labs dans le back-office, relue, avec démarche de référence rejouée avant publication. ⏳ Runtimes réels isolés, labs Docker, Réseau et Cyber, générateur de labs.
 
 - Orchestrateur de labs (Kubernetes + Kata/Firecracker), terminal web, injection de pannes, validateurs.
 - Labs Linux, Docker, Réseau, Cyber en premier ; Windows (pool de VM) ensuite ; macOS/iOS en simulation.

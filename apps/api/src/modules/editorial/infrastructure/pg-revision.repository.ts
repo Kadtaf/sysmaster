@@ -13,6 +13,7 @@ const TARGET_COLUMN: Record<ContentKind, string> = {
   diagnostic_cause: 'cause_code',
   agent_profile: 'agent_code',
   quiz: 'quiz_id',
+  lab: 'lab_id',
 };
 
 export const isUniqueViolation = (err: unknown, constraint?: string) =>
@@ -50,7 +51,7 @@ export class PgRevisionRepository extends RevisionRepository {
 
   async find(id: string): Promise<RevisionRecord | null> {
     const { rows } = await this.db.query<Record<string, any>>(
-      `SELECT r.*, r.status::text AS status_text, coalesce(r.command_id::text, r.course_id::text, r.path_id::text, r.cause_code, r.agent_code, r.quiz_id::text) AS target_id,
+      `SELECT r.*, r.status::text AS status_text, coalesce(r.command_id::text, r.course_id::text, r.path_id::text, r.cause_code, r.agent_code, r.quiz_id::text, r.lab_id::text) AS target_id,
               a.display_name AS author_name, rv.display_name AS reviewer_name
          FROM editorial.revisions r
          JOIN iam.users a ON a.id = r.author_id

@@ -27,7 +27,7 @@ const rows = labs.map((l) =>
     objectives: l.objectives,
     hints: l.hints.map((text) => ({ text })),
     solutionMd: l.solutionMd,
-    simulation: { machine: l.machine, validators: l.validators },
+    simulation: { machine: l.machine, validators: l.validators, walkthrough: l.walkthrough },
   }),
 );
 
@@ -35,7 +35,8 @@ const sql = `-- ================================================================
 -- FICHIER GÉNÉRÉ par infra/scripts/build-labs-seed.mjs à partir de db/content/labs.mjs.
 -- Ne pas modifier à la main : modifier db/content/labs.mjs puis relancer le script.
 --
--- ${labs.length} labs simulés. Rejouable : un lab déjà présent (même slug) n'est jamais réécrit.
+-- ${labs.length} labs simulés. Rejouable : un lab déjà présent (même slug) n'est jamais réécrit,
+-- sauf pour lui ajouter sa démarche de référence s'il n'en a pas encore (labs chargés avant la migration 012).
 -- =============================================================================
 INSERT INTO labs.lab_templates (slug, title, category, difficulty, runtime, brief_md, objectives, hints,
                                 solution_md, ttl_minutes, simulation, status)
@@ -45,7 +46,9 @@ SELECT l->>'slug', l->>'title', l->>'category', (l->>'difficulty')::platform.dif
   FROM (VALUES
 ${rows.map((r) => `    (${r})`).join(',\n')}
   ) AS v(l)
-ON CONFLICT (slug) DO NOTHING;
+ON CONFLICT (slug) DO UPDATE
+  SET simulation = jsonb_set(labs.lab_templates.simulation, '{walkthrough}', EXCLUDED.simulation->'walkthrough')
+  WHERE labs.lab_templates.runtime = 'simulation' AND NOT labs.lab_templates.simulation ? 'walkthrough';
 `;
 
 if (process.argv.includes('--check')) {

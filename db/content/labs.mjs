@@ -134,6 +134,13 @@ ouvert par un processus continue d'occuper le disque tant que le processus vit.
     { description: 'Les journaux système sont conservés (/var/log/syslog)', check: { kind: 'path_exists', path: '/var/log/syslog', expected: true } },
     { description: 'Le journal d’authentification est conservé (/var/log/auth.log)', check: { kind: 'path_exists', path: '/var/log/auth.log', expected: true } },
   ],
+  walkthrough: [
+    'systemctl status nginx',
+    'df -h',
+    'du -sh /var/log/*',
+    'truncate -s 0 /var/log/app/debug.log',
+    'systemctl restart nginx',
+  ],
 };
 
 const portTaken = {
@@ -227,6 +234,13 @@ démarre automatiquement et écoute le port 80. nginx, lancé ensuite, ne peut p
     { description: 'nginx est démarré', check: { kind: 'service_active', service: 'nginx' } },
     { description: 'nginx redémarrera avec la machine', check: { kind: 'service_enabled', service: 'nginx', expected: true } },
     { description: 'apache2 ne redémarrera pas avec la machine', check: { kind: 'service_enabled', service: 'apache2', expected: false } },
+  ],
+  walkthrough: [
+    'journalctl -u nginx -n 20',
+    'ss -tlnp | grep :80',
+    'systemctl stop apache2',
+    'systemctl disable apache2',
+    'systemctl start nginx',
   ],
 };
 

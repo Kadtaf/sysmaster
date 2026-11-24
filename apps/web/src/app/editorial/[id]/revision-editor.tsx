@@ -3,7 +3,7 @@
 import { useSession } from 'next-auth/react';
 import Link from 'next/link';
 import { useState, useTransition } from 'react';
-import type { AgentProfileContent, CauseContent, CommandContent, ContentIssue, CourseContent, PathContent, QuizContent, RevisionDto } from '@sysmaster/contracts';
+import type { AgentProfileContent, CauseContent, CommandContent, ContentIssue, CourseContent, LabContent, PathContent, QuizContent, RevisionDto } from '@sysmaster/contracts';
 import { AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardDescription, CardTitle } from '@/components/ui/card';
@@ -15,6 +15,7 @@ import { CauseForm, SimulationPanel } from './cause-form';
 import { CommandForm } from './command-form';
 import { CourseForm } from './course-form';
 import { inputClass, type FormProps } from './form-kit';
+import { LabForm } from './lab-form';
 import { PathForm } from './path-form';
 import { QuizForm } from './quiz-form';
 
@@ -93,6 +94,7 @@ export function RevisionEditor({ initial }: { initial: RevisionDto }) {
       {rev.kind === 'path' && <PathForm {...formProps<PathContent>()} />}
       {rev.kind === 'agent_profile' && <AgentProfileForm {...formProps<AgentProfileContent>()} />}
       {rev.kind === 'quiz' && <QuizForm {...formProps<QuizContent>()} />}
+      {rev.kind === 'lab' && <LabForm {...formProps<LabContent>()} />}
       {rev.kind === 'diagnostic_cause' && (
         <>
           <CauseForm {...formProps<CauseContent>()} />
