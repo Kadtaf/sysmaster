@@ -443,6 +443,36 @@ export interface QuizDraftDto {
   remainingToday: number;
 }
 
+// ---------- Quiz d'entraînement (apprenants) ----------
+export interface QuizSummaryDto {
+  slug: string;
+  title: string;
+  questionCount: number;
+}
+/** Quiz tel que l'apprenant le voit : sans les réponses, qui ne sont révélées qu'après sa tentative. */
+export interface PracticeQuizDto {
+  slug: string;
+  title: string;
+  platform: Platform | null;
+  commandSlug: string | null;
+  passScore: number;
+  questions: { id: string; type: 'single' | 'multiple'; promptMd: string; choices: { id: string; text: string }[]; difficulty: Difficulty }[];
+}
+export const QuizAttemptSchema = z.object({
+  /** Identifiant de question → lettres cochées. Une question sans réponse compte comme fausse. */
+  answers: z.record(z.string().uuid(), z.array(z.string().regex(/^[a-f]$/)).max(6)),
+});
+export type QuizAttemptInput = z.infer<typeof QuizAttemptSchema>;
+export interface QuizAttemptResultDto {
+  score: number;
+  passed: boolean;
+  correctCount: number;
+  total: number;
+  /** false si la tentative n'est pas enregistrée (visiteur non connecté). */
+  recorded: boolean;
+  results: { questionId: string; correct: boolean; given: string[]; answer: string[]; explanation: string }[];
+}
+
 export const CONTENT_KINDS = ['command', 'course', 'path', 'diagnostic_cause', 'agent_profile', 'quiz'] as const;
 export type ContentKind = (typeof CONTENT_KINDS)[number];
 
