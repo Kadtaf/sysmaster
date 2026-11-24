@@ -7,13 +7,14 @@ const links = [
   { href: '/commandes', label: 'Base de connaissances' },
   { href: '/diagnostic', label: 'Diagnostic' },
   { href: '/labs', label: 'Labs' },
+  { href: '/certifications', label: 'Certifications' },
   { href: '/assistant', label: 'Assistant' },
   { href: '/classement', label: 'Classement' },
 ];
 
 export function SiteHeader() {
   return (
-    <header className="sticky top-0 z-10 border-b bg-background/80 backdrop-blur">
+    <header className="sticky top-0 z-10 border-b bg-background/80 backdrop-blur print:hidden">
       <nav className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3" aria-label="Navigation principale">
         <Link href="/" className="flex items-center gap-2 font-semibold">
           <Cpu className="size-5 text-primary" aria-hidden />

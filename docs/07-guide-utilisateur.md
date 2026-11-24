@@ -91,6 +91,17 @@ Un lab vous confie une machine en panne et une situation (« le site ne répond 
 
 Les **indices** sont révélés un par un ; chacun retire des points. Un lab résolu sans indice rapporte 60 XP et le badge « Sans filet ». Une commande trop dangereuse (effacer `/var/log` entier, par exemple) est refusée avec une explication. **Recommencer** vous rend une machine neuve. Une session dure le temps indiqué sur le lab ; il faut être connecté.
 
+### Les certifications (`/certifications`)
+
+Chaque certification affiche ce qu'il faut pour l'obtenir : des **labs pratiques** à réussir, parfois une autre certification d'abord, puis un **examen**. Les conditions remplies sont cochées.
+
+1. Réussissez les labs exigés (liens sur la page).
+2. Lancez l'examen quand vous êtes prêt : les questions sont tirées au sort, le minuteur démarre tout de suite et ne s'arrête pas si vous fermez la page (vous pouvez la rouvrir et reprendre). À l'échéance, l'examen est remis automatiquement.
+3. Les changements d'onglet et les collages sont notés, sans vous éliminer : un examen litigieux peut être relu.
+4. Résultat immédiat. Les bonnes réponses ne sont pas affichées, pour que l'examen reste juste pour les suivants : révisez avec les quiz d'entraînement et les labs. Après un échec, une nouvelle tentative est possible au bout du délai indiqué (24 h en général).
+
+En cas de réussite, votre **certificat** est émis à votre nom, avec un numéro (ex. `SM-2026-LINADM-7F3K9Q`). Sa page s'imprime ou s'enregistre en PDF, porte un QR code, et peut être ajoutée à LinkedIn. N'importe qui peut le vérifier sur `/verify/<numéro>` : la page confirme qu'il a bien été délivré par SysMaster, qu'il n'a pas été modifié, et s'il est toujours valide.
+
 ## 3. Contribuer aux fiches (auteurs et relecteurs)
 
 Le lien **Rédaction** apparaît si vous avez le rôle *author*, *reviewer* ou *admin*.
@@ -130,6 +141,6 @@ Connecté, cochez « Repérer les symptômes avec l'IA » sur la page Diagnostic
 Les fonctions suivantes sont prévues dans la [feuille de route](05-feuille-de-route.md) :
 
 - l'enrichissement de l'assistant (documentation officielle, réponses en continu, diagnostic à partir de journaux) ;
-- les labs sur de vraies machines isolées, et de nouveaux labs Docker, réseau et cybersécurité, dont un générateur de labs relu par l'équipe (Phase 4) ;
-- les certifications, la communauté et les offres payantes (Phase 5) ;
+- les labs sur de vraies machines isolées (Phase 4) ;
+- les examens des autres certifications, la communauté et les offres payantes (Phase 5) ;
 - les applications mobiles (Phase 6).

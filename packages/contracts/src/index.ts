@@ -672,6 +672,88 @@ export interface QuizAttemptResultDto {
   results: { questionId: string; correct: boolean; given: string[]; answer: string[]; explanation: string }[];
 }
 
+// ---------- Certifications (Phase 5) ----------
+export const CERTIFICATE_STATUSES = ['valid', 'expired', 'revoked'] as const;
+export type CertificateStatus = (typeof CERTIFICATE_STATUSES)[number];
+
+export interface CertificationRequirementDto {
+  kind: 'lab' | 'prerequisite';
+  /** Identifiant du lab ou code de la certification exigée. */
+  ref: string;
+  title: string;
+  /** Rempli pour l'utilisateur connecté ; null pour un visiteur. */
+  met: boolean | null;
+}
+export interface CertificationDto {
+  code: string;
+  title: string;
+  description: string;
+  level: Difficulty;
+  validityMonths: number | null;
+  priceCents: number;
+  exam: {
+    questionCount: number;
+    timeLimitS: number;
+    passScore: number;
+    retryAfterHours: number;
+    /** false tant que la banque relue n'a pas assez de questions pour tirer un examen. */
+    available: boolean;
+  };
+  requirements: CertificationRequirementDto[];
+  /** Situation de l'utilisateur connecté ; null pour un visiteur. */
+  me: {
+    eligible: boolean;
+    /** Ce qui empêche de passer l'examen maintenant, en phrases. */
+    reasons: string[];
+    nextAttemptAt: string | null;
+    certificate: { serial: string; status: CertificateStatus } | null;
+    openSession: { id: string; deadlineAt: string } | null;
+  } | null;
+}
+export interface ExamSessionDto {
+  id: string;
+  certificationCode: string;
+  certificationTitle: string;
+  startedAt: string;
+  deadlineAt: string;
+  passScore: number;
+  questions: { id: string; type: 'single' | 'multiple'; promptMd: string; choices: { id: string; text: string }[] }[];
+}
+export const ExamSubmissionSchema = z.object({
+  answers: z.record(z.string().uuid(), z.array(z.string().regex(/^[a-f]$/)).max(6)),
+  /** Surveillance légère déclarée par le navigateur : conservée, jamais éliminatoire à elle seule. */
+  integrity: z.object({
+    tabSwitches: z.number().int().min(0).max(10_000).default(0),
+    pastes: z.number().int().min(0).max(10_000).default(0),
+  }).default({}),
+});
+export type ExamSubmissionInput = z.infer<typeof ExamSubmissionSchema>;
+export interface ExamResultDto {
+  score: number;
+  passed: boolean;
+  correctCount: number;
+  total: number;
+  passScore: number;
+  /** Soumis après l'échéance (délai de grâce compris) : les réponses ne sont pas prises en compte. */
+  late: boolean;
+  certificate: { serial: string } | null;
+  nextAttemptAt: string | null;
+}
+export interface CertificateDto {
+  serial: string;
+  holderName: string;
+  certification: { code: string; title: string; level: Difficulty };
+  issuedAt: string;
+  expiresAt: string | null;
+  status: CertificateStatus;
+  revokedAt: string | null;
+  revokeReason: string | null;
+  /** La signature Ed25519 correspond au contenu (numéro, certification, titulaire, dates). */
+  signatureValid: boolean;
+}
+export const RevokeCertificateSchema = z.object({ reason: z.string().trim().min(5, 'Précisez le motif.').max(500) });
+export type RevokeCertificateInput = z.infer<typeof RevokeCertificateSchema>;
+
 export const CONTENT_KINDS = ['command', 'course', 'path', 'diagnostic_cause', 'agent_profile', 'quiz', 'lab'] as const;
 export type ContentKind = (typeof CONTENT_KINDS)[number];
 

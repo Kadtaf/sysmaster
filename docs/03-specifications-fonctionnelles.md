@@ -95,6 +95,8 @@ Règles :
 
 ### 2.7 Évaluation et certifications — Phase 5
 
+> **Livré (premier incrément)** : pages `/certifications`. Chaque certification affiche ses conditions : prérequis, labs pratiques à réussir et examen. L'examen tire ses questions au sort dans la banque **relue** des plateformes de la certification. Il est chronométré et remis automatiquement à l'échéance (une minute de grâce). Il est corrigé côté serveur, sans révéler les bonnes réponses. Après un échec, un délai s'impose avant de repasser (24 h par défaut). La surveillance reste légère : changements d'onglet et collages sont notés, jamais éliminatoires à eux seuls. Le certificat est signé en Ed25519 sur un contenu canonique (numéro, certification, titulaire, dates). Il est imprimable et enregistrable en PDF depuis le navigateur, avec un QR code vers `/verify/<numéro>`, page publique qui revérifie statut et signature à chaque consultation. Un administrateur peut le révoquer, avec un motif affiché, et l'ajouter à LinkedIn est possible. Une banque Linux de départ ouvre l'examen Linux Administrator ; les autres examens ouvriront quand leur banque relue sera assez fournie. Reste à faire : paiement des examens (avec Stripe), banques des autres certifications, examens à questions de commande ou de lab, PDF généré côté serveur.
+
 - Quiz d'entraînement (illimités, explication de chaque réponse) et examens (chronométrés, banque tirée au sort).
 - 10 certifications : Windows Technician, Windows Administrator, Linux Administrator, Linux Server Expert, Network Specialist, DevOps Specialist, Docker Specialist, PostgreSQL Specialist, Cybersecurity Specialist, SysMaster Expert.
 - Une certification = examen théorique + labs pratiques obligatoires + prérequis éventuels.

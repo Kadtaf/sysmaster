@@ -53,6 +53,9 @@ spec:
             - name: AI_SERVICE_TOKEN
               valueFrom: { secretKeyRef: { name: {{ .Values.existingSecret }}, key: AI_SERVICE_TOKEN } }
             {{- end }}
+            # Clé Ed25519 des certificats (facultative : sans elle, aucun examen n'est ouvert).
+            - name: CERT_SIGNING_KEY
+              valueFrom: { secretKeyRef: { name: {{ .Values.existingSecret }}, key: CERT_SIGNING_KEY, optional: true } }
             {{- range $k, $v := .Values.api.extraEnv }}
             - { name: {{ $k }}, value: {{ $v | quote }} }
             {{- end }}
