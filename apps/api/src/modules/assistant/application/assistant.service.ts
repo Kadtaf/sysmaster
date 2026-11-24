@@ -3,7 +3,7 @@ import type { AskAssistantInput, AssistantReplyDto } from '@sysmaster/contracts'
 import type { AuthenticatedUser } from '../../iam/domain/identity';
 import { conversationTitle } from '../domain/quota';
 import { AiQuota } from './ai-quota';
-import { AiGateway, AiUnavailableError, ConversationRepository } from './ports';
+import { AiAskRequest, AiAskResponse, AiGateway, AiStreamEvent, AiUnavailableError, ConversationRepository } from './ports';
 
 const HISTORY_TURNS = 4;
 
@@ -15,7 +15,16 @@ export class AssistantService {
     private readonly quota: AiQuota,
   ) {}
 
-  async ask(user: AuthenticatedUser, input: AskAssistantInput): Promise<AssistantReplyDto> {
+  ask(user: AuthenticatedUser, input: AskAssistantInput): Promise<AssistantReplyDto> {
+    return this.run(user, input, (req) => this.ai.ask(req));
+  }
+
+  /** Même parcours (quota, historique, enregistrement) ; le texte arrive pendant la génération. */
+  askStream(user: AuthenticatedUser, input: AskAssistantInput, onEvent: (e: AiStreamEvent) => void): Promise<AssistantReplyDto> {
+    return this.run(user, input, (req) => this.ai.askStream(req, onEvent));
+  }
+
+  private async run(user: AuthenticatedUser, input: AskAssistantInput, call: (req: AiAskRequest) => Promise<AiAskResponse>): Promise<AssistantReplyDto> {
     const remainingToday = await this.quota.reserve(user);
 
     let conversationId = input.conversationId;
@@ -29,7 +38,7 @@ export class AssistantService {
     conversationId ??= await this.conversations.create(user.id, conversationTitle(input.question));
 
     try {
-      const res = await this.ai.ask({ question: input.question, platform: input.platform, level: input.level, history });
+      const res = await call({ question: input.question, platform: input.platform, level: input.level, history });
       const messageId = await this.conversations.saveTurn(user.id, conversationId, input.question, res);
       return {
         conversationId, messageId, answer: res.answer, agent: res.agent, domain: res.domain, outcome: res.outcome,

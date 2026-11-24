@@ -1,15 +1,17 @@
 import hmac
+import json
 import logging
 from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI, Header, HTTPException
+from fastapi.responses import StreamingResponse
 
 from app.config import Settings, docs_index, settings
 from app.diagnostic.extract import extract
 from app.llm.claude import ClaudeLlm
 from app.llm.fake import FakeLlm
 from app.llm.port import Llm
-from app.orchestrator import ask
+from app.orchestrator import ask, ask_stream
 from app.rag.retriever import CompositeRetriever, CoreApiRetriever, OfficialDocsRetriever, Retriever
 from app.schemas import AskRequest, AskResponse, ExtractRequest, ExtractResponse
 
@@ -70,6 +72,35 @@ async def ask_endpoint(req: AskRequest, llm: Llm = Depends(get_llm), retriever: 
         len(res.answer.sources),
     )
     return res
+
+
+def sse(event: str, data: dict) -> str:
+    return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
+
+
+@app.post("/v1/ask/stream", dependencies=[Depends(require_token)])
+async def ask_stream_endpoint(
+    req: AskRequest, llm: Llm = Depends(get_llm), retriever: Retriever = Depends(get_retriever)
+) -> StreamingResponse:
+    """Server-Sent Events : meta, delta…, puis answer (même contenu que /v1/ask) ou error."""
+
+    async def events():
+        try:
+            async for event, data in ask_stream(req, llm, retriever):
+                if event == "answer":
+                    log.info(
+                        "ask(stream) agent=%s domain=%s outcome=%s latency_ms=%s",
+                        data["agent"],
+                        data["domain"],
+                        data["outcome"],
+                        data["latencyMs"],
+                    )
+                yield sse(event, data)
+        except Exception as err:  # l'en-tête 200 est déjà parti : l'erreur voyage dans le flux
+            log.exception("ask(stream) interrompu")
+            yield sse("error", {"message": f"{type(err).__name__}"})
+
+    return StreamingResponse(events(), media_type="text/event-stream", headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 
 @app.post("/v1/diagnostic/extract", response_model=ExtractResponse, response_model_by_alias=True, dependencies=[Depends(require_token)])

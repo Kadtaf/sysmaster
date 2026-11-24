@@ -96,6 +96,7 @@ Personne ne relit sa propre révision, administrateurs compris. Un second regard
 
 Connecté, ouvrez **Assistant** et posez votre question (choisir la plateforme et votre niveau aide l'assistant à adapter la réponse).
 
+- La réponse s'écrit sous vos yeux : d'abord les documents consultés, puis le résumé et l'explication. Les **étapes et commandes** n'apparaissent qu'à la fin, une fois contrôlées par les garde-fous.
 - Chaque étape dit **pourquoi**, **comment** et **quand** agir, avec son niveau de risque.
 - Une commande à risque élevé ou critique est **masquée** : dépliez « Risques à connaître » pour l'afficher. Une commande critique ne se copie pas : tapez-la vous-même en vérifiant chaque argument.
 - Les **sources** renvoient aux fiches de la base de connaissances (« Fiche SysMaster ») et, quand elle est installée, à la documentation officielle (« Doc officielle », souvent en anglais, avec sa mention de licence). Une réponse marquée **« Non vérifiée »** ne s'appuie sur aucune fiche : vérifiez dans la documentation officielle avant d'agir.
