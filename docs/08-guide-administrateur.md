@@ -92,6 +92,13 @@ VALUES ('Mon cas', 'windows', 'Description telle qu''un utilisateur l''écrirait
 
 Pourquoi : un cas de référence fige un diagnostic qu'on sait juste ; toute modification future des règles sera vérifiée contre lui.
 
+### Certifications
+
+- **Clé de signature** : `CERT_SIGNING_KEY` (Ed25519, PEM), générée avec `openssl genpkey -algorithm ed25519` et rangée dans le secret. Sans elle en production, les pages s'affichent mais aucun examen n'est ouvert. **Ne la changez pas** sans plan : les certificats déjà émis ne se vérifieraient plus avec la nouvelle clé. La clé publique est servie sur `/api/v1/certificates/public-key`.
+- **Ouvrir un examen** : il faut, dans la banque, au moins autant de questions **relues** (choix unique ou multiple) des plateformes de la certification que l'examen en tire. Les quiz publiés depuis le back-office alimentent cette banque ; le brouillon par l'IA aide à la constituer, toujours relu. Les conditions (plateformes, taille, durée, seuil, délai après échec, labs exigés) sont dans `db/seeds/008_certifications.sql`.
+- **Révoquer** : `POST /api/v1/certificates/<numéro>/revoke` avec `{ "reason": "…" }` (administrateurs). La page de vérification affiche aussitôt « révoqué » et le motif. Les signaux d'intégrité d'un examen (changements d'onglet, collages) sont dans `assessment.exam_sessions.integrity`, pour la relecture d'un cas litigieux.
+- Le paiement des examens arrivera avec Stripe : aujourd'hui, `price_cents` est affiché mais non perçu.
+
 ## 4. Événements (outbox)
 
 Chaque changement important écrit un événement dans `platform.outbox_events`, dans la même transaction que la donnée. Le relais intégré à l'API le distribue ensuite aux consommateurs, aujourd'hui la gamification. Le fonctionnement détaillé est dans [01 — Architecture](01-architecture.md).
@@ -165,7 +172,7 @@ Ordre d'un déploiement :
 | Cluster Kubernetes avec un contrôleur ingress NGINX et cert-manager | votre hébergeur | — |
 | Postgres 16 | service géré conseillé | une base vide ; les migrations s'appliquent seules |
 | Keycloak | chart Bitnami ou service géré | royaume importé depuis `infra/keycloak/sysmaster-realm.json`, URL de redirection du client web = `https://<hôte>/*` |
-| Secret `sysmaster-secrets` dans le namespace `sysmaster-staging` | `kubectl` | `DATABASE_URL`, `NEXTAUTH_SECRET`, `KEYCLOAK_CLIENT_SECRET`, `AI_SERVICE_TOKEN` (et `ANTHROPIC_API_KEY` si `ai.llm=claude`) |
+| Secret `sysmaster-secrets` dans le namespace `sysmaster-staging` | `kubectl` | `DATABASE_URL`, `NEXTAUTH_SECRET`, `KEYCLOAK_CLIENT_SECRET`, `AI_SERVICE_TOKEN` (et `ANTHROPIC_API_KEY` si `ai.llm=claude`) ; `CERT_SIGNING_KEY` pour ouvrir les certifications (`openssl genpkey -algorithm ed25519`) |
 | Secret GitHub `STAGING_KUBECONFIG` | environnement GitHub « staging » | kubeconfig d'un compte limité à ce namespace |
 | Variables GitHub `STAGING_HOST`, `STAGING_OIDC_ISSUER` | même environnement | ex. `test.sysmaster.fr`, `https://auth.sysmaster.fr/realms/sysmaster` |
 

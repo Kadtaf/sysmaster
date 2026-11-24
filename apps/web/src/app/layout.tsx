@@ -15,7 +15,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <Providers>
           <SiteHeader />
           <main className="mx-auto max-w-6xl px-4 py-10">{children}</main>
-          <footer className="mx-auto max-w-6xl px-4 py-10 text-sm text-muted-foreground">
+          <footer className="mx-auto max-w-6xl px-4 py-10 text-sm text-muted-foreground print:hidden">
             SysMaster AI Platform. Comprendre avant d&apos;exécuter.
           </footer>
         </Providers>

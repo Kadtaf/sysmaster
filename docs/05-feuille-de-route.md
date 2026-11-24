@@ -76,7 +76,7 @@ Les durées sont indicatives et supposent une équipe dédiée ; avec un dévelo
 
 ## Phase 5 — Certifications, communauté, monétisation
 
-- Examens, banques de questions, intégrité, 10 certifications, PDF signé + QR code + page de vérification.
+- ✅ Examens tirés au sort dans la banque relue, chronométrés, intégrité légère ; certificats signés (Ed25519), imprimables avec QR code, page publique `/verify/<numéro>`, révocation. Examen Linux Administrator ouvert (banque de départ). ⏳ Banques des 9 autres certifications, paiement des examens, PDF généré côté serveur.
 - Forum, Q&R, partage de labs et scripts, mentorat, groupes d'étude, modération.
 - Stripe : abonnements Free/Premium/Pro, licences Entreprise/Centre/École/Université, coupons, factures, TVA, affiliation, marketplace (Stripe Connect).
 

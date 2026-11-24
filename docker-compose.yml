@@ -95,6 +95,9 @@ services:
       AI_SERVICE_URL: http://ai:8000
       AI_SERVICE_TOKEN: ${AI_SERVICE_TOKEN:-dev-only-ai-token}
       ASSISTANT_DAILY_QUOTA: ${ASSISTANT_DAILY_QUOTA:-30}
+      # Certificats signés avec la clé de DÉVELOPPEMENT, sauf si CERT_SIGNING_KEY est fournie.
+      CERT_SIGNING_KEY: ${CERT_SIGNING_KEY:-}
+      CERT_ALLOW_DEV_KEY: "true"
     ports: ["4000:4000"]
     depends_on:
       migrate: { condition: service_completed_successfully }

@@ -66,6 +66,13 @@ Préfixe `/api/v1`. Documentation OpenAPI générée sur `/api/docs`. Authentifi
 | GET | `/me/learning` | Parcours suivis et progression |
 | GET | `/kb/commands?q=&platform=` | Recherche de fiches commandes |
 | GET | `/kb/commands/:slug` | Fiche complète (paramètres, exemples, alternatives, sources) |
+| GET | `/certifications`, `/certifications/:code` | Certifications : examen (taille, durée, seuil, délai après échec, `available`), prérequis et labs exigés ; avec `me` (conditions remplies, raisons, certificat, examen en cours) si l'utilisateur est connecté |
+| POST | `/certifications/:code/exam` | Ouvre l'examen (questions relues tirées au sort, sans réponses) ou reprend celui en cours. **403** avec `reasons` si les conditions ne sont pas remplies, **503** si aucune clé de signature n'est configurée |
+| POST | `/exam-sessions/:id/submit` | `{ answers, integrity: { tabSwitches, pastes } }` → `{ score, passed, correctCount, total, passScore, late, certificate, nextAttemptAt }`. Seules les questions servies comptent ; après l'échéance (+60 s) les réponses sont ignorées. Réussite : certificat signé et événement `assessment.certificate.issued.v1`. **410** si déjà remis |
+| GET | `/certificates/mine` | Mes certificats |
+| GET | `/certificates/:serial` | Public : vérification (titulaire, certification, dates, `status` valid/expired/revoked, `signatureValid`) |
+| GET | `/certificates/public-key` | Public : clé Ed25519 (PEM) qui vérifie les signatures |
+| POST | `/certificates/:serial/revoke` | Administrateurs : `{ reason }` |
 | GET | `/labs` | Catalogue des labs publiés (`runtime` : seuls les labs `simulation` sont démarrables aujourd'hui) |
 | GET | `/labs/:slug` | Énoncé, objectifs, nombre d'indices et liste de ce qui sera vérifié ; jamais les indices ni la solution |
 | POST | `/labs/:slug/instances?fresh=` | Démarre le lab (connecté) ou reprend la session ouverte ; `fresh=true` repart d'une machine neuve. **409** pour un lab qui demande un environnement réel |
@@ -197,7 +204,7 @@ Règles dans `apps/api/src/modules/gamification/domain/rules.ts`, testées unita
 
 Voir [`.env.example`](../.env.example). Principales : `DATABASE_URL`, `REDIS_URL`, `QDRANT_URL`, `API_PORT`, `NEXT_PUBLIC_API_URL`, `CORS_ORIGINS`, et pour l'identité `OIDC_ISSUER`, `OIDC_AUDIENCE`, `OIDC_JWKS_URL`, `NEXTAUTH_URL`, `NEXTAUTH_SECRET`, `KEYCLOAK_ISSUER`, `KEYCLOAK_INTERNAL_ISSUER`, `KEYCLOAK_CLIENT_ID`, `KEYCLOAK_CLIENT_SECRET`.
 
-Assistant : `AI_SERVICE_URL`, `AI_SERVICE_TOKEN`, `AI_SERVICE_TIMEOUT_MS`, `AI_LAB_TIMEOUT_MS` (génération d'un lab, 240 s par appel ; prévoir un délai de proxy d'entrée suffisant), `ASSISTANT_DAILY_QUOTA` (API) ; `AI_LLM` (`fake` ou `claude`), `AI_MODEL`, `AI_EFFORT`, `ANTHROPIC_API_KEY`, `CORE_API_URL`, `QDRANT_URL`, `AI_EMBEDDER` (`fastembed` ou `hash`), `EMBED_MODEL`, `RAG_MIN_SIMILARITY` (service IA).
+Assistant : `AI_SERVICE_URL`, `AI_SERVICE_TOKEN`, `AI_SERVICE_TIMEOUT_MS`, `AI_LAB_TIMEOUT_MS` (génération d'un lab, 240 s par appel ; prévoir un délai de proxy d'entrée suffisant), `ASSISTANT_DAILY_QUOTA`, `CERT_SIGNING_KEY` (clé Ed25519 PEM des certificats ; sans elle en production, aucun examen n'est ouvert ; `CERT_ALLOW_DEV_KEY=true` autorise la clé de développement, pile locale seulement) (API) ; `AI_LLM` (`fake` ou `claude`), `AI_MODEL`, `AI_EFFORT`, `ANTHROPIC_API_KEY`, `CORE_API_URL`, `QDRANT_URL`, `AI_EMBEDDER` (`fastembed` ou `hash`), `EMBED_MODEL`, `RAG_MIN_SIMILARITY` (service IA).
 
 Exploitation : `LOG_FORMAT=json` (une ligne JSON par message), `METRICS_PORT` (métriques Prometheus sur `/metrics`, 9464 par défaut, 0 pour désactiver), `APP_VERSION` (renvoyée par `/health`, posée par l'image), `OUTBOX_RELAY_INTERVAL_MS`.
 
