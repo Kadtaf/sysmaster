@@ -1,5 +1,7 @@
 import { isDir, MachineState, mountUsage } from './machine';
+import { autostarts } from './docker';
 import { reachable, resolve } from './network';
+import { httpGet } from './network-commands';
 
 /**
  * Validateurs déclaratifs : ils lisent l'état final de la machine simulée. Un lab réussi est
@@ -14,7 +16,13 @@ export type Check =
   | { kind: 'host_reachable'; target: string }
   | { kind: 'name_resolves'; name: string }
   /** Une ligne active (hors commentaire, espaces ignorés) est présente, ou absente, dans le fichier. */
-  | { kind: 'file_has_line'; path: string; line: string; expected: boolean };
+  | { kind: 'file_has_line'; path: string; line: string; expected: boolean }
+  /** Conteneur démarré (et pas en boucle de redémarrage). */
+  | { kind: 'container_running'; name: string; expected: boolean }
+  /** Le conteneur repartira au prochain démarrage de la machine (politique de redémarrage). */
+  | { kind: 'container_autostart'; name: string; expected: boolean }
+  /** L'URL répond en 2xx, et contient le texte s'il est donné. */
+  | { kind: 'http_ok'; url: string; contains?: string };
 
 export interface Validator {
   description: string;
@@ -50,6 +58,16 @@ export function passes(state: MachineState, check: Check): boolean {
       const has = (state.files[check.path]?.content ?? '').split('\n').some((l) => normalizeLine(l) === wanted && !l.trim().startsWith('#'));
       return has === check.expected;
     }
+    case 'container_running':
+      return (state.docker?.containers[check.name]?.status === 'running') === check.expected;
+    case 'container_autostart': {
+      const c = state.docker?.containers[check.name];
+      return (!!c && autostarts(c)) === check.expected;
+    }
+    case 'http_ok': {
+      const r = httpGet(state, check.url);
+      return r.ok && r.status >= 200 && r.status < 300 && (!check.contains || r.body.includes(check.contains));
+    }
   }
 }
 
@@ -82,6 +100,9 @@ export function specIssues(spec: SimulationSpec): string[] {
     }
     if ((c.kind === 'host_reachable' || c.kind === 'name_resolves') && !m.network) {
       issues.push(`Validateur « ${v.description} » : la machine n’a pas de réseau décrit.`);
+    }
+    if ((c.kind === 'container_running' || c.kind === 'container_autostart') && !m.docker) {
+      issues.push(`Validateur « ${v.description} » : la machine n’a pas de Docker décrit.`);
     }
     if (c.kind === 'disk_usage_below' && !m.mounts.some((x) => x.target === c.mount)) {
       issues.push(`Validateur « ${v.description} » : montage ${c.mount} inconnu.`);

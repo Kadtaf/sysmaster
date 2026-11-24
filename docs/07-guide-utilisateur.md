@@ -85,7 +85,7 @@ Vous y apparaissez sous un nom abrégé (« Alice M. »), jamais avec votre e-ma
 Un lab vous confie une machine en panne et une situation (« le site ne répond plus »). Vous tapez des commandes dans le terminal de la page comme sur un vrai serveur, mais **rien ne s'exécute réellement** : la machine est simulée. Tapez `help` pour la liste des commandes disponibles.
 
 1. Lisez la situation et ce qui sera vérifié.
-2. Observez avant d'agir : `systemctl status`, `journalctl -u`, `df -h`, `ss -tlnp`, et pour le réseau `ip a`, `ip route`, `ping`, `dig`, `curl`…
+2. Observez avant d'agir : `systemctl status`, `journalctl -u`, `df -h`, `ss -tlnp`, pour le réseau `ip a`, `ip route`, `ping`, `dig`, `curl`, et pour Docker `docker ps -a`, `docker logs`, `docker compose up -d`…
 3. Réparez, puis cliquez sur **Vérifier ma réparation**. La validation regarde l'état de la machine, pas la suite exacte de vos commandes.
 4. Une fois réussi, vous voyez votre score et l'explication complète : la cause, la démarche, et comment éviter que ça revienne.
 

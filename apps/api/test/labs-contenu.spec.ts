@@ -129,4 +129,23 @@ describe('Labs du seed 007', () => {
       expect(checks.map((c) => c.passed)).toEqual([true, true, false]);
     });
   });
+
+  describe('Docker', () => {
+    it('variable renommée : docker restart ne répare pas, revenir en 2.3 non plus', () => {
+      const lab = bySlug('docker-variable-renommee');
+      const restarted = play(lab.simulation.machine, ['docker restart facturation-app-1']).state;
+      expect(evaluate(restarted, lab.simulation.validators).every((c) => c.passed)).toBe(false);
+      const rollback = play(lab.simulation.machine, [
+        'cd /srv/facturation', "sed -i 's/facturation:2.4/facturation:2.3/' compose.yaml", 'docker compose up -d',
+      ]).state;
+      const checks = evaluate(rollback, lab.simulation.validators);
+      expect(checks.map((c) => c.passed)).toEqual([true, false]);
+    });
+
+    it('port alloué : arrêter l’ancien conteneur sans le supprimer ne suffit pas', () => {
+      const lab = bySlug('docker-port-deja-alloue');
+      const { state } = play(lab.simulation.machine, ['docker stop grafana-test', 'cd /srv/tableau', 'docker compose up -d']);
+      expect(evaluate(state, lab.simulation.validators).map((c) => c.passed)).toEqual([true, true, false]);
+    });
+  });
 });

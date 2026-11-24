@@ -12,6 +12,7 @@ import {
   stopService,
   tick,
 } from './machine';
+import { docker } from './docker';
 import { curl, dns, ip, ping } from './network-commands';
 
 /**
@@ -33,7 +34,7 @@ export const MAX_COMMAND_LENGTH = 500;
 const SUPPORTED = [
   'pwd', 'cd', 'ls', 'cat', 'head', 'tail', 'df', 'du', 'rm', 'truncate',
   'systemctl', 'journalctl', 'ss', 'ps', 'echo', 'sed',
-  'ip', 'ping', 'dig', 'nslookup', 'host', 'curl', 'help',
+  'ip', 'ping', 'dig', 'nslookup', 'host', 'curl', 'docker', 'help',
 ] as const;
 
 /** Découpe une ligne en mots, avec les guillemets simples et doubles. */
@@ -436,6 +437,8 @@ function runOne(state: MachineState, words: string[]): ShellResult {
       return dns(state, cmd, args);
     case 'curl':
       return curl(state, args);
+    case 'docker':
+      return docker(state, args);
     default:
       return err(state, `${cmd}: commande non simulée dans ce lab. Tapez help pour la liste.`, 127);
   }
