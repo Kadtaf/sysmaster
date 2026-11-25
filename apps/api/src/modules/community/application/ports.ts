@@ -1,6 +1,16 @@
 import type {
-  CommunityCategoryDto, ModerationItemDto, SimilarThreadDto, ThreadKind, ThreadListQuery, ThreadSummaryDto, VoteTarget,
+  CommunityCategoryDto, ModerationItemDto, RiskLevel, ScriptLanguage, SimilarThreadDto, ThreadKind, ThreadListQuery, ThreadSummaryDto, VoteTarget,
 } from '@sysmaster/contracts';
+import { excerpt } from '../domain/community';
+
+export interface StoredScript {
+  language: ScriptLanguage;
+  code: string;
+  explanation: string;
+  riskLevel: RiskLevel;
+  reviewed: boolean;
+  reviewedAt: Date | null;
+}
 
 export interface ThreadRow {
   id: string;
@@ -23,6 +33,30 @@ export interface ThreadRow {
   hiddenReason: string | null;
   createdAt: Date;
   lastActivityAt: Date;
+  labSlug: string | null;
+  labTitle: string | null;
+  script: StoredScript | null;
+}
+
+/** Résumé d'un sujet. Un partage de lab ne montre jamais sa démarche dans un aperçu. */
+export function toSummary(t: ThreadRow): ThreadSummaryDto {
+  return {
+    id: t.id, category: { slug: t.categorySlug, name: t.categoryName }, kind: t.kind, title: t.title,
+    excerpt: t.kind === 'lab_share' ? `Démarche pour le lab « ${t.labTitle ?? t.labSlug} », visible une fois le lab résolu.` : excerpt(t.bodyMd),
+    tags: t.tags, author: { displayName: t.authorName, level: t.authorLevel },
+    score: t.score, postCount: t.postCount, answered: !!t.acceptedPostId, isLocked: t.isLocked,
+    hidden: t.hiddenAt ? { at: t.hiddenAt.toISOString(), reason: t.hiddenReason } : null,
+    createdAt: t.createdAt.toISOString(), lastActivityAt: t.lastActivityAt.toISOString(),
+    script: t.script ? { language: t.script.language, riskLevel: t.script.riskLevel, reviewed: t.script.reviewed } : null,
+    lab: t.labSlug ? { slug: t.labSlug, title: t.labTitle ?? t.labSlug } : null,
+  };
+}
+
+export interface NewScript {
+  language: ScriptLanguage;
+  code: string;
+  explanation: string;
+  riskLevel: RiskLevel;
 }
 
 export interface PostRow {
@@ -61,8 +95,15 @@ export abstract class CommunityRepository {
   abstract target(type: VoteTarget, id: string): Promise<Target | null>;
   /** Sujets ou messages publiés par l'utilisateur dans la dernière heure. */
   abstract recentCount(userId: string, what: 'thread' | 'post'): Promise<number>;
-  abstract createThread(t: { categoryId: string; authorId: string; kind: ThreadKind; title: string; bodyMd: string; tags: string[] }): Promise<string>;
-  abstract editThread(id: string, t: { title: string; bodyMd: string; tags: string[] }): Promise<void>;
+  abstract createThread(t: {
+    categoryId: string; authorId: string; kind: ThreadKind; title: string; bodyMd: string; tags: string[]; labSlug: string | null; script: NewScript | null;
+  }): Promise<string>;
+  /** `script` : remplace le script ; s'il change, il repart en relecture. */
+  abstract editThread(id: string, t: { title: string; bodyMd: string; tags: string[]; script: NewScript | null }): Promise<void>;
+  abstract reviewScript(threadId: string, by: string, reviewed: boolean): Promise<void>;
+  /** Titre d'un lab publié, ou null. */
+  abstract publishedLab(slug: string): Promise<{ slug: string; title: string } | null>;
+  abstract hasSolvedLab(userId: string, slug: string): Promise<boolean>;
   abstract createPost(threadId: string, authorId: string, bodyMd: string): Promise<string>;
   abstract editPost(id: string, bodyMd: string): Promise<void>;
   /** Enregistre le vote (0 = retrait) et met le score à jour dans la même transaction ; renvoie le nouveau score. */

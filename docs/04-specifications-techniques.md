@@ -85,6 +85,9 @@ Préfixe `/api/v1`. Documentation OpenAPI générée sur `/api/docs`. Authentifi
 | POST | `/community/reports` | `{ targetType, targetId, reason }` ; trois personnes différentes : contenu masqué en attendant un modérateur |
 | GET, POST | `/community/moderation` | Modérateurs : file des signalements ; décision `{ targetType, targetId, action: hide \| restore \| dismiss, note }` |
 | PUT | `/community/threads/:id/lock` | Modérateurs : `{ locked }` |
+| POST | `/community/threads` (`kind: script_share`) | `script: { language, code, explanation, riskLevel }` obligatoire ; niveau relevé si le code est plus risqué. `scriptDetail.warnings` en donne les raisons |
+| POST | `/community/threads` (`kind: lab_share`) | `labSlug` d'un lab publié que l'auteur a résolu (**403** sinon). `spoilerLocked: true` (corps et réponses retirés) pour qui ne l'a pas résolu |
+| PUT | `/community/threads/:id/script-review` | `{ reviewed }` : relecteurs, modérateurs, administrateurs, jamais l'auteur |
 | GET, POST | `/community/groups` | Groupes publics (et privés dont on est membre) ; création `{ name, description, goal, isPublic, maxMembers }` |
 | GET | `/community/groups/:id` | Groupe ; membres listés pour les seuls membres ; code d'invitation pour le responsable. **404** si privé et non membre |
 | POST | `/community/groups/:id/join`, `/community/groups/join` | Rejoindre un groupe public, ou privé avec `{ code }`. **409** si complet |

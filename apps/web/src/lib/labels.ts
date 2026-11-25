@@ -107,3 +107,11 @@ export function since(iso: string, now = Date.now()): string {
 export const mentorshipStatusLabel: Record<'requested' | 'active' | 'ended' | 'declined', string> = {
   requested: 'En attente', active: 'En cours', ended: 'Terminé', declined: 'Refusé ou retiré',
 };
+
+export const threadKindLabel: Record<'discussion' | 'question' | 'script_share' | 'lab_share', string> = {
+  question: 'Question', discussion: 'Discussion', script_share: 'Script', lab_share: 'Démarche de lab',
+};
+
+export const scriptLanguageLabel: Record<string, string> = {
+  bash: 'Bash', powershell: 'PowerShell', python: 'Python', sql: 'SQL', yaml: 'YAML', other: 'Autre',
+};

@@ -7,14 +7,14 @@ import { Badge } from '@/components/ui/badge';
 import { buttonVariants } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { apiGet, ApiUnavailableError } from '@/lib/api';
-import { since } from '@/lib/labels';
+import { riskMeta, scriptLanguageLabel, since, threadKindLabel } from '@/lib/labels';
 import { serverAccessToken } from '@/lib/session';
 import { cn } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = { title: 'Communauté' };
 
-type Search = { category?: string; q?: string; sort?: string; tag?: string; page?: string };
+type Search = { category?: string; q?: string; sort?: string; tag?: string; page?: string; kind?: string };
 const SORTS = [
   { value: 'recent', label: 'Activité récente' },
   { value: 'unanswered', label: 'Sans réponse acceptée' },
@@ -32,7 +32,7 @@ export default async function CommunityPage({ searchParams }: { searchParams: Pr
   const sp = await searchParams;
   const token = await serverAccessToken();
   const query = new URLSearchParams();
-  for (const k of ['category', 'q', 'sort', 'tag', 'page'] as const) if (sp[k]) query.set(k, sp[k]!);
+  for (const k of ['category', 'q', 'sort', 'tag', 'page', 'kind'] as const) if (sp[k]) query.set(k, sp[k]!);
   let categories: CommunityCategoryDto[] | null;
   let list: ThreadListDto | null;
   try {
@@ -61,6 +61,7 @@ export default async function CommunityPage({ searchParams }: { searchParams: Pr
         <div className="flex flex-wrap gap-2">
           <Link href="/communaute/groupes" className={buttonVariants({ variant: 'outline' })}>Groupes d’étude</Link>
           <Link href="/communaute/mentorat" className={buttonVariants({ variant: 'outline' })}>Mentorat</Link>
+          <Link href="/communaute/nouveau?type=script" className={buttonVariants({ variant: 'outline' })}>Partager un script</Link>
           <Link href="/communaute/nouveau" className={buttonVariants()}>Poser une question</Link>
         </div>
       </div>
@@ -94,6 +95,10 @@ export default async function CommunityPage({ searchParams }: { searchParams: Pr
               aria-label="Rechercher dans la communauté"
               className="min-w-0 flex-1 rounded-md border bg-background px-3 py-2 text-sm"
             />
+            <select name="kind" defaultValue={sp.kind ?? ''} aria-label="Type" className="rounded-md border bg-background px-3 py-2 text-sm">
+              <option value="">Tous les types</option>
+              {(['question', 'discussion', 'script_share', 'lab_share'] as const).map((k) => <option key={k} value={k}>{threadKindLabel[k]}</option>)}
+            </select>
             <select name="sort" defaultValue={sort} aria-label="Trier" className="rounded-md border bg-background px-3 py-2 text-sm">
               {SORTS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
             </select>
@@ -129,7 +134,15 @@ export default async function CommunityPage({ searchParams }: { searchParams: Pr
                       <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{t.excerpt}</p>
                       <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                         <Badge>{t.category.name}</Badge>
-                        {t.kind === 'discussion' && <Badge>Discussion</Badge>}
+                        {t.kind !== 'question' && <Badge>{threadKindLabel[t.kind]}</Badge>}
+                        {t.script && (
+                          <>
+                            <Badge>{scriptLanguageLabel[t.script.language]}</Badge>
+                            <Badge className={riskMeta[t.script.riskLevel].className}>{riskMeta[t.script.riskLevel].label}</Badge>
+                            {t.script.reviewed && <Badge className="bg-emerald-100 text-emerald-900 dark:bg-emerald-900 dark:text-emerald-100">Relu</Badge>}
+                          </>
+                        )}
+                        {t.lab && <Badge>Lab : {t.lab.title}</Badge>}
                         {t.tags.map((tag) => (
                           <Link key={tag} href={href(sp, { tag })} className="rounded bg-muted px-1.5 py-0.5 hover:underline">#{tag}</Link>
                         ))}

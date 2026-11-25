@@ -106,6 +106,7 @@ Pourquoi : un cas de référence fige un diagnostic qu'on sait juste ; toute mod
 - **Masquage automatique** : trois signalements ouverts de personnes différentes. Un même membre ne compte qu'une fois par contenu.
 - **Abus** : un compte qui dépasse 5 sujets ou 30 réponses par heure reçoit une erreur 429. Il n'y a pas encore de suspension de compte depuis l'interface : passez par Keycloak (désactiver l'utilisateur).
 - **Échanges privés** (groupes, mentorats) : un message signalé se masque par son auteur, le responsable du groupe ou un modérateur (`POST /api/v1/community/messages/<id>/hide`). Rien n'est effacé : `community.messages.hidden_by` garde la trace. Quand le dernier membre quitte un groupe, celui-ci est fermé et ses messages sont supprimés.
+- **Scripts partagés** : les rôles `reviewer`, `moderator` et `admin` voient « Marquer comme relu » sur un script qui n'est pas le leur. Relisez le code ligne à ligne : la détection automatique du risque repère les motifs courants, pas tout. Un script dangereux ou trompeur se masque comme n'importe quel sujet.
 - **Catégories** : `db/seeds/009_communaute.sql` (nom, description, ordre). Le slug d'une catégorie apparaît dans les URL : ne le changez pas.
 
 ## 4. Événements (outbox)
