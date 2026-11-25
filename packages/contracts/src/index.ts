@@ -755,7 +755,7 @@ export const RevokeCertificateSchema = z.object({ reason: z.string().trim().min(
 export type RevokeCertificateInput = z.infer<typeof RevokeCertificateSchema>;
 
 // ---------- Communauté (Phase 5) ----------
-export const THREAD_KINDS = ['discussion', 'question'] as const;
+export const THREAD_KINDS = ['discussion', 'question', 'script_share', 'lab_share'] as const;
 export type ThreadKind = (typeof THREAD_KINDS)[number];
 export const VOTE_TARGETS = ['thread', 'post'] as const;
 export type VoteTarget = (typeof VOTE_TARGETS)[number];
@@ -790,6 +790,10 @@ export interface ThreadSummaryDto {
   hidden: HiddenInfo | null;
   createdAt: string;
   lastActivityAt: string;
+  /** Partage de script : langage, risque et relecture. */
+  script: { language: ScriptLanguage; riskLevel: RiskLevel; reviewed: boolean } | null;
+  /** Partage de lab : le lab concerné. */
+  lab: { slug: string; title: string } | null;
 }
 export interface ThreadListDto {
   items: ThreadSummaryDto[];
@@ -818,9 +822,36 @@ export interface ThreadDto extends ThreadSummaryDto {
   myVote: -1 | 0 | 1;
   mine: boolean;
   /** Ce que l'utilisateur connecté peut faire ; tout à false pour un visiteur. */
-  can: { reply: boolean; accept: boolean; moderate: boolean };
+  can: { reply: boolean; accept: boolean; moderate: boolean; reviewScript: boolean };
   replyBlocker: string | null;
+  /** Script partagé (P-5) : toujours avec son explication et son niveau de risque. */
+  scriptDetail: SharedScriptDto | null;
+  /**
+   * Partage de lab : tant que l'utilisateur n'a pas résolu le lab, la démarche et les réponses
+   * sont retirées (bodyMd vide, posts vides) pour ne rien lui gâcher.
+   */
+  spoilerLocked: boolean;
 }
+export const SCRIPT_LANGUAGES = ['bash', 'powershell', 'python', 'sql', 'yaml', 'other'] as const;
+export type ScriptLanguage = (typeof SCRIPT_LANGUAGES)[number];
+export interface SharedScriptDto {
+  language: ScriptLanguage;
+  code: string;
+  explanation: string;
+  /** Niveau retenu : celui de l'auteur, relevé si le code contient une commande plus risquée. */
+  riskLevel: RiskLevel;
+  /** Motifs dangereux reconnus dans le code, en phrases. */
+  warnings: string[];
+  reviewed: boolean;
+  reviewedAt: string | null;
+}
+export const SharedScriptSchema = z.object({
+  language: z.enum(SCRIPT_LANGUAGES),
+  code: z.string().min(1).max(20_000),
+  explanation: z.string().trim().min(40, 'Expliquez ce que fait le script, quand l’utiliser et ses limites (40 caractères au moins).').max(5000),
+  riskLevel: z.enum(RISK_LEVELS),
+});
+export type SharedScriptInput = z.infer<typeof SharedScriptSchema>;
 export const ThreadListQuerySchema = z.object({
   category: z.string().max(60).optional(),
   kind: z.enum(THREAD_KINDS).optional(),
@@ -837,9 +868,23 @@ export const CreateThreadSchema = z.object({
   title: z.string().trim().min(10, 'Un titre de 10 caractères au moins, qui résume le problème.').max(160),
   bodyMd: BodySchema,
   tags: z.array(z.string().max(30)).max(5).default([]),
+  /** Obligatoire pour un partage de script. */
+  script: SharedScriptSchema.optional(),
+  /** Obligatoire pour un partage de lab. */
+  labSlug: z.string().max(100).optional(),
+}).superRefine((t, ctx) => {
+  if (t.kind === 'script_share' && !t.script) ctx.addIssue({ code: 'custom', path: ['script'], message: 'Un partage de script contient le script, son explication et son niveau de risque.' });
+  if (t.kind !== 'script_share' && t.script) ctx.addIssue({ code: 'custom', path: ['script'], message: 'Seul un partage de script contient un script.' });
+  if (t.kind === 'lab_share' && !t.labSlug) ctx.addIssue({ code: 'custom', path: ['labSlug'], message: 'Choisissez le lab dont vous partagez la démarche.' });
 });
 export type CreateThreadInput = z.infer<typeof CreateThreadSchema>;
-export const EditThreadSchema = CreateThreadSchema.pick({ title: true, bodyMd: true, tags: true });
+export const EditThreadSchema = z.object({
+  title: z.string().trim().min(10, 'Un titre de 10 caractères au moins, qui résume le problème.').max(160),
+  bodyMd: BodySchema,
+  tags: z.array(z.string().max(30)).max(5).default([]),
+  /** Modifier le script le renvoie en relecture. */
+  script: SharedScriptSchema.optional(),
+});
 export type EditThreadInput = z.infer<typeof EditThreadSchema>;
 export const PostBodySchema = z.object({ bodyMd: BodySchema });
 export type PostBodyInput = z.infer<typeof PostBodySchema>;
@@ -847,6 +892,7 @@ export const VoteSchema = z.object({ value: z.union([z.literal(-1), z.literal(0)
 export type VoteInput = z.infer<typeof VoteSchema>;
 export const AcceptSchema = z.object({ postId: z.string().uuid().nullable() });
 export type AcceptInput = z.infer<typeof AcceptSchema>;
+export const ScriptReviewSchema = z.object({ reviewed: z.boolean() });
 export const ReportSchema = z.object({
   targetType: z.enum(VOTE_TARGETS),
   targetId: z.string().uuid(),

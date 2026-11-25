@@ -10,8 +10,9 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { ApiError, apiRequest } from '@/lib/client-api';
-import { since } from '@/lib/labels';
+import { since, threadKindLabel } from '@/lib/labels';
 import { cn } from '@/lib/utils';
+import { SharedScript } from './shared-script';
 
 const textarea = 'mt-1 w-full rounded-md border bg-background px-3 py-2 font-mono text-sm';
 const errorText = (e: unknown) =>
@@ -99,6 +100,7 @@ export function ThreadView({ initial }: { initial: ThreadDto }) {
   };
 
   const accept = (postId: string | null) => run(async () => setT(await apiRequest<ThreadDto>('PUT', `/community/threads/${t.id}/accepted`, token, { postId })));
+  const review = (reviewed: boolean) => run(async () => setT(await apiRequest<ThreadDto>('PUT', `/community/threads/${t.id}/script-review`, token, { reviewed })));
   const lock = () => run(async () => {
     const r = await apiRequest<{ locked: boolean }>('PUT', `/community/threads/${t.id}/lock`, token, { locked: !t.isLocked });
     setT((cur) => ({ ...cur, isLocked: r.locked, replyBlocker: r.locked ? 'Ce sujet est verrouillé : il n’accepte plus de réponses.' : null }));
@@ -166,13 +168,22 @@ export function ThreadView({ initial }: { initial: ThreadDto }) {
             {t.title}
           </h1>
           <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-            <Badge>{t.kind === 'question' ? 'Question' : 'Discussion'}</Badge>
+            <Badge>{threadKindLabel[t.kind]}</Badge>
+            {t.lab && <Link href={`/labs/${t.lab.slug}`} className="rounded bg-muted px-1.5 py-0.5 hover:underline">Lab : {t.lab.title}</Link>}
             {t.answered && <Badge className="bg-emerald-100 text-emerald-900 dark:bg-emerald-900 dark:text-emerald-100">Résolue</Badge>}
             {t.tags.map((tag) => <Link key={tag} href={`/communaute?tag=${encodeURIComponent(tag)}`} className="rounded bg-muted px-1.5 py-0.5 hover:underline">#{tag}</Link>)}
             <span>{t.author.displayName} · niv. {t.author.level} · {since(t.createdAt)}</span>
           </div>
           {t.hidden && <HiddenNotice reason={t.hidden.reason} />}
-          <Markdown ugc>{t.bodyMd}</Markdown>
+          {t.spoilerLocked ? (
+            <p className="rounded-md border border-dashed p-4 text-sm">
+              Cette démarche dévoile la solution du lab <Link href={`/labs/${t.lab?.slug}`} className="font-medium underline">{t.lab?.title}</Link>.
+              Elle s’affiche, avec les réponses, une fois que vous l’avez résolu vous-même : c’est en cherchant qu’on apprend.
+            </p>
+          ) : (
+            <Markdown ugc>{t.bodyMd}</Markdown>
+          )}
+          {t.scriptDetail && <SharedScript script={t.scriptDetail} canReview={t.can.reviewScript} onReview={review} pending={pending} />}
           <div className="flex flex-wrap gap-3">
             {session && !t.mine && !t.hidden && <ReportButton onReport={report('thread', t.id)} />}
             {t.can.moderate && (
@@ -185,7 +196,7 @@ export function ThreadView({ initial }: { initial: ThreadDto }) {
       </Card>
 
       <section aria-label="Réponses" className="space-y-3">
-        <h2 className="text-lg font-semibold">{t.posts.length} réponse{t.posts.length > 1 ? 's' : ''}</h2>
+        <h2 className="text-lg font-semibold">{t.postCount} réponse{t.postCount > 1 ? 's' : ''}{t.spoilerLocked && t.postCount > 0 && ' (visibles une fois le lab résolu)'}</h2>
         {t.can.accept && !t.answered && t.posts.length > 0 && (
           <p className="text-sm text-muted-foreground">Une réponse vous a débloqué ? Acceptez-la : elle remonte en tête et son auteur gagne de l’XP d’entraide.</p>
         )}

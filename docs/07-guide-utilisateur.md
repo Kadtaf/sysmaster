@@ -147,6 +147,11 @@ Posez une question dans la bonne catégorie : le système, ce que vous avez essa
 
 Une bonne réponse explique quoi vérifier et pourquoi. Une commande risquée s'accompagne d'un avertissement sur ce qu'elle fait.
 
+### Partager un script ou une démarche de lab
+
+- **Un script** (« Partager un script ») : collez le code, choisissez le langage et le niveau de risque, et expliquez ce qu'il fait, quand l'utiliser et ses limites. Si le code contient une commande plus risquée que le niveau choisi, le niveau est relevé automatiquement. Un relecteur le marque ensuite comme « Relu ». Avant d'utiliser un script non relu, lisez-le ligne à ligne et testez-le sur une machine de test.
+- **Une démarche de lab** : une fois un lab résolu, vous pouvez expliquer comment vous avez trouvé la panne. Seuls ceux qui ont aussi résolu ce lab voient votre démarche et les réponses, pour ne rien gâcher aux autres.
+
 ### Groupes d'étude et mentorat
 
 - **Groupes** (`/communaute/groupes`) : rejoignez un groupe public, ou un groupe privé avec le code que son responsable vous donne. Les échanges du groupe ne sont visibles que de ses membres. Vous pouvez créer votre propre groupe, avec un objectif (« obtenir Linux Administrator avant mars ») et un nombre de places.
