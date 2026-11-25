@@ -111,9 +111,16 @@ describeDb('Back-office : cours, parcours et causes de diagnostic (e2e)', () => 
     const plan = await http().get(`/api/v1/learning/courses/${courseSlug}`).expect(200);
     expect(plan.body.modules.map((m: { lessons: { slug: string }[] }) => m.lessons.map((l) => l.slug))).toEqual([['l0'], ['l2', 'l1', 'l3']]);
 
-    // Le relais recalcule la progression des inscrits : 1 leçon sur 4.
-    await app.get(OutboxRelay).drain();
-    expect(await progress()).toBe(25);
+    // Le relais recalcule la progression des inscrits : 1 leçon sur 4. Le relais d'une autre suite
+    // (ou son minuteur) peut tenir l'événement au même moment (SKIP LOCKED) : on réessaie un court instant.
+    const deadline = Date.now() + 5000;
+    let pct = await progress();
+    while (pct !== 25 && Date.now() < deadline) {
+      await app.get(OutboxRelay).drain();
+      pct = await progress();
+      if (pct !== 25) await new Promise((r) => setTimeout(r, 50));
+    }
+    expect(pct).toBe(25);
   });
 
   it('causes de diagnostic : simulation sur les cas de référence avant publication', async () => {

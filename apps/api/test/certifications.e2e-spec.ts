@@ -61,8 +61,20 @@ describeDb('Certifications : examen, certificat signé, vérification, révocati
     }
     expect(res.body.find((c: { code: string }) => c.code === 'WIN-TECH')).toMatchObject({ exam: { questionCount: 15, available: true } });
     expect(res.body.find((c: { code: string }) => c.code === 'WIN-ADMIN')).toMatchObject({ exam: { questionCount: 20, available: true } });
-    // Linux Server Expert ne tire plus dans la banque de Linux Administrator.
-    expect(res.body.find((c: { code: string }) => c.code === 'LINUX-EXPERT')).toMatchObject({ exam: { available: false } });
+    // Toutes les certifications ont désormais une banque suffisante.
+    for (const [code, n] of [['LINUX-EXPERT', 20], ['DEVOPS-SPEC', 20], ['PG-SPEC', 20], ['SYSMASTER-EXPERT', 40]] as const) {
+      expect(res.body.find((c: { code: string }) => c.code === code)).toMatchObject({ exam: { questionCount: n, available: true } });
+    }
+  });
+
+  it('Linux Administrator ne tire jamais les questions de Linux Server Expert', async () => {
+    const u = await learner(true);
+    const exam = await u.as(http().post(`/api/v1/certifications/${CODE}/exam`)).expect(201);
+    const ids = exam.body.questions.map((q: { id: string }) => q.id);
+    const { rows } = await pool.query(`SELECT DISTINCT difficulty::text AS d FROM assessment.questions WHERE id = ANY($1::uuid[])`, [ids]);
+    expect(rows.map((r) => r.d).filter((d) => !['beginner', 'intermediate'].includes(d))).toEqual([]);
+    // L'examen reste ouvert : on le remet pour ne pas gêner les autres tests de ce compte.
+    await u.as(http().post(`/api/v1/exam-sessions/${exam.body.id}/submit`).send({ answers: {} })).expect(200);
   });
 
   it('Windows Technician ne tire que les niveaux du poste de travail', async () => {
