@@ -55,6 +55,10 @@ describeDb('Certifications : examen, certificat signé, vérification, révocati
     const linux = res.body.find((c: { code: string }) => c.code === CODE);
     expect(linux).toMatchObject({ me: null, exam: { questionCount: 10, available: true } });
     expect(linux.requirements.filter((r: { kind: string }) => r.kind === 'lab')).toHaveLength(2);
+    // Banques Réseau, Docker et Cyber (seed 012) : examens ouverts.
+    for (const code of ['NET-SPEC', 'DOCKER-SPEC', 'CYBER-SPEC']) {
+      expect(res.body.find((c: { code: string }) => c.code === code)).toMatchObject({ exam: { questionCount: 15, available: true } });
+    }
   });
 
   it('examen refusé tant que les labs ne sont pas réussis, avec les raisons', async () => {

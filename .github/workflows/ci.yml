@@ -44,6 +44,7 @@ jobs:
         run: |
           node infra/scripts/build-content-seed.mjs --check
           node infra/scripts/build-labs-seed.mjs --check
+          node infra/scripts/build-exam-seed.mjs --check
       - name: Migrations et données de démo (vérifie aussi qu'elles sont rejouables)
         run: |
           pnpm db:migrate
