@@ -3,8 +3,8 @@
 import Link from 'next/link';
 import { signIn, signOut, useSession } from 'next-auth/react';
 import { useEffect } from 'react';
-import { LayoutDashboard, LogIn, LogOut, PenLine, UserRound } from 'lucide-react';
-import { EDITORIAL_ROLES } from '@/lib/labels';
+import { LayoutDashboard, LogIn, LogOut, PenLine, ShieldCheck, UserRound } from 'lucide-react';
+import { EDITORIAL_ROLES, MODERATOR_ROLES } from '@/lib/labels';
 import { Button, buttonVariants } from '@/components/ui/button';
 
 export async function federatedSignOut() {
@@ -35,6 +35,11 @@ export function AuthButton() {
       {session.user?.roles?.some((r) => EDITORIAL_ROLES.includes(r)) && (
         <Link href="/editorial" className={buttonVariants({ variant: 'ghost', size: 'sm' })}>
           <PenLine className="size-4" aria-hidden /> <span className="hidden sm:inline">Rédaction</span>
+        </Link>
+      )}
+      {session.user?.roles?.some((r) => MODERATOR_ROLES.includes(r)) && (
+        <Link href="/communaute/moderation" className={buttonVariants({ variant: 'ghost', size: 'sm' })}>
+          <ShieldCheck className="size-4" aria-hidden /> <span className="hidden sm:inline">Modération</span>
         </Link>
       )}
       <Link href="/tableau-de-bord" className={buttonVariants({ variant: 'ghost', size: 'sm' })}>

@@ -73,6 +73,18 @@ Préfixe `/api/v1`. Documentation OpenAPI générée sur `/api/docs`. Authentifi
 | GET | `/certificates/:serial` | Public : vérification (titulaire, certification, dates, `status` valid/expired/revoked, `signatureValid`) |
 | GET | `/certificates/public-key` | Public : clé Ed25519 (PEM) qui vérifie les signatures |
 | POST | `/certificates/:serial/revoke` | Administrateurs : `{ reason }` |
+| GET | `/community/categories` | Public : catégories et nombre de sujets visibles |
+| GET | `/community/threads?category=&kind=&tag=&q=&sort=&page=` | Sujets (20 par page) ; `sort` : `recent`, `top`, `unanswered` ; `q` : recherche sans accents. Les sujets masqués n'apparaissent qu'à leur auteur et aux modérateurs |
+| GET | `/community/similar?q=` | Public : 5 sujets proches d'un texte, proposés avant de publier |
+| GET | `/community/threads/:id` | Sujet, réponses (acceptée en tête), `myVote`, `can { reply, accept, moderate }`. **404** si masqué pour vous |
+| POST | `/community/threads` | `{ categorySlug, kind, title, bodyMd, tags }` → `{ id }`. **429** au-delà de 5 sujets par heure |
+| PUT | `/community/threads/:id`, `/community/posts/:id` | Modifier son sujet ou sa réponse |
+| POST | `/community/threads/:id/posts` | `{ bodyMd }` : répondre. **403** si verrouillé, **429** au-delà de 30 par heure |
+| PUT | `/community/threads/:id/vote`, `/community/posts/:id/vote` | `{ value: 1 \| 0 \| -1 }` → `{ score, myVote }`. **403** sur son propre message |
+| PUT | `/community/threads/:id/accepted` | `{ postId \| null }` (auteur de la question). Première acceptation d'une réponse d'autrui : `community.answer.accepted.v1` (25 XP) |
+| POST | `/community/reports` | `{ targetType, targetId, reason }` ; trois personnes différentes : contenu masqué en attendant un modérateur |
+| GET, POST | `/community/moderation` | Modérateurs : file des signalements ; décision `{ targetType, targetId, action: hide \| restore \| dismiss, note }` |
+| PUT | `/community/threads/:id/lock` | Modérateurs : `{ locked }` |
 | GET | `/labs` | Catalogue des labs publiés (`runtime` : seuls les labs `simulation` sont démarrables aujourd'hui) |
 | GET | `/labs/:slug` | Énoncé, objectifs, nombre d'indices et liste de ce qui sera vérifié ; jamais les indices ni la solution |
 | POST | `/labs/:slug/instances?fresh=` | Démarre le lab (connecté) ou reprend la session ouverte ; `fresh=true` repart d'une machine neuve. **409** pour un lab qui demande un environnement réel |

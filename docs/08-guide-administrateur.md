@@ -23,7 +23,8 @@ Les rôles se donnent dans **Keycloak** (console d'administration → royaume `s
 | `reviewer` | Relire et publier les révisions **des autres** |
 | `admin` | Tout ce qui précède, plus la liste des utilisateurs (`GET /admin/users`) et le retrait de n'importe quelle révision |
 | `support` | Liste des utilisateurs |
-| `mentor`, `moderator` | Réservés aux modules communauté (Phase 5) |
+| `moderator` | File de modération de la communauté (`/communaute/moderation`) : masquer, rétablir, écarter les signalements, verrouiller un sujet. Peut répondre dans un sujet verrouillé |
+| `mentor` | Réservé au mentorat (à venir) |
 
 - **Pourquoi passer par Keycloak plutôt que par la base ?** Une seule source de vérité. Un rôle ajouté seulement en base serait écrasé à la connexion suivante.
 - **Quand le changement s'applique** : au prochain jeton, c'est-à-dire au plus 5 minutes plus tard. Pour un effet immédiat, l'utilisateur se déconnecte puis se reconnecte.
@@ -98,6 +99,13 @@ Pourquoi : un cas de référence fige un diagnostic qu'on sait juste ; toute mod
 - **Ouvrir un examen** : il faut, dans la banque, au moins autant de questions **relues** (choix unique ou multiple) des plateformes de la certification que l'examen en tire. Les quiz publiés depuis le back-office alimentent cette banque ; le brouillon par l'IA aide à la constituer, toujours relu. Les conditions (plateformes, taille, durée, seuil, délai après échec, labs exigés) sont dans `db/seeds/008_certifications.sql`.
 - **Révoquer** : `POST /api/v1/certificates/<numéro>/revoke` avec `{ "reason": "…" }` (administrateurs). La page de vérification affiche aussitôt « révoqué » et le motif. Les signaux d'intégrité d'un examen (changements d'onglet, collages) sont dans `assessment.exam_sessions.integrity`, pour la relecture d'un cas litigieux.
 - Le paiement des examens arrivera avec Stripe : aujourd'hui, `price_cents` est affiché mais non perçu.
+
+### Communauté
+
+- **Modération** : donnez le rôle `moderator` dans Keycloak. La file (`/communaute/moderation`) classe les contenus par nombre de signalements. **Masquer** retient les signalements et affiche votre motif à l'auteur. **Rétablir** rend visible un contenu masqué automatiquement et écarte les signalements. **Écarter** clôt les signalements sans toucher au contenu. Rien n'est supprimé : la trace est dans `community.reports` (`resolved_by`, `resolved_at`, `resolution_note`) et sur le contenu (`hidden_by`, `hidden_reason`).
+- **Masquage automatique** : trois signalements ouverts de personnes différentes. Un même membre ne compte qu'une fois par contenu.
+- **Abus** : un compte qui dépasse 5 sujets ou 30 réponses par heure reçoit une erreur 429. Il n'y a pas encore de suspension de compte depuis l'interface : passez par Keycloak (désactiver l'utilisateur).
+- **Catégories** : `db/seeds/009_communaute.sql` (nom, description, ordre). Le slug d'une catégorie apparaît dans les URL : ne le changez pas.
 
 ## 4. Événements (outbox)
 
@@ -225,6 +233,5 @@ Sans `STAGING_KUBECONFIG`, la CD publie les images et s'arrête là, avec une no
 
 Ces sujets sont prévus dans la [feuille de route](05-feuille-de-route.md) :
 
-- modération ;
 - tableau de bord d'organisation ;
 - production (promotion manuelle des images testées, déploiement progressif) et traces OpenTelemetry.

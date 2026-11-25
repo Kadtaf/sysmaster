@@ -89,3 +89,17 @@ export const contentKindMeta: Record<string, { label: string; newLabel: string; 
     rule: 'Réservé aux administrateurs, relu par un second administrateur ; les règles de sécurité de l’assistant restent dans le code',
   },
 };
+
+export const MODERATOR_ROLES = ['moderator', 'admin', 'super_admin'];
+
+/** « il y a 3 h », « il y a 2 j » : assez précis pour un fil de discussion. */
+export function since(iso: string, now = Date.now()): string {
+  const m = Math.max(0, Math.round((now - Date.parse(iso)) / 60_000));
+  if (m < 1) return 'à l’instant';
+  if (m < 60) return `il y a ${m} min`;
+  const h = Math.round(m / 60);
+  if (h < 24) return `il y a ${h} h`;
+  const d = Math.round(h / 24);
+  if (d < 31) return `il y a ${d} j`;
+  return new Date(iso).toLocaleDateString('fr-FR', { dateStyle: 'medium' });
+}

@@ -111,6 +111,8 @@ XP (leçons, labs, diagnostics clos, aide en communauté), niveaux (Curieux → 
 
 ### 2.9 Communauté — Phase 5
 
+> **Livré (premier incrément)** : `/communaute`. Forum par catégorie, avec des questions et des discussions. Le Markdown des membres est rendu sans HTML brut, sans image distante, et ses liens sont en `nofollow ugc`. La recherche ignore les accents. Avant de publier, les questions proches du titre sont proposées (recherche plein texte, sans appel payant à l'IA). Les votes utiles ou pas utiles sont interdits sur ses propres messages. L'auteur d'une question accepte une réponse : elle remonte en tête et son auteur gagne 25 XP d'entraide, une seule fois par sujet, jamais pour sa propre réponse. Les badges associés sont « Coup de main » et « Pilier de la communauté ». Le nom public est le pseudonyme, à défaut le nom affiché, jamais l'e-mail. Les signalements sont limités à un seul ouvert par personne et par contenu. Trois signalements de personnes différentes masquent le contenu en attendant un modérateur. Les modérateurs disposent d'une file (`/communaute/moderation`) pour masquer avec un motif, rétablir, écarter les signalements ou verrouiller un sujet. Masquer ne supprime rien : l'auteur voit le motif. Plafonds anti-spam : 5 sujets et 30 réponses par heure. Reste à faire : partage de labs et de scripts, mentorat, groupes d'étude, suggestion par l'IA, notifications de réponse.
+
 Forum par catégorie, Q&R avec réponse acceptée, partage de labs et de scripts (P-5), mentorat (mise en relation mentor/apprenant), groupes d'étude, modération (signalements, rôles), suggestion IA de questions similaires avant publication.
 
 ### 2.10 Tableaux de bord — Phase 2

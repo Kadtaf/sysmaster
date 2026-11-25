@@ -8,6 +8,7 @@ const links = [
   { href: '/diagnostic', label: 'Diagnostic' },
   { href: '/labs', label: 'Labs' },
   { href: '/certifications', label: 'Certifications' },
+  { href: '/communaute', label: 'Communauté' },
   { href: '/assistant', label: 'Assistant' },
   { href: '/classement', label: 'Classement' },
 ];

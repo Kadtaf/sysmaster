@@ -1,5 +1,5 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
-import type { DiagnosticSessionCompletedV1, LabSolvedV1, LessonCompletedV1, PathCompletedV1 } from '@sysmaster/contracts';
+import type { CommunityAnswerAcceptedV1, DiagnosticSessionCompletedV1, LabSolvedV1, LessonCompletedV1, PathCompletedV1 } from '@sysmaster/contracts';
 import type { PoolClient } from 'pg';
 import { EventRegistry } from '../../../shared/events/event-registry';
 import { StoredEvent } from '../../../shared/events/events';
@@ -16,7 +16,7 @@ export class PgGamificationConsumer implements OnModuleInit {
   onModuleInit() {
     this.registry.subscribe(
       'gamification',
-      ['iam.user.registered.v1', 'learning.lesson.completed.v1', 'learning.path.completed.v1', 'diagnostic.session.completed.v1', 'labs.lab.solved.v1'],
+      ['iam.user.registered.v1', 'learning.lesson.completed.v1', 'learning.path.completed.v1', 'diagnostic.session.completed.v1', 'labs.lab.solved.v1', 'community.answer.accepted.v1'],
       (event, tx) => this.handle(event, tx),
     );
   }
@@ -43,6 +43,10 @@ export class PgGamificationConsumer implements OnModuleInit {
         const p = event.payload as LabSolvedV1;
         return this.apply(tx, p.userId, { kind: 'lab', hintsUsed: p.hintsUsed }, event);
       }
+      case 'community.answer.accepted.v1': {
+        const p = event.payload as CommunityAnswerAcceptedV1;
+        return this.apply(tx, p.userId, { kind: 'answer_accepted' }, event);
+      }
     }
   }
 
@@ -54,7 +58,7 @@ export class PgGamificationConsumer implements OnModuleInit {
     await this.ensureStats(tx, userId);
     const { rows } = await tx.query<Record<string, any>>(
       `SELECT s.total_xp, s.level, s.streak_days, s.longest_streak, s.last_activity_date::text AS last_activity_date,
-              s.lessons_completed, s.diagnostics_completed, s.paths_completed, s.labs_solved, s.labs_solved_without_hint,
+              s.lessons_completed, s.diagnostics_completed, s.paths_completed, s.labs_solved, s.labs_solved_without_hint, s.answers_accepted,
               (($2::timestamptz) AT TIME ZONE coalesce(u.timezone, 'Europe/Paris'))::date::text AS today
          FROM gamification.user_stats s JOIN iam.users u ON u.id = s.user_id
         WHERE s.user_id = $1 FOR UPDATE OF s`,
@@ -66,7 +70,7 @@ export class PgGamificationConsumer implements OnModuleInit {
       totalXp: Number(r.total_xp), level: r.level, streakDays: r.streak_days, longestStreak: r.longest_streak,
       lastActivityDate: r.last_activity_date, lessonsCompleted: r.lessons_completed,
       diagnosticsCompleted: r.diagnostics_completed, pathsCompleted: r.paths_completed,
-      labsSolved: r.labs_solved, labsSolvedWithoutHint: r.labs_solved_without_hint,
+      labsSolved: r.labs_solved, labsSolvedWithoutHint: r.labs_solved_without_hint, answersAccepted: r.answers_accepted,
     };
     // Requêtes successives : un même client pg n'exécute qu'une requête à la fois.
     const levels = await tx.query<{ level: number; min_xp: string; title: string }>('SELECT level, min_xp, title FROM gamification.levels');
@@ -85,10 +89,10 @@ export class PgGamificationConsumer implements OnModuleInit {
       `UPDATE gamification.user_stats
           SET total_xp = $2, level = $3, streak_days = $4, longest_streak = $5, last_activity_date = $6::date,
               lessons_completed = $7, diagnostics_completed = $8, paths_completed = $9,
-              labs_solved = $10, labs_solved_without_hint = $11
+              labs_solved = $10, labs_solved_without_hint = $11, answers_accepted = $12
         WHERE user_id = $1`,
       [userId, s.totalXp, s.level, s.streakDays, s.longestStreak, s.lastActivityDate,
-        s.lessonsCompleted, s.diagnosticsCompleted, s.pathsCompleted, s.labsSolved, s.labsSolvedWithoutHint],
+        s.lessonsCompleted, s.diagnosticsCompleted, s.pathsCompleted, s.labsSolved, s.labsSolvedWithoutHint, s.answersAccepted],
     );
     await tx.query(
       `INSERT INTO gamification.xp_ledger (user_id, amount, reason, source_event_id, created_at) VALUES ($1, $2, $3, $4, $5)`,

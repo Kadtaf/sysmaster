@@ -754,6 +754,142 @@ export interface CertificateDto {
 export const RevokeCertificateSchema = z.object({ reason: z.string().trim().min(5, 'Précisez le motif.').max(500) });
 export type RevokeCertificateInput = z.infer<typeof RevokeCertificateSchema>;
 
+// ---------- Communauté (Phase 5) ----------
+export const THREAD_KINDS = ['discussion', 'question'] as const;
+export type ThreadKind = (typeof THREAD_KINDS)[number];
+export const VOTE_TARGETS = ['thread', 'post'] as const;
+export type VoteTarget = (typeof VOTE_TARGETS)[number];
+
+export interface CommunityCategoryDto {
+  slug: string;
+  name: string;
+  description: string;
+  threadCount: number;
+}
+export interface CommunityAuthorDto {
+  displayName: string;
+  level: number;
+}
+/** Contenu masqué par la modération : visible seulement de son auteur et des modérateurs. */
+export interface HiddenInfo {
+  at: string;
+  reason: string | null;
+}
+export interface ThreadSummaryDto {
+  id: string;
+  category: { slug: string; name: string };
+  kind: ThreadKind;
+  title: string;
+  excerpt: string;
+  tags: string[];
+  author: CommunityAuthorDto;
+  score: number;
+  postCount: number;
+  answered: boolean;
+  isLocked: boolean;
+  hidden: HiddenInfo | null;
+  createdAt: string;
+  lastActivityAt: string;
+}
+export interface ThreadListDto {
+  items: ThreadSummaryDto[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+export interface PostDto {
+  id: string;
+  author: CommunityAuthorDto;
+  /** Vide pour un message masqué qu'on n'a pas le droit de lire. */
+  bodyMd: string;
+  score: number;
+  accepted: boolean;
+  hidden: HiddenInfo | null;
+  createdAt: string;
+  editedAt: string | null;
+  /** Pour l'utilisateur connecté. */
+  myVote: -1 | 0 | 1;
+  mine: boolean;
+}
+export interface ThreadDto extends ThreadSummaryDto {
+  bodyMd: string;
+  acceptedPostId: string | null;
+  posts: PostDto[];
+  myVote: -1 | 0 | 1;
+  mine: boolean;
+  /** Ce que l'utilisateur connecté peut faire ; tout à false pour un visiteur. */
+  can: { reply: boolean; accept: boolean; moderate: boolean };
+  replyBlocker: string | null;
+}
+export const ThreadListQuerySchema = z.object({
+  category: z.string().max(60).optional(),
+  kind: z.enum(THREAD_KINDS).optional(),
+  tag: z.string().max(40).optional(),
+  q: z.string().trim().max(200).optional(),
+  sort: z.enum(['recent', 'top', 'unanswered']).default('recent'),
+  page: z.coerce.number().int().min(1).max(500).default(1),
+});
+export type ThreadListQuery = z.infer<typeof ThreadListQuerySchema>;
+const BodySchema = z.string().trim().min(20, 'Développez un peu : 20 caractères au moins.').max(20_000);
+export const CreateThreadSchema = z.object({
+  categorySlug: z.string().min(1).max(60),
+  kind: z.enum(THREAD_KINDS).default('question'),
+  title: z.string().trim().min(10, 'Un titre de 10 caractères au moins, qui résume le problème.').max(160),
+  bodyMd: BodySchema,
+  tags: z.array(z.string().max(30)).max(5).default([]),
+});
+export type CreateThreadInput = z.infer<typeof CreateThreadSchema>;
+export const EditThreadSchema = CreateThreadSchema.pick({ title: true, bodyMd: true, tags: true });
+export type EditThreadInput = z.infer<typeof EditThreadSchema>;
+export const PostBodySchema = z.object({ bodyMd: BodySchema });
+export type PostBodyInput = z.infer<typeof PostBodySchema>;
+export const VoteSchema = z.object({ value: z.union([z.literal(-1), z.literal(0), z.literal(1)]) });
+export type VoteInput = z.infer<typeof VoteSchema>;
+export const AcceptSchema = z.object({ postId: z.string().uuid().nullable() });
+export type AcceptInput = z.infer<typeof AcceptSchema>;
+export const ReportSchema = z.object({
+  targetType: z.enum(VOTE_TARGETS),
+  targetId: z.string().uuid(),
+  reason: z.string().trim().min(5, 'Dites en quelques mots ce qui pose problème.').max(500),
+});
+export type ReportInput = z.infer<typeof ReportSchema>;
+export interface SimilarThreadDto {
+  id: string;
+  title: string;
+  answered: boolean;
+  postCount: number;
+}
+
+// Modération
+export interface ModerationItemDto {
+  targetType: VoteTarget;
+  targetId: string;
+  threadId: string;
+  threadTitle: string;
+  author: string;
+  bodyMd: string;
+  hidden: HiddenInfo | null;
+  reports: { reason: string; reporter: string; createdAt: string }[];
+  firstReportedAt: string;
+}
+export const ModerationDecisionSchema = z.object({
+  targetType: z.enum(VOTE_TARGETS),
+  targetId: z.string().uuid(),
+  /** hide : masque et clôt les signalements ; restore : rend visible et les écarte ; dismiss : écarte sans toucher au contenu. */
+  action: z.enum(['hide', 'restore', 'dismiss']),
+  note: z.string().trim().max(500).optional(),
+});
+export type ModerationDecisionInput = z.infer<typeof ModerationDecisionSchema>;
+export const LockSchema = z.object({ locked: z.boolean() });
+
+export interface CommunityAnswerAcceptedV1 {
+  threadId: string;
+  postId: string;
+  /** Auteur de la réponse acceptée : c'est lui qui reçoit l'XP d'entraide. */
+  userId: string;
+  acceptedBy: string;
+}
+
 export const CONTENT_KINDS = ['command', 'course', 'path', 'diagnostic_cause', 'agent_profile', 'quiz', 'lab'] as const;
 export type ContentKind = (typeof CONTENT_KINDS)[number];
 

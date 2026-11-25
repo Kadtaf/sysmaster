@@ -34,7 +34,7 @@ describe('gamification', () => {
       { code: 'lab_no_hint', criteria: { event: 'labs.lab.solved.v1', hints_used: 0 } },
       { code: 'vide', criteria: {} },
     ];
-    const stats = { lessonsCompleted: 3, diagnosticsCompleted: 0, pathsCompleted: 0, streakDays: 2, labsSolved: 0, labsSolvedWithoutHint: 0 };
+    const stats = { lessonsCompleted: 3, diagnosticsCompleted: 0, pathsCompleted: 0, streakDays: 2, labsSolved: 0, labsSolvedWithoutHint: 0, answersAccepted: 0 };
     expect(earnedBadges(badges, stats)).toEqual(['first_lesson']);
     const labBadges = [{ code: 'lab_no_hint', criteria: { labs_solved_without_hint: 1 } }];
     expect(earnedBadges(labBadges, stats)).toEqual([]);

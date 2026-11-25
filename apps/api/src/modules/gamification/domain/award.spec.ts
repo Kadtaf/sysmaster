@@ -34,6 +34,14 @@ describe('award', () => {
     expect(r.newBadges).toEqual(['path_completed']);
   });
 
+  it('réponse acceptée : XP d’entraide et badge, sans toucher à la série', () => {
+    const before = { ...EMPTY_STATS, streakDays: 3, lastActivityDate: '2026-11-20' };
+    const r = award(before, { kind: 'answer_accepted' }, { ...ctx, badges: [{ code: 'helper', criteria: { answers_accepted: 1 } }] });
+    expect(r.xp).toEqual({ amount: 25, reason: 'community.answer_accepted' });
+    expect(r.stats).toMatchObject({ answersAccepted: 1, streakDays: 3, lastActivityDate: '2026-11-20' });
+    expect(r.newBadges).toEqual(['helper']);
+  });
+
   it('une série interrompue repart à 1 mais la meilleure série est conservée', () => {
     const r = award({ ...EMPTY_STATS, streakDays: 5, longestStreak: 5, lastActivityDate: '2026-11-10' }, { kind: 'diagnostic' }, ctx);
     expect(r.stats).toMatchObject({ streakDays: 1, longestStreak: 5, diagnosticsCompleted: 1, totalXp: 15 });
