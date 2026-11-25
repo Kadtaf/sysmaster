@@ -76,7 +76,7 @@ Les durées sont indicatives et supposent une équipe dédiée ; avec un dévelo
 
 ## Phase 5 — Certifications, communauté, monétisation
 
-- ✅ Examens tirés au sort dans la banque relue, chronométrés, intégrité légère ; certificats signés (Ed25519), imprimables avec QR code, page publique `/verify/<numéro>`, révocation. Examens ouverts : Linux Administrator, Network, Docker et Cybersecurity Specialist (banques relues de 12 à 24 questions, propositions mélangées). ⏳ Banques Windows, Linux Expert, DevOps, PostgreSQL et SysMaster Expert, paiement des examens, PDF généré côté serveur.
+- ✅ Examens tirés au sort dans la banque relue, chronométrés, intégrité légère ; certificats signés (Ed25519), imprimables avec QR code, page publique `/verify/<numéro>`, révocation. Examens ouverts : Linux Administrator, Network, Docker, Cybersecurity Specialist, Windows Technician et Windows Administrator (banques relues, propositions mélangées, niveaux tirés par certification). ⏳ Banques Linux Expert, DevOps, PostgreSQL et SysMaster Expert, paiement des examens, PDF généré côté serveur.
 - ✅ Forum par catégorie, questions-réponses avec réponse acceptée (XP d'entraide), votes, recherche sans accents, questions similaires avant publication, signalements, masquage automatique, file de modération, verrouillage. ✅ Mentorat (profils, demandes, échanges privés) et groupes d'étude (publics ou sur invitation). ✅ Partage de scripts (explication et risque obligatoires, risque relevé automatiquement, relecture) et de démarches de lab (visibles une fois le lab résolu). ⏳ Notifications.
 - Stripe : abonnements Free/Premium/Pro, licences Entreprise/Centre/École/Université, coupons, factures, TVA, affiliation, marketplace (Stripe Connect).
 

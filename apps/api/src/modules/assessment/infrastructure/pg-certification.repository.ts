@@ -5,7 +5,8 @@ import {
 } from '../application/certification-ports';
 import type { KeyedQuestion } from '../domain/scoring';
 
-const BANK = `x.reviewed AND x.type IN ('single', 'multiple') AND x.platform = ANY(c.exam_platforms)`;
+const BANK = `x.reviewed AND x.type IN ('single', 'multiple') AND x.platform = ANY(c.exam_platforms)
+  AND (cardinality(c.exam_difficulties) = 0 OR x.difficulty = ANY(c.exam_difficulties))`;
 
 const CERT_SELECT = `
   SELECT k.id, k.serial, k.certification_code AS code, c.title, c.level::text AS level, k.user_id, k.holder_name,

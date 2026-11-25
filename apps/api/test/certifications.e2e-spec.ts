@@ -59,6 +59,19 @@ describeDb('Certifications : examen, certificat signé, vérification, révocati
     for (const code of ['NET-SPEC', 'DOCKER-SPEC', 'CYBER-SPEC']) {
       expect(res.body.find((c: { code: string }) => c.code === code)).toMatchObject({ exam: { questionCount: 15, available: true } });
     }
+    expect(res.body.find((c: { code: string }) => c.code === 'WIN-TECH')).toMatchObject({ exam: { questionCount: 15, available: true } });
+    expect(res.body.find((c: { code: string }) => c.code === 'WIN-ADMIN')).toMatchObject({ exam: { questionCount: 20, available: true } });
+    // Linux Server Expert ne tire plus dans la banque de Linux Administrator.
+    expect(res.body.find((c: { code: string }) => c.code === 'LINUX-EXPERT')).toMatchObject({ exam: { available: false } });
+  });
+
+  it('Windows Technician ne tire que les niveaux du poste de travail', async () => {
+    const u = await learner(false);
+    const exam = await u.as(http().post('/api/v1/certifications/WIN-TECH/exam')).expect(201);
+    expect(exam.body.questions).toHaveLength(15);
+    const ids = exam.body.questions.map((q: { id: string }) => q.id);
+    const { rows } = await pool.query(`SELECT DISTINCT difficulty::text AS d FROM assessment.questions WHERE id = ANY($1::uuid[])`, [ids]);
+    expect(rows.map((r) => r.d).filter((d) => !['beginner', 'intermediate'].includes(d))).toEqual([]);
   });
 
   it('examen refusé tant que les labs ne sont pas réussis, avec les raisons', async () => {
