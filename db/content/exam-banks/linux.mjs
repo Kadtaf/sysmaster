@@ -1,0 +1,148 @@
+// Banque de l'examen LINUX-ADMIN (Linux Administrator). Voir ../exam-banks.mjs pour le format.
+// Questions reprises du seed 008 : elles gardent leur identifiant d'origine (`id`).
+export default [
+  {
+    key: "linux-01", id: "5405d5bf-df2d-5e83-bf2f-70028c3edf55", difficulty: "intermediate", type: "single",
+    prompt: "Un service ne démarre plus et `df -h` montre `/var` à 100 %. Quelle est la première chose à faire ?",
+    choices: [
+      "Identifier ce qui occupe la place avec du -sh /var/*, avant de supprimer quoi que ce soit",
+      "Supprimer tout le contenu de /var/log",
+      "Redémarrer le serveur pour libérer de l'espace",
+      "Agrandir la partition immédiatement",
+    ],
+    answer: ["a"],
+    explanation: "On mesure avant d'agir : du montre quel répertoire a grossi. Vider /var/log efface des preuves et peut casser des services ; redémarrer ne libère pas un fichier présent sur disque ; agrandir traite le symptôme sans connaître la cause.",
+  },
+  {
+    key: "linux-02", id: "e4956b19-1893-5553-856b-8cb55bb92db6", difficulty: "intermediate", type: "single",
+    prompt: "Pourquoi vider un gros journal avec `truncate -s 0 fichier` plutôt que de le supprimer avec `rm` quand un processus l'écrit encore ?",
+    choices: [
+      "Parce que rm d'un fichier ouvert ne libère pas l'espace tant que le processus le garde ouvert",
+      "Parce que rm est interdit sur les fichiers de /var/log",
+      "Parce que truncate compresse le fichier",
+      "Il n'y a aucune différence",
+    ],
+    answer: ["a"],
+    explanation: "Un fichier supprimé mais encore ouvert reste sur le disque (visible avec lsof +L1) jusqu'à la fermeture. truncate garde le même fichier et libère l'espace tout de suite ; il ne compresse rien.",
+  },
+  {
+    key: "linux-03", id: "c21e3cdc-1120-55e3-9d46-45a4846dd5f7", difficulty: "beginner", type: "single",
+    prompt: "`systemctl start nginx` échoue et le journal indique « bind() to 0.0.0.0:80 failed (98: Address already in use) ». Quelle commande confirme la cause ?",
+    choices: [
+      "ss -tlnp | grep :80",
+      "df -h",
+      "chmod 755 /etc/nginx",
+      "systemctl enable nginx",
+    ],
+    answer: ["a"],
+    explanation: "Le message dit qu'un autre processus écoute déjà le port 80 : ss -tlnp montre lequel. df concerne l'espace disque, chmod les droits, et enable ne fait que préparer le démarrage au boot.",
+  },
+  {
+    key: "linux-04", id: "6d9c0f6d-e6a5-5f12-bfca-0a9c26246bed", difficulty: "beginner", type: "single",
+    prompt: "Quelle est la différence entre `systemctl enable` et `systemctl start` ?",
+    choices: [
+      "enable prépare le démarrage automatique au boot, start lance le service maintenant",
+      "Ce sont deux synonymes",
+      "enable lance le service maintenant et au boot",
+      "start rend le démarrage permanent",
+    ],
+    answer: ["a"],
+    explanation: "enable crée les liens qui feront démarrer le service au prochain boot, sans le lancer ; start le lance tout de suite sans rien rendre permanent. enable --now combine les deux.",
+  },
+  {
+    key: "linux-05", id: "9080f81b-bce5-5a7d-afec-d1851a685421", difficulty: "intermediate", type: "multiple",
+    prompt: "Un fichier `.env` contenant un mot de passe est en mode 644, propriétaire root, groupe www-data. L'application tourne sous www-data. Cochez toutes les affirmations justes.",
+    choices: [
+      "Tous les comptes du serveur peuvent le lire",
+      "chmod 640 garde la lecture pour www-data et la retire aux autres",
+      "chmod 600 est plus sûr et l'application continuera de fonctionner",
+      "chmod 777 réglerait le problème",
+    ],
+    answer: ["a", "b"],
+    explanation: "644 donne la lecture aux « autres ». 640 la réserve au propriétaire (root) et au groupe www-data. 600 la retirerait aussi au groupe : l'application ne pourrait plus lire sa configuration. 777 aggraverait tout.",
+  },
+  {
+    key: "linux-06", id: "151c15b5-7d68-589f-8fbc-59e02d293d99", difficulty: "beginner", type: "single",
+    prompt: "Dans `ls -l`, que signifie `-rw-r-----` ?",
+    choices: [
+      "Le propriétaire lit et écrit, le groupe lit, les autres n'ont aucun droit",
+      "Tout le monde peut lire, seul le propriétaire écrit",
+      "Le fichier est exécutable par le groupe",
+      "Le propriétaire n'a que la lecture",
+    ],
+    answer: ["a"],
+    explanation: "Les trois triplets se lisent propriétaire, groupe, autres : rw- (lecture, écriture), r-- (lecture), --- (rien). C'est le mode 640.",
+  },
+  {
+    key: "linux-07", id: "b837630b-bff7-5a9f-a48e-797af5351dc0", difficulty: "beginner", type: "single",
+    prompt: "Après une migration, `ping 10.0.0.1` répond mais `ping depot.exemple.fr` affiche « Temporary failure in name resolution ». Que regarder en premier ?",
+    choices: [
+      "Le serveur DNS configuré dans /etc/resolv.conf",
+      "La table de routage",
+      "Le pare-feu local",
+      "La carte réseau",
+    ],
+    answer: ["a"],
+    explanation: "Le réseau fonctionne (une adresse IP répond) : c'est la résolution de noms qui échoue. Le routage, le pare-feu et la carte sont déjà mis hors de cause par le ping réussi vers l'IP.",
+  },
+  {
+    key: "linux-08", id: "e4cf40c9-0105-54cf-9ec9-4fbad462eebf", difficulty: "beginner", type: "single",
+    prompt: "Pourquoi `journalctl -u nom-du-service` est-il souvent plus utile que `systemctl status` pour comprendre un échec ?",
+    choices: [
+      "Il montre l'historique complet des messages du service, pas seulement les dernières lignes",
+      "Il redémarre le service en mode débogage",
+      "Il corrige automatiquement l'erreur",
+      "Il affiche la configuration du service",
+    ],
+    answer: ["a"],
+    explanation: "systemctl status résume l'état et quelques lignes ; journalctl -u donne tous les messages du service (avec -n, -f ou --since pour filtrer). Il ne redémarre et ne corrige rien.",
+  },
+  {
+    key: "linux-09", id: "37b3a90b-1e1a-50e3-a12e-9e12fb8a3609", difficulty: "intermediate", type: "single",
+    prompt: "Vous devez modifier une ligne dans un fichier de configuration critique sur un serveur en production. Quelle démarche est la plus sûre ?",
+    choices: [
+      "Sauvegarder le fichier, modifier, vérifier la syntaxe (ex. nginx -t), puis recharger le service",
+      "Modifier directement puis redémarrer le serveur",
+      "Supprimer le fichier et laisser le paquet le recréer",
+      "Modifier et attendre le prochain redémarrage planifié",
+    ],
+    answer: ["a"],
+    explanation: "Une copie permet de revenir en arrière, la vérification de syntaxe évite de couper le service, et un reload applique sans interruption. Redémarrer tout le serveur ou supprimer la configuration est disproportionné et risqué.",
+  },
+  {
+    key: "linux-10", id: "b46341b1-0ec2-5108-a1bd-5ce7e6b3e15d", difficulty: "intermediate", type: "multiple",
+    prompt: "Une route par défaut ajoutée avec `ip route add default via 10.0.0.1` répare le réseau. Cochez toutes les affirmations justes.",
+    choices: [
+      "Elle sera perdue au prochain redémarrage si elle n'est pas écrite dans la configuration réseau",
+      "Elle est enregistrée automatiquement dans /etc/network/interfaces",
+      "Il faut aussi la déclarer dans la configuration (gateway, netplan…) pour qu'elle dure",
+      "Elle ne prend effet qu'après un redémarrage",
+    ],
+    answer: ["a", "c"],
+    explanation: "ip route modifie la table du noyau immédiatement mais en mémoire seulement : rien n'est écrit sur le disque. Pour que la correction survive au redémarrage, elle doit figurer dans la configuration du réseau.",
+  },
+  {
+    key: "linux-11", id: "ea46bffe-2c6f-52bb-8ec7-b8190662b458", difficulty: "beginner", type: "single",
+    prompt: "Un utilisateur demande `chmod -R 777 /var/www` « pour que ça marche ». Que répondre ?",
+    choices: [
+      "Refuser : chercher quel compte doit accéder à quoi et donner le droit minimal",
+      "Accepter, c'est la solution standard",
+      "Accepter mais seulement la nuit",
+      "Utiliser 666 à la place, c'est équivalent mais plus sûr",
+    ],
+    answer: ["a"],
+    explanation: "777 donne l'écriture à tous les comptes : n'importe quel processus compromis pourrait modifier le site. On identifie le compte du service (www-data) et on accorde le droit minimal nécessaire.",
+  },
+  {
+    key: "linux-12", id: "0dafd69c-1219-549a-a20c-ae4666e31d41", difficulty: "intermediate", type: "single",
+    prompt: "Quel signal indique qu'un service a été tué faute de mémoire ?",
+    choices: [
+      "Un message « Out of memory: Killed process … » dans le journal du noyau (journalctl -k ou dmesg)",
+      "Un code de sortie 0",
+      "Un fichier core dans /etc",
+      "Le service apparaît « enabled »",
+    ],
+    answer: ["a"],
+    explanation: "L'OOM killer du noyau journalise le processus qu'il termine. Un code 0 signifie une fin normale ; « enabled » ne concerne que le démarrage au boot.",
+  },
+];
