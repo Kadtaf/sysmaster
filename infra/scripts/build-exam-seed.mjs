@@ -6,7 +6,7 @@ import { createHash } from 'node:crypto';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { banks, exams } from '../../db/content/exam-banks.mjs';
+import { banks, exams, levelsOnly } from '../../db/content/exam-banks.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const out = join(root, 'db', 'seeds', '012_banques_examens.sql');
@@ -76,6 +76,13 @@ for (const [platform, questions] of Object.entries(banks)) {
 for (const [code, e] of Object.entries(exams)) {
   if (!Number.isInteger(e.questionCount) || e.questionCount < 5) errors.push(`${code} : nombre de questions invalide`);
   if (!Number.isInteger(e.timeLimitS) || e.timeLimitS < 300) errors.push(`${code} : durée invalide`);
+  if ((e.difficulties ?? []).some((d) => !DIFFICULTIES.includes(d))) errors.push(`${code} : niveau inconnu`);
+  // Le tirage doit avoir le choix : au moins un tiers de questions en plus de ce que l'examen sert.
+  const pool = rows.filter((r) => e.platforms.includes(r.platform) && (!e.difficulties?.length || e.difficulties.includes(r.difficulty))).length;
+  if (pool < Math.ceil(e.questionCount * 1.2)) errors.push(`${code} : ${pool} questions disponibles pour un examen de ${e.questionCount}`);
+}
+for (const [code, levels] of Object.entries(levelsOnly)) {
+  if (exams[code] || levels.some((d) => !DIFFICULTIES.includes(d))) errors.push(`${code} : niveaux invalides`);
 }
 if (errors.length) {
   console.error(errors.join('\n'));
@@ -108,10 +115,17 @@ ON CONFLICT (id) DO UPDATE
       explanation = EXCLUDED.explanation, difficulty = EXCLUDED.difficulty, platform = EXCLUDED.platform;
 
 -- Réglages des examens dont la banque est prête.
-UPDATE assessment.certifications c SET exam_question_count = e.n, exam_time_limit_s = e.t
+UPDATE assessment.certifications c SET exam_question_count = e.n, exam_time_limit_s = e.t, exam_difficulties = e.d::platform.difficulty[]
   FROM (VALUES
-${Object.entries(exams).map(([code, e]) => `    ('${code}', ${e.questionCount}, ${e.timeLimitS})`).join(',\n')}
-  ) AS e(code, n, t)
+${Object.entries(exams).map(([code, e]) => `    ('${code}', ${e.questionCount}, ${e.timeLimitS}, '{${(e.difficulties ?? []).join(',')}}')`).join(',\n')}
+  ) AS e(code, n, t, d)
+ WHERE c.code = e.code;
+
+-- Niveaux fixés à l'avance pour des banques encore à écrire.
+UPDATE assessment.certifications c SET exam_difficulties = e.d::platform.difficulty[]
+  FROM (VALUES
+${Object.entries(levelsOnly).map(([code, d]) => `    ('${code}', '{${d.join(',')}}')`).join(',\n')}
+  ) AS e(code, d)
  WHERE c.code = e.code;
 `;
 
