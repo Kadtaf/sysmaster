@@ -1,14 +1,15 @@
 import { BadRequestException, ForbiddenException, HttpException, HttpStatus, Injectable, NotFoundException } from '@nestjs/common';
 import type {
   AcceptInput, CommunityCategoryDto, CreateThreadInput, EditThreadInput, ModerationDecisionInput, ModerationItemDto,
-  PostDto, ReportInput, SimilarThreadDto, ThreadDto, ThreadListDto, ThreadListQuery, VoteTarget,
+  PostDto, ReportInput, SharedScriptDto, SharedScriptInput, SimilarThreadDto, ThreadDto, ThreadListDto, ThreadListQuery, VoteTarget,
 } from '@sysmaster/contracts';
-import type { AuthenticatedUser } from '../../iam/domain/identity';
+import { hasAnyRole, type AuthenticatedUser } from '../../iam/domain/identity';
 import {
-  autoHides, canAccept, canSee, excerpt, canVote, isModerator, MAX_POSTS_PER_HOUR, MAX_THREADS_PER_HOUR, normalizeTags, replyBlocker,
+  autoHides, canAccept, canSee, canVote, isModerator, MAX_POSTS_PER_HOUR, MAX_THREADS_PER_HOUR, normalizeTags, replyBlocker,
   rewardsAcceptance, type ThreadFacts,
 } from '../domain/community';
-import { CommunityRepository, PostRow, Target, ThreadRow } from './ports';
+import { detectRisk, effectiveRisk, labSpoilerLocked, SCRIPT_REVIEWER_ROLES } from '../domain/sharing';
+import { CommunityRepository, NewScript, PostRow, StoredScript, Target, ThreadRow, toSummary } from './ports';
 
 const PAGE_SIZE = 20;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -47,21 +48,35 @@ export class CommunityService {
       ? await this.repo.myVotes(user.id, [{ type: 'thread', id: t.id }, ...posts.map((p) => ({ type: 'post' as VoteTarget, id: p.id }))])
       : new Map<string, -1 | 1>();
     const f = facts(t);
-    const blocker = replyBlocker(f);
+    const spoilerLocked = await this.spoilerLocked(t, user);
+    const blocker = spoilerLocked ? 'Résolvez ce lab pour lire la démarche et y répondre.' : replyBlocker(f);
     return {
-      ...this.summary(t),
-      bodyMd: t.bodyMd,
+      ...toSummary(t),
+      bodyMd: spoilerLocked ? '' : t.bodyMd,
       acceptedPostId: t.acceptedPostId,
-      posts: posts.map((p) => this.postDto(p, t, user, votes)),
+      posts: spoilerLocked ? [] : posts.map((p) => this.postDto(p, t, user, votes)),
       myVote: votes.get(`thread:${t.id}`) ?? 0,
       mine: user?.id === t.authorId,
       can: {
-        reply: !!user && (blocker === null || (isModerator(user) && !f.hidden)),
+        reply: !!user && !spoilerLocked && (blocker === null || (isModerator(user) && !f.hidden)),
         accept: canAccept(f, user),
         moderate: isModerator(user),
+        reviewScript: !!t.script && !!user && user.id !== t.authorId && hasAnyRole(user, SCRIPT_REVIEWER_ROLES),
       },
       replyBlocker: blocker,
+      scriptDetail: t.script ? this.scriptDto(t.script) : null,
+      spoilerLocked,
     };
+  }
+
+  /** Relecture d'un script partagé (P-5) : par un relecteur, un modérateur ou un administrateur, jamais par son auteur. */
+  async reviewScript(user: AuthenticatedUser, threadId: string, reviewed: boolean): Promise<ThreadDto> {
+    const t = await this.visibleThread(threadId, user);
+    if (!t.script) throw new BadRequestException('Ce sujet ne contient pas de script.');
+    if (!hasAnyRole(user, SCRIPT_REVIEWER_ROLES)) throw new ForbiddenException('La relecture des scripts est réservée aux relecteurs et aux modérateurs.');
+    if (t.authorId === user.id) throw new ForbiddenException('Un script est relu par une autre personne que son auteur.');
+    await this.repo.reviewScript(t.id, user.id, reviewed);
+    return this.get(t.id, user);
   }
 
   async create(user: AuthenticatedUser, input: CreateThreadInput): Promise<{ id: string }> {
@@ -70,8 +85,18 @@ export class CommunityService {
     if ((await this.repo.recentCount(user.id, 'thread')) >= MAX_THREADS_PER_HOUR) {
       throw new HttpException('Vous avez publié beaucoup de sujets en une heure : réessayez un peu plus tard.', HttpStatus.TOO_MANY_REQUESTS);
     }
+    let labSlug: string | null = null;
+    if (input.kind === 'lab_share') {
+      const lab = input.labSlug ? await this.repo.publishedLab(input.labSlug) : null;
+      if (!lab) throw new BadRequestException({ message: 'Données invalides', issues: [{ field: 'labSlug', message: 'Lab inconnu ou non publié.' }] });
+      if (!(await this.repo.hasSolvedLab(user.id, lab.slug))) {
+        throw new ForbiddenException('Partagez la démarche d’un lab que vous avez résolu : c’est ce qui garantit qu’elle fonctionne.');
+      }
+      labSlug = lab.slug;
+    }
     const id = await this.repo.createThread({
       categoryId, authorId: user.id, kind: input.kind, title: input.title, bodyMd: input.bodyMd, tags: normalizeTags(input.tags),
+      labSlug, script: input.script ? this.normalizeScript(input.script) : null,
     });
     return { id };
   }
@@ -79,12 +104,16 @@ export class CommunityService {
   async edit(user: AuthenticatedUser, id: string, input: EditThreadInput): Promise<ThreadDto> {
     const t = await this.visibleThread(id, user);
     if (t.authorId !== user.id && !isModerator(user)) throw new ForbiddenException('Seul l’auteur peut modifier ce sujet.');
-    await this.repo.editThread(t.id, { title: input.title, bodyMd: input.bodyMd, tags: normalizeTags(input.tags) });
+    if (input.script && !t.script) throw new BadRequestException('Seul un partage de script contient un script.');
+    await this.repo.editThread(t.id, {
+      title: input.title, bodyMd: input.bodyMd, tags: normalizeTags(input.tags), script: input.script ? this.normalizeScript(input.script) : null,
+    });
     return this.get(t.id, user);
   }
 
   async reply(user: AuthenticatedUser, threadId: string, bodyMd: string): Promise<ThreadDto> {
     const t = await this.visibleThread(threadId, user);
+    if (await this.spoilerLocked(t, user)) throw new ForbiddenException('Résolvez ce lab pour lire la démarche et y répondre.');
     const blocker = replyBlocker(facts(t));
     // Un modérateur peut encore conclure un sujet verrouillé (ex. : expliquer pourquoi).
     if (blocker && !(isModerator(user) && !t.hiddenAt)) throw new ForbiddenException(blocker);
@@ -168,16 +197,32 @@ export class CommunityService {
   private async visibleTarget(type: VoteTarget, id: string, user: AuthenticatedUser): Promise<Target> {
     const target = UUID.test(id) ? await this.repo.target(type, id) : null;
     if (!target || !canSee(target.hidden, target.authorId, user)) throw new NotFoundException('Contenu introuvable');
-    if (type === 'post') await this.visibleThread(target.threadId, user);
+    if (type === 'post') {
+      const t = await this.visibleThread(target.threadId, user);
+      if (await this.spoilerLocked(t, user)) throw new NotFoundException('Contenu introuvable');
+    }
     return target;
   }
 
-  private summary(t: ThreadRow) {
+  /** Partage de lab : la démarche reste cachée à qui n'a pas résolu le lab. */
+  private async spoilerLocked(t: ThreadRow, user: AuthenticatedUser | null): Promise<boolean> {
+    if (t.kind !== 'lab_share') return false;
+    return labSpoilerLocked({
+      solved: !!user && !!t.labSlug && (await this.repo.hasSolvedLab(user.id, t.labSlug)),
+      isAuthor: user?.id === t.authorId,
+      isModerator: isModerator(user),
+    });
+  }
+
+  /** Le niveau de risque enregistré n'est jamais inférieur à ce que le code laisse voir (P-5). */
+  private normalizeScript(s: SharedScriptInput): NewScript {
+    return { language: s.language, code: s.code.replace(/\r\n/g, '\n'), explanation: s.explanation, riskLevel: effectiveRisk(s.riskLevel, s.code).level };
+  }
+
+  private scriptDto(s: StoredScript): SharedScriptDto {
     return {
-      id: t.id, category: { slug: t.categorySlug, name: t.categoryName }, kind: t.kind, title: t.title,
-      excerpt: excerpt(t.bodyMd), tags: t.tags, author: { displayName: t.authorName, level: t.authorLevel },
-      score: t.score, postCount: t.postCount, answered: !!t.acceptedPostId, isLocked: t.isLocked,
-      hidden: hiddenInfo(t.hiddenAt, t.hiddenReason), createdAt: t.createdAt.toISOString(), lastActivityAt: t.lastActivityAt.toISOString(),
+      language: s.language, code: s.code, explanation: s.explanation, riskLevel: s.riskLevel, warnings: detectRisk(s.code).warnings,
+      reviewed: s.reviewed, reviewedAt: s.reviewedAt?.toISOString() ?? null,
     };
   }
 

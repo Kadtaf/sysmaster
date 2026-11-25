@@ -1,7 +1,7 @@
 import { Body, Controller, Get, HttpCode, Param, Post, Put, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import {
-  AcceptSchema, CreateThreadSchema, EditThreadSchema, LockSchema, ModerationDecisionSchema, PostBodySchema, ReportSchema,
+  AcceptSchema, CreateThreadSchema, EditThreadSchema, LockSchema, ModerationDecisionSchema, PostBodySchema, ReportSchema, ScriptReviewSchema,
   ThreadListQuerySchema, VoteSchema,
   type CommunityCategoryDto, type ModerationItemDto, type SimilarThreadDto, type ThreadDto, type ThreadListDto,
 } from '@sysmaster/contracts';
@@ -90,6 +90,13 @@ export class CommunityController {
   @ApiOperation({ summary: 'Choisit la réponse acceptée (auteur de la question) : { postId } ou { postId: null }. L’auteur de la réponse gagne l’XP d’entraide une fois par sujet' })
   accept(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string, @Body() body: unknown): Promise<ThreadDto> {
     return this.community.accept(user, id, parse(AcceptSchema, body ?? {}));
+  }
+
+  @ApiBearerAuth()
+  @Put('threads/:id/script-review')
+  @ApiOperation({ summary: 'Relit un script partagé : { reviewed }. Relecteurs, modérateurs, administrateurs ; jamais son auteur' })
+  reviewScript(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string, @Body() body: unknown): Promise<ThreadDto> {
+    return this.community.reviewScript(user, id, parse(ScriptReviewSchema, body ?? {}).reviewed);
   }
 
   @ApiBearerAuth()

@@ -4,8 +4,7 @@ import type {
 } from '@sysmaster/contracts';
 import type { PoolClient } from 'pg';
 import { Database } from '../../../shared/database.module';
-import { CommunityRepository, PostRow, Target, ThreadRow } from '../application/ports';
-import { excerpt } from '../domain/community';
+import { CommunityRepository, NewScript, PostRow, Target, ThreadRow, toSummary } from '../application/ports';
 
 /** Nom public : le pseudonyme s'il existe, sinon le nom affiché. Jamais l'adresse e-mail. */
 const AUTHOR = `coalesce(u.username::text, u.display_name)`;
@@ -13,11 +12,16 @@ const AUTHOR = `coalesce(u.username::text, u.display_name)`;
 const THREAD_SELECT = `
   SELECT t.id, t.category_id, c.slug AS category_slug, c.name AS category_name, t.author_id, ${AUTHOR} AS author_name,
          coalesce(s.level, 1) AS author_level, t.kind, t.title, t.body_md, t.tags, t.accepted_post_id, t.is_locked, t.score,
-         t.post_count, t.accept_rewarded, t.hidden_at, t.hidden_reason, t.created_at, t.last_activity_at
+         t.post_count, t.accept_rewarded, t.hidden_at, t.hidden_reason, t.created_at, t.last_activity_at,
+         t.lab_slug, lt.title AS lab_title,
+         sc.language AS script_language, sc.code AS script_code, sc.explanation AS script_explanation, sc.risk_level::text AS script_risk,
+         sc.reviewed AS script_reviewed, sc.reviewed_at AS script_reviewed_at
     FROM community.threads t
     JOIN community.categories c ON c.id = t.category_id
     JOIN iam.users u ON u.id = t.author_id
-    LEFT JOIN gamification.user_stats s ON s.user_id = t.author_id`;
+    LEFT JOIN gamification.user_stats s ON s.user_id = t.author_id
+    LEFT JOIN labs.lab_templates lt ON lt.slug = t.lab_slug
+    LEFT JOIN community.shared_scripts sc ON sc.thread_id = t.id`;
 
 const POST_SELECT = `
   SELECT p.id, p.thread_id, p.author_id, ${AUTHOR} AS author_name, coalesce(s.level, 1) AS author_level, p.body_md, p.score,
@@ -32,6 +36,10 @@ function toThread(r: Record<string, any>): ThreadRow {
     authorName: r.author_name, authorLevel: r.author_level, kind: r.kind as ThreadKind, title: r.title, bodyMd: r.body_md, tags: r.tags,
     acceptedPostId: r.accepted_post_id, isLocked: r.is_locked, score: r.score, postCount: r.post_count, acceptRewarded: r.accept_rewarded,
     hiddenAt: r.hidden_at, hiddenReason: r.hidden_reason, createdAt: r.created_at, lastActivityAt: r.last_activity_at,
+    labSlug: r.lab_slug, labTitle: r.lab_title,
+    script: r.script_language
+      ? { language: r.script_language, code: r.script_code, explanation: r.script_explanation, riskLevel: r.script_risk, reviewed: r.script_reviewed, reviewedAt: r.script_reviewed_at }
+      : null,
   };
 }
 
@@ -98,13 +106,7 @@ export class PgCommunityRepository extends CommunityRepository {
         params,
       ),
     ]);
-    const items: ThreadSummaryDto[] = list.rows.map(toThread).map((t) => ({
-      id: t.id, category: { slug: t.categorySlug, name: t.categoryName }, kind: t.kind, title: t.title,
-      excerpt: excerpt(t.bodyMd), tags: t.tags, author: { displayName: t.authorName, level: t.authorLevel },
-      score: t.score, postCount: t.postCount, answered: !!t.acceptedPostId, isLocked: t.isLocked,
-      hidden: t.hiddenAt ? { at: t.hiddenAt.toISOString(), reason: t.hiddenReason } : null,
-      createdAt: t.createdAt.toISOString(), lastActivityAt: t.lastActivityAt.toISOString(),
-    }));
+    const items: ThreadSummaryDto[] = list.rows.map(toThread).map(toSummary);
     return { items, total: count.rows[0].n };
   }
 
@@ -174,16 +176,63 @@ export class PgCommunityRepository extends CommunityRepository {
     return rows[0].n;
   }
 
-  async createThread(t: { categoryId: string; authorId: string; kind: ThreadKind; title: string; bodyMd: string; tags: string[] }): Promise<string> {
-    const { rows } = await this.db.query<{ id: string }>(
-      `INSERT INTO community.threads (category_id, author_id, kind, title, body_md, tags) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
-      [t.categoryId, t.authorId, t.kind, t.title, t.bodyMd, t.tags],
-    );
-    return rows[0].id;
+  createThread(t: {
+    categoryId: string; authorId: string; kind: ThreadKind; title: string; bodyMd: string; tags: string[]; labSlug: string | null; script: NewScript | null;
+  }): Promise<string> {
+    return this.db.transaction(async (tx) => {
+      const { rows } = await tx.query<{ id: string }>(
+        `INSERT INTO community.threads (category_id, author_id, kind, title, body_md, tags, lab_slug) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
+        [t.categoryId, t.authorId, t.kind, t.title, t.bodyMd, t.tags, t.labSlug],
+      );
+      if (t.script) {
+        await tx.query(
+          `INSERT INTO community.shared_scripts (thread_id, language, code, explanation, risk_level) VALUES ($1, $2, $3, $4, $5)`,
+          [rows[0].id, t.script.language, t.script.code, t.script.explanation, t.script.riskLevel],
+        );
+      }
+      return rows[0].id;
+    });
   }
 
-  async editThread(id: string, t: { title: string; bodyMd: string; tags: string[] }): Promise<void> {
-    await this.db.query(`UPDATE community.threads SET title = $2, body_md = $3, tags = $4, updated_at = now() WHERE id = $1`, [id, t.title, t.bodyMd, t.tags]);
+  editThread(id: string, t: { title: string; bodyMd: string; tags: string[]; script: NewScript | null }): Promise<void> {
+    return this.db.transaction(async (tx) => {
+      await tx.query(`UPDATE community.threads SET title = $2, body_md = $3, tags = $4, updated_at = now() WHERE id = $1`, [id, t.title, t.bodyMd, t.tags]);
+      if (!t.script) return;
+      // Un script modifié n'est plus celui qui a été relu.
+      await tx.query(
+        `UPDATE community.shared_scripts
+            SET language = $2, code = $3, explanation = $4, risk_level = $5,
+                reviewed = reviewed AND code = $3 AND explanation = $4 AND risk_level = $5::platform.risk_level,
+                reviewed_at = CASE WHEN code = $3 AND explanation = $4 AND risk_level = $5::platform.risk_level THEN reviewed_at END,
+                reviewed_by = CASE WHEN code = $3 AND explanation = $4 AND risk_level = $5::platform.risk_level THEN reviewed_by END
+          WHERE thread_id = $1`,
+        [id, t.script.language, t.script.code, t.script.explanation, t.script.riskLevel],
+      );
+    });
+  }
+
+  async reviewScript(threadId: string, by: string, reviewed: boolean): Promise<void> {
+    await this.db.query(
+      `UPDATE community.shared_scripts SET reviewed = $3, reviewed_by = CASE WHEN $3 THEN $2::uuid END, reviewed_at = CASE WHEN $3 THEN now() END
+        WHERE thread_id = $1`,
+      [threadId, by, reviewed],
+    );
+  }
+
+  async publishedLab(slug: string): Promise<{ slug: string; title: string } | null> {
+    const { rows } = await this.db.query<{ slug: string; title: string }>(
+      `SELECT slug, title FROM labs.lab_templates WHERE slug = $1 AND status = 'published'`,
+      [slug],
+    );
+    return rows[0] ?? null;
+  }
+
+  async hasSolvedLab(userId: string, slug: string): Promise<boolean> {
+    const { rows } = await this.db.query(
+      `SELECT 1 FROM labs.instances i JOIN labs.lab_templates t ON t.id = i.template_id WHERE i.user_id = $1 AND t.slug = $2 AND i.status = 'solved' LIMIT 1`,
+      [userId, slug],
+    );
+    return rows.length > 0;
   }
 
   createPost(threadId: string, authorId: string, bodyMd: string): Promise<string> {
