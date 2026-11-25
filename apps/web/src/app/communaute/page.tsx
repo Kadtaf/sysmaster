@@ -58,7 +58,11 @@ export default async function CommunityPage({ searchParams }: { searchParams: Pr
             Posez vos questions, aidez les autres, expliquez le pourquoi. Une bonne réponse dit quoi vérifier et pourquoi, pas seulement quoi taper.
           </p>
         </div>
-        <Link href="/communaute/nouveau" className={buttonVariants()}>Poser une question</Link>
+        <div className="flex flex-wrap gap-2">
+          <Link href="/communaute/groupes" className={buttonVariants({ variant: 'outline' })}>Groupes d’étude</Link>
+          <Link href="/communaute/mentorat" className={buttonVariants({ variant: 'outline' })}>Mentorat</Link>
+          <Link href="/communaute/nouveau" className={buttonVariants()}>Poser une question</Link>
+        </div>
       </div>
 
       <div className="mt-8 grid gap-8 lg:grid-cols-[14rem_1fr]">

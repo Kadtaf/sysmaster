@@ -85,6 +85,16 @@ Préfixe `/api/v1`. Documentation OpenAPI générée sur `/api/docs`. Authentifi
 | POST | `/community/reports` | `{ targetType, targetId, reason }` ; trois personnes différentes : contenu masqué en attendant un modérateur |
 | GET, POST | `/community/moderation` | Modérateurs : file des signalements ; décision `{ targetType, targetId, action: hide \| restore \| dismiss, note }` |
 | PUT | `/community/threads/:id/lock` | Modérateurs : `{ locked }` |
+| GET, POST | `/community/groups` | Groupes publics (et privés dont on est membre) ; création `{ name, description, goal, isPublic, maxMembers }` |
+| GET | `/community/groups/:id` | Groupe ; membres listés pour les seuls membres ; code d'invitation pour le responsable. **404** si privé et non membre |
+| POST | `/community/groups/:id/join`, `/community/groups/join` | Rejoindre un groupe public, ou privé avec `{ code }`. **409** si complet |
+| POST | `/community/groups/:id/leave` | Quitter ; le membre le plus ancien reprend, sinon le groupe est fermé → `{ closed }` |
+| GET | `/community/mentors?topic=` | Mentors déclarés, disponibles d'abord |
+| PUT | `/community/mentors/me` | Profil de mentor `{ bio, topics, accepting, maxMentees }` (rôle `mentor`) |
+| GET, POST | `/community/mentorships` | Mes mentorats et mon profil ; demande `{ mentorUserId, topic, message }`. **409** avec la raison |
+| POST | `/community/mentorships/:id/action` | `{ action: accept \| decline \| end }` |
+| GET, POST | `/community/groups/:id/messages`, `/community/mentorships/:id/messages` | Échanges privés `{ items, canWrite }` ; envoi `{ bodyMd }`. **404** pour un tiers |
+| POST | `/community/messages/:id/hide` | Masquer un message (auteur, responsable du groupe, modérateur) |
 | GET | `/labs` | Catalogue des labs publiés (`runtime` : seuls les labs `simulation` sont démarrables aujourd'hui) |
 | GET | `/labs/:slug` | Énoncé, objectifs, nombre d'indices et liste de ce qui sera vérifié ; jamais les indices ni la solution |
 | POST | `/labs/:slug/instances?fresh=` | Démarre le lab (connecté) ou reprend la session ouverte ; `fresh=true` repart d'une machine neuve. **409** pour un lab qui demande un environnement réel |

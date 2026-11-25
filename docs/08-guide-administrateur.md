@@ -24,7 +24,7 @@ Les rôles se donnent dans **Keycloak** (console d'administration → royaume `s
 | `admin` | Tout ce qui précède, plus la liste des utilisateurs (`GET /admin/users`) et le retrait de n'importe quelle révision |
 | `support` | Liste des utilisateurs |
 | `moderator` | File de modération de la communauté (`/communaute/moderation`) : masquer, rétablir, écarter les signalements, verrouiller un sujet. Peut répondre dans un sujet verrouillé |
-| `mentor` | Réservé au mentorat (à venir) |
+| `mentor` | Publier un profil de mentor (`/communaute/mentorat`) et recevoir des demandes. Retirer le rôle retire le profil de la liste, mais pas les mentorats en cours |
 
 - **Pourquoi passer par Keycloak plutôt que par la base ?** Une seule source de vérité. Un rôle ajouté seulement en base serait écrasé à la connexion suivante.
 - **Quand le changement s'applique** : au prochain jeton, c'est-à-dire au plus 5 minutes plus tard. Pour un effet immédiat, l'utilisateur se déconnecte puis se reconnecte.
@@ -105,6 +105,7 @@ Pourquoi : un cas de référence fige un diagnostic qu'on sait juste ; toute mod
 - **Modération** : donnez le rôle `moderator` dans Keycloak. La file (`/communaute/moderation`) classe les contenus par nombre de signalements. **Masquer** retient les signalements et affiche votre motif à l'auteur. **Rétablir** rend visible un contenu masqué automatiquement et écarte les signalements. **Écarter** clôt les signalements sans toucher au contenu. Rien n'est supprimé : la trace est dans `community.reports` (`resolved_by`, `resolved_at`, `resolution_note`) et sur le contenu (`hidden_by`, `hidden_reason`).
 - **Masquage automatique** : trois signalements ouverts de personnes différentes. Un même membre ne compte qu'une fois par contenu.
 - **Abus** : un compte qui dépasse 5 sujets ou 30 réponses par heure reçoit une erreur 429. Il n'y a pas encore de suspension de compte depuis l'interface : passez par Keycloak (désactiver l'utilisateur).
+- **Échanges privés** (groupes, mentorats) : un message signalé se masque par son auteur, le responsable du groupe ou un modérateur (`POST /api/v1/community/messages/<id>/hide`). Rien n'est effacé : `community.messages.hidden_by` garde la trace. Quand le dernier membre quitte un groupe, celui-ci est fermé et ses messages sont supprimés.
 - **Catégories** : `db/seeds/009_communaute.sql` (nom, description, ordre). Le slug d'une catégorie apparaît dans les URL : ne le changez pas.
 
 ## 4. Événements (outbox)
