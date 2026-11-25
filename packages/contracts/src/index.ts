@@ -882,6 +882,95 @@ export const ModerationDecisionSchema = z.object({
 export type ModerationDecisionInput = z.infer<typeof ModerationDecisionSchema>;
 export const LockSchema = z.object({ locked: z.boolean() });
 
+// Groupes d'étude et mentorat
+export interface CommunityMessageDto {
+  id: string;
+  author: CommunityAuthorDto;
+  mine: boolean;
+  /** Vide si le message a été masqué. */
+  bodyMd: string;
+  hidden: boolean;
+  createdAt: string;
+}
+export const MessageSchema = z.object({ bodyMd: z.string().trim().min(1, 'Message vide.').max(4000) });
+export type MessageInput = z.infer<typeof MessageSchema>;
+
+export interface StudyGroupDto {
+  id: string;
+  name: string;
+  description: string;
+  goal: string | null;
+  isPublic: boolean;
+  memberCount: number;
+  maxMembers: number;
+  owner: string;
+  createdAt: string;
+  /** Situation de l'utilisateur connecté ; null pour un visiteur. */
+  me: { member: boolean; owner: boolean } | null;
+}
+export interface StudyGroupMemberDto {
+  userId: string;
+  displayName: string;
+  level: number;
+  role: 'owner' | 'member';
+  joinedAt: string;
+}
+export interface StudyGroupDetailDto extends StudyGroupDto {
+  /** Visibles des seuls membres. */
+  members: StudyGroupMemberDto[];
+  /** Pour le responsable d'un groupe privé. */
+  inviteCode: string | null;
+  joinBlocker: string | null;
+}
+export const CreateGroupSchema = z.object({
+  name: z.string().trim().min(3, 'Un nom de 3 caractères au moins.').max(80),
+  description: z.string().trim().max(1000).default(''),
+  goal: z.string().trim().max(200).optional(),
+  isPublic: z.boolean().default(true),
+  maxMembers: z.number().int().min(2).max(50).default(20),
+});
+export type CreateGroupInput = z.infer<typeof CreateGroupSchema>;
+export const JoinByCodeSchema = z.object({ code: z.string().trim().toUpperCase().regex(/^[2-9A-Z]{8}$/, 'Code d’invitation invalide.') });
+
+export interface MentorDto {
+  userId: string;
+  displayName: string;
+  level: number;
+  bio: string;
+  topics: string[];
+  accepting: boolean;
+  activeMentees: number;
+  maxMentees: number;
+}
+export const MentorProfileSchema = z.object({
+  bio: z.string().trim().min(20, 'Présentez-vous en 20 caractères au moins.').max(1000),
+  topics: z.array(z.string().trim().min(2).max(40)).min(1, 'Indiquez au moins un sujet.').max(8),
+  accepting: z.boolean().default(true),
+  maxMentees: z.number().int().min(1).max(10).default(3),
+});
+export type MentorProfileInput = z.infer<typeof MentorProfileSchema>;
+export const MENTORSHIP_STATUSES = ['requested', 'active', 'ended', 'declined'] as const;
+export type MentorshipStatusDto = (typeof MENTORSHIP_STATUSES)[number];
+export interface MentorshipDto {
+  id: string;
+  /** Rôle de l'utilisateur connecté dans ce mentorat. */
+  role: 'mentor' | 'mentee';
+  other: { userId: string; displayName: string; level: number };
+  topic: string;
+  message: string;
+  status: MentorshipStatusDto;
+  createdAt: string;
+  respondedAt: string | null;
+  endedAt: string | null;
+}
+export const MentorshipRequestSchema = z.object({
+  mentorUserId: z.string().uuid(),
+  topic: z.string().trim().min(5, 'Précisez le sujet.').max(120),
+  message: z.string().trim().min(20, 'Dites en quelques phrases où vous en êtes et ce que vous attendez.').max(1000),
+});
+export type MentorshipRequestInput = z.infer<typeof MentorshipRequestSchema>;
+export const MentorshipActionSchema = z.object({ action: z.enum(['accept', 'decline', 'end']) });
+
 export interface CommunityAnswerAcceptedV1 {
   threadId: string;
   postId: string;

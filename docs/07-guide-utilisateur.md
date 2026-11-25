@@ -147,11 +147,16 @@ Posez une question dans la bonne catégorie : le système, ce que vous avez essa
 
 Une bonne réponse explique quoi vérifier et pourquoi. Une commande risquée s'accompagne d'un avertissement sur ce qu'elle fait.
 
+### Groupes d'étude et mentorat
+
+- **Groupes** (`/communaute/groupes`) : rejoignez un groupe public, ou un groupe privé avec le code que son responsable vous donne. Les échanges du groupe ne sont visibles que de ses membres. Vous pouvez créer votre propre groupe, avec un objectif (« obtenir Linux Administrator avant mars ») et un nombre de places.
+- **Mentorat** (`/communaute/mentorat`) : choisissez un mentor selon ses sujets et envoyez une demande qui dit où vous en êtes et ce que vous attendez. S'il accepte, une page d'échanges privée s'ouvre pour vous deux. L'un ou l'autre peut y mettre fin ; les échanges restent alors lisibles.
+
 ## 5. Ce qui arrive ensuite
 
 Les fonctions suivantes sont prévues dans la [feuille de route](05-feuille-de-route.md) :
 
 - l'enrichissement de l'assistant (documentation officielle, réponses en continu, diagnostic à partir de journaux) ;
 - les labs sur de vraies machines isolées (Phase 4) ;
-- les examens des autres certifications, le mentorat, les groupes d'étude et les offres payantes (Phase 5) ;
+- les examens des autres certifications, le partage de labs et de scripts et les offres payantes (Phase 5) ;
 - les applications mobiles (Phase 6).

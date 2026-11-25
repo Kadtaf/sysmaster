@@ -103,3 +103,7 @@ export function since(iso: string, now = Date.now()): string {
   if (d < 31) return `il y a ${d} j`;
   return new Date(iso).toLocaleDateString('fr-FR', { dateStyle: 'medium' });
 }
+
+export const mentorshipStatusLabel: Record<'requested' | 'active' | 'ended' | 'declined', string> = {
+  requested: 'En attente', active: 'En cours', ended: 'Terminé', declined: 'Refusé ou retiré',
+};
