@@ -233,7 +233,17 @@ Sans `STAGING_KUBECONFIG`, la CD publie les images et s'arrête là, avec une no
 - `SysmasterApiErreurs5xx` : chercher les lignes `"level":"error"` du contexte `HTTP`, puis suivre le `requestId` ;
 - `SysmasterApiIndisponible` : `kubectl -n sysmaster-staging describe pod -l app.kubernetes.io/component=api`. Une sonde ready en échec signifie presque toujours que la base est injoignable.
 
-## 8. Pas encore livré
+## 8. RGPD
+
+- **Export** : chaque personne télécharge ses données depuis *Mon compte* (`GET /api/v1/me/privacy/export`, JSON). L'export ne contient que ses propres données, jamais le nom ni les messages d'autres membres.
+- **Effacement** : demandé depuis *Mon compte* (saisir « SUPPRIMER »), exécuté 7 jours plus tard par la tâche horaire de l'API, annulable d'ici là. Sont supprimés : progression, labs, quiz, examens, certificats (ils ne se vérifient plus), diagnostics, conversations avec l'assistant, messages privés, votes, profil mentor, rôles, notifications. La ligne `iam.users` reste, anonymisée (« Compte supprimé », e-mail `supprime-<id>@invalid`) : sujets, réponses et contributions éditoriales publics y restent rattachés. Un groupe dont la personne était responsable passe au membre le plus ancien, ou est fermé s'il était seul.
+- **Compte Keycloak** : supprimé automatiquement si `KEYCLOAK_ADMIN_CLIENT_ID` / `KEYCLOAK_ADMIN_CLIENT_SECRET` sont fournis. Créez dans le royaume un client confidentiel avec *Service accounts* activé, puis donnez à son compte de service le rôle `realm-management` → `manage-users`. Sans ce client, l'identifiant Keycloak reste dans `iam.erasure_log.idp_subject` (et seulement là) : la tâche horaire réessaie dès que le client est configuré, ou supprimez le compte à la main (console Keycloak → Utilisateurs → rechercher par identifiant) puis `UPDATE iam.erasure_log SET idp_deleted = true, idp_subject = NULL WHERE id = …`.
+- **Registre** : `iam.erasure_log` prouve qu'une demande a été traitée (date, nombre de lignes par table), sans aucune donnée personnelle.
+- **Conservation** : la même tâche purge chaque heure les données échues (assistant : 1 an sans message ; diagnostic : 2 ans ; journal d'audit : 1 an ; notifications lues : 6 mois ; signaux d'intégrité des examens et commandes des labs : 1 an). Les durées sont dans `packages/contracts` (`RETENTION_DAYS`) et s'affichent telles quelles sur `/confidentialite`.
+- **Politique de confidentialité** : `/confidentialite`. Renseignez `NEXT_PUBLIC_LEGAL_NAME` (raison sociale et adresse) et `NEXT_PUBLIC_PRIVACY_CONTACT` (adresse de contact) au déploiement : sans eux, la page affiche un texte à compléter.
+- **Cookies** : uniquement ceux de la connexion (session NextAuth, CSRF). Ajouter une mesure d'audience imposerait un bandeau de consentement.
+
+## 9. Pas encore livré
 
 Ces sujets sont prévus dans la [feuille de route](05-feuille-de-route.md) :
 
