@@ -26,7 +26,7 @@ export class KeyTakenError extends Error {}
 
 /** Forme minimale d'un schéma zod (le paquet zod est une dépendance des contrats, pas de l'API). */
 export interface Schema<T> {
-  safeParse(v: unknown): { success: true; data: T } | { success: false; error: { issues: { path: (string | number)[]; message: string }[] } };
+  safeParse(v: unknown): { success: true; data: T } | { success: false; error: { issues: { path: PropertyKey[]; message: string }[] } };
 }
 
 /**

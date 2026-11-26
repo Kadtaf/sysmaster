@@ -14,7 +14,7 @@ export function parse<T>(schema: Schema<T>, body: unknown): T {
   if (!parsed.success) {
     throw new BadRequestException({
       message: 'Données invalides',
-      issues: parsed.error.issues.map((i) => ({ field: i.path.join('.'), message: i.message })),
+      issues: parsed.error.issues.map((i) => ({ field: i.path.map(String).join('.'), message: i.message })),
     });
   }
   return parsed.data;

@@ -12,6 +12,7 @@ from app.labs import generate as generate_lab
 from app.llm.claude import ClaudeLlm
 from app.llm.fake import FakeLlm
 from app.llm.port import Llm
+from app.llm.redacting import RedactingLlm
 from app.orchestrator import ask, ask_stream
 from app.quiz import generate as generate_quiz
 from app.rag.retriever import CompositeRetriever, CoreApiRetriever, OfficialDocsRetriever, Retriever
@@ -33,9 +34,10 @@ app = FastAPI(title="SysMaster AI", version="0.1.0", docs_url="/docs", lifespan=
 
 
 def get_llm(cfg: Settings = Depends(settings)) -> Llm:
+    # Le masquage s'applique aussi au modèle factice : les tests voient ce que verrait Claude.
     if cfg.ai_llm == "claude":
-        return ClaudeLlm(cfg.ai_model, cfg.ai_effort, cfg.ai_max_tokens)
-    return FakeLlm()
+        return RedactingLlm(ClaudeLlm(cfg.ai_model, cfg.ai_effort, cfg.ai_max_tokens))
+    return RedactingLlm(FakeLlm())
 
 
 def get_retriever(cfg: Settings = Depends(settings)) -> Retriever:

@@ -41,6 +41,8 @@ spec:
             - { name: LOG_FORMAT, value: {{ .Values.api.logFormat | quote }} }
             - { name: OUTBOX_RELAY_INTERVAL_MS, value: {{ .Values.api.outboxRelayIntervalMs | quote }} }
             - { name: CORS_ORIGINS, value: {{ .Values.publicUrl | quote }} }
+            # Un saut : l'ingress. Sert de clé à la limitation de débit par adresse IP.
+            - { name: TRUST_PROXY, value: {{ .Values.api.trustProxy | default "1" | quote }} }
             - { name: OIDC_ISSUER, value: {{ .Values.oidc.issuer | quote }} }
             - { name: OIDC_AUDIENCE, value: {{ .Values.oidc.audience | quote }} }
             {{- with .Values.oidc.internalIssuer }}

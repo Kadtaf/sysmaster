@@ -5,6 +5,7 @@ import type { AuthenticatedUser } from '../../iam/domain/identity';
 import { CurrentUser, Roles } from '../../iam/interface/auth.decorators';
 import { parse } from '../application/editorial.service';
 import { LabDraftService } from '../application/lab-draft.service';
+import { LIMITS, RateLimit } from '../../../shared/security/rate-limit';
 
 @ApiTags('editorial')
 @ApiBearerAuth()
@@ -14,6 +15,7 @@ export class LabDraftController {
   constructor(private readonly drafts: LabDraftService) {}
 
   @Post()
+  @RateLimit(LIMITS.aiAuthoring)
   @ApiOperation({
     summary:
       'Brouillon de lab simulé rédigé par l’IA : { topic, category, difficulty? } → révision à relire. La démarche proposée est rejouée sur le simulateur, avec au plus une passe de correction (compte dans le quota IA).',

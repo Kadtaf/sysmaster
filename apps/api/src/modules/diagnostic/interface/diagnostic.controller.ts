@@ -6,6 +6,7 @@ import type { AuthenticatedUser } from '../../iam/domain/identity';
 import { CurrentUser, OptionalAuth, Public } from '../../iam/interface/auth.decorators';
 import { AnalyzeProblemCommand } from '../application/analyze-problem.command';
 import { ListSymptomsQuery } from '../application/list-symptoms.query';
+import { LIMITS, RateLimit } from '../../../shared/security/rate-limit';
 
 @ApiTags('diagnostic')
 @Controller('diagnostic')
@@ -23,6 +24,7 @@ export class DiagnosticController {
   }
 
   @Post('analyze')
+  @RateLimit(LIMITS.ai)
   @OptionalAuth()
   @ApiOperation({ summary: 'Analyse un problème et renvoie les causes probables expliquées' })
   analyze(@Body() body: unknown, @CurrentUser() user: AuthenticatedUser | null): Promise<AnalyzeResponse> {
