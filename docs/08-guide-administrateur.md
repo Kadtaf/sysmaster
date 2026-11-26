@@ -110,6 +110,28 @@ Pourquoi : un cas de référence fige un diagnostic qu'on sait juste ; toute mod
 - **Scripts partagés** : les rôles `reviewer`, `moderator` et `admin` voient « Marquer comme relu » sur un script qui n'est pas le leur. Relisez le code ligne à ligne : la détection automatique du risque repère les motifs courants, pas tout. Un script dangereux ou trompeur se masque comme n'importe quel sujet.
 - **Catégories** : `db/seeds/009_communaute.sql` (nom, description, ordre). Le slug d'une catégorie apparaît dans les URL : ne le changez pas.
 
+### Paiement (Stripe)
+
+Le paiement est **fermé tant que les clés Stripe manquent** : `/tarifs` affiche les offres avec « Bientôt disponible », `/abonnement` dit que le paiement n'est pas ouvert, le webhook répond 503, et le quota IA reste `ASSISTANT_DAILY_QUOTA` pour tout le monde. Rien n'est restreint avant qu'on puisse payer pour en sortir.
+
+Pour l'ouvrir (commencez en mode test, clés `sk_test_…`) :
+
+1. **Produits et prix** : dans Stripe, créez un produit Premium et un produit Pro, chacun avec un prix mensuel récurrent **au même montant que `billing.plans`** (9,99 € et 19,99 € TTC), car la page Tarifs affiche les prix de la base. Notez les identifiants `price_…`.
+2. **Portail client** : dans *Paramètres → Billing → Portail client*, autorisez le changement de carte, la résiliation (en fin de période conseillé) et le passage d'une offre à l'autre entre ces deux prix.
+3. **Webhook** : ajoutez le point d'accès `https://<votre site>/api/v1/billing/webhook` avec les événements `checkout.session.completed`, `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`, `customer.subscription.paused`, `customer.subscription.resumed`, `invoice.finalized`, `invoice.paid`, `invoice.payment_failed`, `invoice.voided`. Notez le secret de signature `whsec_…`.
+4. **Secrets** : `STRIPE_SECRET_KEY` (une clé restreinte suffit : écriture sur Customers, Checkout Sessions et Customer portal) et `STRIPE_WEBHOOK_SECRET` dans `sysmaster-secrets` ; `billing.prices` (« `premium:price_…,pro:price_…` ») dans les valeurs Helm. En local : les mêmes variables dans `.env`, et `stripe listen --forward-to localhost:4000/api/v1/billing/webhook` pour recevoir les webhooks.
+5. **TVA** (facultatif) : activez Stripe Tax dans Stripe, puis `billing.automaticTax: true`. L'adresse de facturation est alors demandée au paiement.
+
+Comportement :
+
+- **Paiement** : chez Stripe (Checkout). SysMaster ne voit jamais la carte et n'envoie à Stripe ni nom ni e-mail, seulement l'identifiant interne de la personne. Stripe demande l'e-mail du reçu.
+- **Activation** : par le webhook, jamais par le retour du navigateur (qu'on peut falsifier). La signature est vérifiée, chaque événement n'est traité qu'une fois (`billing.stripe_webhook_events`), et un événement plus ancien que l'état connu est ignoré.
+- **Offre appliquée** : celle d'un abonnement `active`, `trialing` ou `past_due` (l'accès reste pendant les relances de Stripe), sinon l'offre gratuite. Elle fixe le quota IA (10, 100, puis 500 par jour pour « illimité ») ; les rôles d'auteur ou d'administrateur le multiplient comme avant.
+- **Un seul abonnement** : un second paiement est refusé (409). Changer d'offre, de carte ou résilier passe par le portail Stripe (bouton « Gérer mon abonnement »).
+- **Prix inconnu** : un abonnement dont le prix n'est pas dans `STRIPE_PRICES` répond 500 au webhook ; Stripe le renvoie pendant trois jours, le temps de corriger la variable. Le journal de l'API nomme le prix.
+
+Pas encore livré : paiement des examens avec la remise de l'offre, coupons propres à SysMaster (les codes promo Stripe fonctionnent déjà au paiement), licences par siège, affiliation, marketplace.
+
 ## 4. Événements (outbox)
 
 Chaque changement important écrit un événement dans `platform.outbox_events`, dans la même transaction que la donnée. Le relais intégré à l'API le distribue ensuite aux consommateurs, aujourd'hui la gamification. Le fonctionnement détaillé est dans [01 — Architecture](01-architecture.md).

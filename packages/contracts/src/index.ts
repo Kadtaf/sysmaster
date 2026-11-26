@@ -1207,3 +1207,63 @@ export const AssistantFeedbackSchema = z.object({
   rating: z.union([z.literal(1), z.literal(-1)]),
   comment: z.string().trim().max(2000).optional(),
 });
+
+// --- Paiement (docs/03 §2.11) ---------------------------------------------------
+
+/** Offres qu'une personne peut souscrire seule ; les licences (entreprise, écoles) passent par un devis. */
+export const SELF_SERVE_PLANS = ['premium', 'pro'] as const;
+export type SelfServePlan = (typeof SELF_SERVE_PLANS)[number];
+
+export interface BillingPlanDto {
+  code: string;
+  name: string;
+  /** null : sur devis. */
+  priceCents: number | null;
+  currency: string;
+  interval: 'month' | 'year' | null;
+  perSeat: boolean;
+  /** Questions à l'IA par jour ; null : illimité (usage raisonnable). */
+  aiQuestionsPerDay: number | null;
+  certificationDiscountPct: number;
+  features: Record<string, unknown>;
+  /** Souscriptible en ligne maintenant (paiement ouvert et prix Stripe configuré). */
+  purchasable: boolean;
+}
+
+export interface BillingCatalogDto {
+  /** Faux tant que les clés Stripe ne sont pas configurées : rien ne peut être payé. */
+  enabled: boolean;
+  plans: BillingPlanDto[];
+}
+
+export type SubscriptionStatus = 'trialing' | 'active' | 'past_due' | 'canceled' | 'incomplete' | 'incomplete_expired' | 'unpaid' | 'paused';
+
+export interface BillingInvoiceDto {
+  amountCents: number;
+  currency: string;
+  status: string;
+  issuedAt: string;
+  url: string | null;
+}
+
+export interface BillingStatusDto {
+  enabled: boolean;
+  /** Offre qui s'applique aujourd'hui : free sans abonnement en règle. */
+  plan: string;
+  subscription: {
+    plan: string;
+    status: SubscriptionStatus;
+    currentPeriodEnd: string | null;
+    cancelAtPeriodEnd: boolean;
+  } | null;
+  /** Un compte de paiement existe : le portail Stripe (carte, factures, résiliation) est accessible. */
+  canManage: boolean;
+  invoices: BillingInvoiceDto[];
+}
+
+export const CheckoutSchema = z.object({ plan: z.enum(SELF_SERVE_PLANS) });
+export type CheckoutInput = z.infer<typeof CheckoutSchema>;
+
+export interface RedirectDto {
+  url: string;
+}
