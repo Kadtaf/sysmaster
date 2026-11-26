@@ -1,0 +1,123 @@
+// Banque de l'examen DEVOPS-SPEC (DevOps Specialist), plateforme kubernetes.
+export default [
+  {
+    key: 'kube-01', difficulty: 'intermediate', type: 'single',
+    prompt: 'Un pod est en état `CrashLoopBackOff`. Quelles commandes donnent en premier la raison ?',
+    choices: [
+      '`kubectl describe pod <pod>` (événements, code de sortie) et `kubectl logs <pod> --previous` (sortie du conteneur qui a planté)',
+      '`kubectl delete pod <pod>` puis attendre',
+      '`kubectl get nodes`',
+      '`kubectl scale --replicas=0`',
+    ],
+    answer: ['a'],
+    explanation: 'Le conteneur démarre puis s’arrête en boucle : ses journaux du lancement précédent et les événements du pod (OOMKilled, sonde en échec, erreur de configuration) indiquent pourquoi. Supprimer le pod en recrée un identique qui plantera de la même façon.',
+  },
+  {
+    key: 'kube-02', difficulty: 'intermediate', type: 'single',
+    prompt: 'Un pod reste en `ImagePullBackOff`. Quelles causes vérifier ?',
+    choices: [
+      'Le nom ou l’étiquette de l’image, et les droits d’accès au registre privé (imagePullSecrets)',
+      'Le manque de mémoire du conteneur',
+      'Une sonde de vivacité mal réglée',
+      'Une variable d’environnement manquante dans l’application',
+    ],
+    answer: ['a'],
+    explanation: 'Le nœud n’arrive pas à télécharger l’image : faute de frappe, étiquette inexistante ou authentification manquante. kubectl describe pod affiche le message du registre. Les problèmes de mémoire ou de configuration interviennent après le démarrage du conteneur.',
+  },
+  {
+    key: 'kube-03', difficulty: 'intermediate', type: 'single',
+    prompt: 'Quelle différence entre une sonde de vivacité (liveness) et une sonde de disponibilité (readiness) ?',
+    choices: [
+      'Une liveness en échec fait redémarrer le conteneur ; une readiness en échec le retire seulement des points d’accès du Service, sans le redémarrer',
+      'Ce sont deux noms pour la même chose',
+      'La readiness redémarre le pod, la liveness le retire du Service',
+      'La liveness ne sert qu’au démarrage',
+    ],
+    answer: ['a'],
+    explanation: 'La readiness dit « je ne peux pas recevoir de trafic pour l’instant » (démarrage, dépendance indisponible). La liveness dit « je suis bloqué, redémarrez-moi ». Une liveness qui teste une dépendance externe peut faire redémarrer tous les pods en cascade lors d’une panne de cette dépendance.',
+  },
+  {
+    key: 'kube-04', difficulty: 'advanced', type: 'single',
+    prompt: 'Un Service ne transmet aucun trafic à ses pods, qui tournent pourtant et sont prêts. Que vérifier en premier ?',
+    choices: [
+      'Que le sélecteur du Service correspond bien aux étiquettes des pods (kubectl get endpoints montre une liste vide sinon)',
+      'La version de Kubernetes',
+      'Le nombre de nœuds du cluster',
+      'La taille des images',
+    ],
+    answer: ['a'],
+    explanation: 'Un Service choisit ses pods par étiquettes. Une faute dans le sélecteur ou dans les étiquettes du Deployment laisse les points d’accès vides : le Service existe mais ne renvoie vers rien. On vérifie aussi que targetPort correspond au port réellement écouté.',
+  },
+  {
+    key: 'kube-05', difficulty: 'intermediate', type: 'single',
+    prompt: 'Pourquoi définir des requests et des limits de ressources sur les conteneurs ?',
+    choices: [
+      'Les requests servent au placement des pods sur les nœuds ; les limits empêchent un conteneur de consommer les ressources des autres',
+      'Pour que les pods démarrent plus vite',
+      'Parce que Kubernetes refuse les pods sans limits',
+      'Pour chiffrer la mémoire des conteneurs',
+    ],
+    answer: ['a'],
+    explanation: 'Sans requests, l’ordonnanceur entasse des pods sur un nœud qui ne peut pas les porter. Sans limits mémoire, un conteneur qui fuit peut épuiser le nœud. Une limite mémoire dépassée provoque un OOMKilled ; une limite CPU dépassée, un ralentissement.',
+  },
+  {
+    key: 'kube-06', difficulty: 'advanced', type: 'single',
+    prompt: 'Les Secrets Kubernetes sont-ils chiffrés par défaut ?',
+    choices: [
+      'Non : ils sont seulement encodés en base64 ; il faut activer le chiffrement au repos dans etcd et restreindre leur lecture par RBAC',
+      'Oui, avec une clé propre à chaque pod',
+      'Oui, Kubernetes les stocke hors du cluster',
+      'Ils ne sont jamais stockés',
+    ],
+    answer: ['a'],
+    explanation: 'base64 n’est pas un chiffrement : quiconque lit l’objet lit le secret. On chiffre etcd, on limite qui peut faire get sur les Secrets et on envisage un gestionnaire externe (Vault, gestionnaire du fournisseur).',
+  },
+  {
+    key: 'kube-07', difficulty: 'intermediate', type: 'single',
+    prompt: 'Comment revenir à la version précédente d’un Deployment après une mise à jour qui pose problème ?',
+    choices: [
+      '`kubectl rollout undo deployment/<nom>`, puis suivre `kubectl rollout status`',
+      'Supprimer le Deployment et le recréer à la main',
+      'Redémarrer tous les nœuds',
+      'Supprimer le namespace',
+    ],
+    answer: ['a'],
+    explanation: 'Le Deployment garde l’historique de ses ReplicaSets et peut revenir au précédent par une mise à jour progressive. Dans une démarche GitOps, on revient plutôt en arrière dans le dépôt, pour que le cluster et le code restent alignés.',
+  },
+  {
+    key: 'kube-08', difficulty: 'advanced', type: 'single',
+    prompt: 'Que garantit un PodDisruptionBudget (`minAvailable: 2`) pendant la maintenance d’un nœud ?',
+    choices: [
+      'Que les évictions volontaires (drain) ne descendront pas sous 2 pods disponibles de l’application',
+      'Que l’application ne tombera jamais en panne',
+      'Que deux nœuds restent toujours allumés',
+      'Que les pods ne consomment pas plus de deux cœurs',
+    ],
+    answer: ['a'],
+    explanation: 'Le PDB freine les interruptions planifiées : kubectl drain attend que d’autres pods soient prêts avant d’en évincer davantage. Il ne protège pas d’une panne soudaine d’un nœud, d’où l’intérêt de répartir les réplicas sur plusieurs nœuds.',
+  },
+  {
+    key: 'kube-09', difficulty: 'advanced', type: 'single',
+    prompt: 'Une NetworkPolicy « deny all » en entrée est appliquée à un namespace. Que se passe-t-il pour les pods de ce namespace ?',
+    choices: [
+      'Ils ne reçoivent plus aucun trafic entrant, sauf celui autorisé explicitement par d’autres NetworkPolicies (si le plugin réseau les applique)',
+      'Ils ne peuvent plus rien envoyer vers l’extérieur',
+      'Ils sont supprimés',
+      'Rien : les NetworkPolicies ne sont que de la documentation',
+    ],
+    answer: ['a'],
+    explanation: 'Les NetworkPolicies sont additives : un refus par défaut, puis des autorisations précises par étiquette et par port. Elles n’ont d’effet que si le plugin réseau du cluster les applique (Calico, Cilium…). Une politique d’entrée ne restreint pas la sortie.',
+  },
+  {
+    key: 'kube-10', difficulty: 'advanced', type: 'multiple',
+    prompt: 'Cochez les bonnes pratiques de sécurité pour les pods d’une application.',
+    choices: [
+      'Faire tourner les conteneurs avec un utilisateur non root (runAsNonRoot) et sans élévation de privilèges',
+      'Donner au compte de service du pod uniquement les droits RBAC nécessaires',
+      'Lancer les pods en privileged pour éviter les erreurs',
+      'Utiliser le compte de service par défaut avec le rôle cluster-admin',
+    ],
+    answer: ['a', 'b'],
+    explanation: 'Moins de privilèges dans le conteneur et dans l’API limitent ce qu’un attaquant peut faire depuis un pod compromis. Un pod privilégié ou lié à cluster-admin donne la main sur le nœud ou sur tout le cluster.',
+  },
+];

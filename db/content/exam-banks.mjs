@@ -16,36 +16,46 @@
 // Ces questions sont publiées relues (reviewed = true) : la relecture humaine est celle de la
 // pull request qui les ajoute ou les modifie.
 import cyber from './exam-banks/cyber.mjs';
+import devops from './exam-banks/devops.mjs';
 import docker from './exam-banks/docker.mjs';
+import kubernetes from './exam-banks/kubernetes.mjs';
+import linuxExpert from './exam-banks/linux-expert.mjs';
 import linux from './exam-banks/linux.mjs';
 import network from './exam-banks/network.mjs';
+import postgresql from './exam-banks/postgresql.mjs';
 import windowsAdmin from './exam-banks/windows-admin.mjs';
 import windowsTech from './exam-banks/windows-tech.mjs';
 
 /** Banques par plateforme. Une certification tire dans les plateformes de son `exam_platforms`. */
-export const banks = { linux, network, docker, security: cyber, windows: [...windowsTech, ...windowsAdmin] };
+export const banks = {
+  linux: [...linux, ...linuxExpert],
+  network,
+  docker,
+  security: cyber,
+  windows: [...windowsTech, ...windowsAdmin],
+  devops,
+  kubernetes,
+  postgresql,
+};
 
 /**
  * Réglages d'examen : nombre de questions, durée en secondes, et niveaux tirés (`difficulties`,
  * vide = tous). Les niveaux séparent deux certifications d'une même plateforme : Windows
- * Technician tire le poste de travail, Windows Administrator le serveur (plus l'intermédiaire).
+ * Technician tire le poste de travail, Windows Administrator le serveur (plus l'intermédiaire) ;
+ * de même pour Linux Administrator et Linux Server Expert.
  * `platforms` reprend exam_platforms (seed 008) : le générateur vérifie que la banque suffit.
  */
 export const exams = {
-  'LINUX-ADMIN': { platforms: ['linux'], questionCount: 10, timeLimitS: 1200, difficulties: [] },
+  'LINUX-ADMIN': { platforms: ['linux'], questionCount: 10, timeLimitS: 1200, difficulties: ['beginner', 'intermediate'] },
+  'LINUX-EXPERT': { platforms: ['linux'], questionCount: 20, timeLimitS: 1800, difficulties: ['advanced', 'expert'] },
   'NET-SPEC': { platforms: ['network'], questionCount: 15, timeLimitS: 1500, difficulties: [] },
   'DOCKER-SPEC': { platforms: ['docker'], questionCount: 15, timeLimitS: 1500, difficulties: [] },
   'CYBER-SPEC': { platforms: ['security'], questionCount: 15, timeLimitS: 1500, difficulties: [] },
   'WIN-TECH': { platforms: ['windows'], questionCount: 15, timeLimitS: 1500, difficulties: ['beginner', 'intermediate'] },
   'WIN-ADMIN': { platforms: ['windows'], questionCount: 20, timeLimitS: 1800, difficulties: ['intermediate', 'advanced', 'expert'] },
+  'DEVOPS-SPEC': { platforms: ['devops', 'kubernetes'], questionCount: 20, timeLimitS: 1800, difficulties: [] },
+  'PG-SPEC': { platforms: ['postgresql'], questionCount: 20, timeLimitS: 1800, difficulties: [] },
+  // Synthèse : uniquement les questions avancées et expertes des trois plateformes.
+  'SYSMASTER-EXPERT': { platforms: ['windows', 'linux', 'network'], questionCount: 40, timeLimitS: 3600, difficulties: ['advanced', 'expert'] },
 };
 
-/**
- * Certifications dont la banque n'est pas prête, mais dont on fixe déjà les niveaux : Linux Server
- * Expert ne doit pas tirer les questions de Linux Administrator, ni SysMaster Expert (synthèse)
- * celles des certifications de premier niveau.
- */
-export const levelsOnly = {
-  'LINUX-EXPERT': ['advanced', 'expert'],
-  'SYSMASTER-EXPERT': ['advanced', 'expert'],
-};
