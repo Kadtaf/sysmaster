@@ -9,6 +9,12 @@ export function webUrl(env = process.env): string {
   return base.replace(/\/+$/, '');
 }
 
+/** Ce qui reste à faire chez Stripe pour un compte effacé. */
+export interface BillingClosure {
+  subscriptions: string[];
+  refunds: string[];
+}
+
 @Injectable()
 export class BillingService {
   private readonly logger = new Logger(BillingService.name);
@@ -166,23 +172,36 @@ export class BillingService {
   }
 
   /**
-   * Effacement du compte (RGPD) : résilie tout de suite ses abonnements Stripe. Renvoie ceux qui
-   * n'ont pas pu l'être (Stripe injoignable, paiement fermé), à reprendre avec `cancelSubscriptions`.
+   * Effacement du compte (RGPD) : résilie tout de suite ses abonnements Stripe et rembourse les
+   * tentatives d'examen payées mais pas utilisées. Renvoie ce qui n'a pas pu être fait (Stripe
+   * injoignable, paiement fermé), à reprendre avec `finishClosure`.
    * Factures et achats restent : ce sont des pièces comptables (docs/08 §8).
    */
-  async closeForErasure(userId: string): Promise<string[]> {
-    return this.cancelSubscriptions(await this.repo.openSubscriptionIds(userId));
+  async closeForErasure(userId: string): Promise<BillingClosure> {
+    const [subscriptions, refunds] = await Promise.all([this.repo.openSubscriptionIds(userId), this.repo.unusedExamPayments(userId)]);
+    return this.finishClosure({ subscriptions, refunds });
   }
 
-  async cancelSubscriptions(ids: string[]): Promise<string[]> {
+  async finishClosure(todo: BillingClosure): Promise<BillingClosure> {
+    return {
+      subscriptions: await this.each(todo.subscriptions, 'Résiliation de l’abonnement', (id) => this.gateway.cancelSubscriptionNow(id)),
+      refunds: await this.each(todo.refunds, 'Remboursement du paiement', async (pi) => {
+        await this.gateway.refundPayment(pi);
+        await this.repo.markExamRefunded(pi);
+      }),
+    };
+  }
+
+  /** Applique `fn` à chaque identifiant ; renvoie ceux pour lesquels Stripe a échoué. */
+  private async each(ids: string[], what: string, fn: (id: string) => Promise<void>): Promise<string[]> {
     if (!ids.length) return [];
     if (!this.gateway.enabled) return ids;
     const left: string[] = [];
     for (const id of ids) {
       try {
-        await this.gateway.cancelSubscriptionNow(id);
+        await fn(id);
       } catch (err) {
-        this.logger.error(`Résiliation de l'abonnement ${id} impossible : ${(err as Error).message}`);
+        this.logger.error(`${what} ${id} impossible : ${(err as Error).message}`);
         left.push(id);
       }
     }

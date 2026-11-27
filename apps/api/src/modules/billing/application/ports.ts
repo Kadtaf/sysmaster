@@ -63,6 +63,8 @@ export abstract class PaymentGateway {
    * Sans effet sur un abonnement déjà résilié ou inconnu de Stripe.
    */
   abstract cancelSubscriptionNow(subscriptionId: string): Promise<void>;
+  /** Remboursement total d'un paiement. Sans effet s'il est déjà remboursé. */
+  abstract refundPayment(paymentIntentId: string): Promise<void>;
   /** Vérifie la signature et traduit l'événement. Lève InvalidWebhookError si la signature est fausse. */
   abstract verifyWebhook(rawBody: Buffer, signature: string | undefined): VerifiedEvent;
 }
@@ -92,6 +94,9 @@ export abstract class BillingRepository {
   abstract invoices(userId: string, limit: number): Promise<BillingInvoiceDto[]>;
   /** Abonnements Stripe encore en cours (ni résiliés ni expirés), à résilier si le compte est effacé. */
   abstract openSubscriptionIds(userId: string): Promise<string[]>;
+  /** Paiements d'examens payés et pas encore utilisés (identifiants de paiement Stripe). */
+  abstract unusedExamPayments(userId: string): Promise<string[]>;
+  abstract markExamRefunded(paymentIntentId: string): Promise<void>;
   /** Une suppression du compte est demandée : on ne fait plus payer. */
   abstract erasureScheduled(userId: string): Promise<boolean>;
   abstract createExamPurchase(p: { userId: string; code: string; listPriceCents: number; discountPct: number; amountCents: number; currency: string }): Promise<string>;

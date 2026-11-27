@@ -40,7 +40,7 @@ export class PrivacyService implements OnApplicationBootstrap, OnApplicationShut
       this.running = (async () => {
         const erased = await this.eraseDue(now);
         await this.repo.retryIdentityDeletion(this.hooks.idpDelete);
-        await this.repo.retryBillingClosure((ids) => this.billing.cancelSubscriptions(ids));
+        await this.repo.retryBillingClosure((todo) => this.billing.finishClosure(todo));
         const retention = await this.repo.applyRetention(now);
         const purged = Object.entries(retention).filter(([, n]) => n > 0);
         if (erased || purged.length) this.logger.log(`RGPD : ${erased} compte(s) effacé(s) ; conservation : ${JSON.stringify(Object.fromEntries(purged))}`);

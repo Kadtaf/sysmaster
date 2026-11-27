@@ -112,4 +112,27 @@ describe('StripeGateway', () => {
       }
     });
   });
+
+  describe('remboursement (effacement du compte)', () => {
+    const gateway = (fail?: string) => {
+      const g = new StripeGateway({ secretKey: 'sk_test_x', webhookSecret: secret, prices: 'premium:price_premium' });
+      const create = jest.fn(async () => {
+        if (fail) throw Object.assign(new Error(fail), { code: fail });
+        return {};
+      });
+      (g as unknown as { client: unknown }).client = { refunds: { create } };
+      return { g, create };
+    };
+
+    it('rembourse en totalité, avec une clé d’idempotence', async () => {
+      const { g, create } = gateway();
+      await g.refundPayment('pi_1');
+      expect(create).toHaveBeenCalledWith({ payment_intent: 'pi_1', reason: 'requested_by_customer' }, { idempotencyKey: 'erasure-refund-pi_1' });
+    });
+
+    it('déjà remboursé : sans effet ; autre erreur : remontée', async () => {
+      await expect(gateway('charge_already_refunded').g.refundPayment('pi_1')).resolves.toBeUndefined();
+      await expect(gateway('api_error').g.refundPayment('pi_1')).rejects.toThrow('api_error');
+    });
+  });
 });

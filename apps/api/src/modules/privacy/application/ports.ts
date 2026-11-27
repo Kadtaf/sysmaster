@@ -1,3 +1,4 @@
+import type { BillingClosure } from '../../billing/application/billing.service';
 import type { ErasureState } from '../domain/privacy';
 
 export interface RetentionResult {
@@ -8,8 +9,8 @@ export interface RetentionResult {
 export interface ErasureHooks {
   /** Suppression chez le fournisseur d'identité ; false si elle reste à faire. */
   idpDelete(subject: string): Promise<boolean>;
-  /** Résiliation immédiate des abonnements Stripe ; renvoie ceux qui restent à résilier. */
-  closeBilling(userId: string): Promise<string[]>;
+  /** Résiliation des abonnements et remboursement des examens non utilisés ; renvoie ce qui reste à faire. */
+  closeBilling(userId: string): Promise<BillingClosure>;
 }
 
 export abstract class PrivacyRepository {
@@ -22,8 +23,8 @@ export abstract class PrivacyRepository {
   abstract erase(now: Date, limit: number, hooks: ErasureHooks): Promise<number>;
   /** Relance la suppression des comptes Keycloak restés en attente (client d'administration ajouté après coup, panne). */
   abstract retryIdentityDeletion(idpDelete: (subject: string) => Promise<boolean>): Promise<number>;
-  /** Relance la résiliation des abonnements restés actifs chez Stripe après un effacement. */
-  abstract retryBillingClosure(cancel: (subscriptionIds: string[]) => Promise<string[]>): Promise<number>;
+  /** Relance ce qui est resté à faire chez Stripe après un effacement (résiliations, remboursements). */
+  abstract retryBillingClosure(finish: (todo: BillingClosure) => Promise<BillingClosure>): Promise<number>;
   abstract applyRetention(now: Date): Promise<RetentionResult>;
 }
 
