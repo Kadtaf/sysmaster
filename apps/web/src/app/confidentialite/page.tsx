@@ -95,7 +95,8 @@ export default function PrivacyPage() {
             <strong>Effacement</strong> : demandez la suppression depuis Mon compte. Elle est exécutée {ERASURE_GRACE_DAYS} jours plus
             tard, et vous pouvez l’annuler d’ici là. Vos sujets et réponses publics restent, signés « Compte supprimé », pour ne pas
             casser les discussions ; écrivez-nous avant si vous voulez qu’ils soient retirés eux aussi. Un abonnement en cours est
-            résilié ce jour-là ; les factures sont gardées le temps imposé par la loi.
+            résilié ce jour-là, une tentative d’examen payée mais pas utilisée est remboursée, et les factures sont gardées le
+            temps imposé par la loi.
           </li>
           <li><strong>Rectification</strong> : votre nom et votre e-mail se modifient dans l’espace sécurité du compte.</li>
           <li><strong>Opposition, limitation, questions</strong> : écrivez à {contact}.</li>

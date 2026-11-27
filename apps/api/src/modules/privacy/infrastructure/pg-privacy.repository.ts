@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import type { PoolClient } from 'pg';
 import { Database } from '../../../shared/database.module';
+import type { BillingClosure } from '../../billing/application/billing.service';
 import { ErasureHooks, PrivacyRepository, RetentionResult } from '../application/ports';
 import { ANONYMIZED_NAME, anonymizedEmail, ErasureState, RETENTION_DAYS, retentionCutoff } from '../domain/privacy';
 
@@ -128,7 +129,7 @@ export class PgPrivacyRepository extends PrivacyRepository {
         if (!u) return false;
         // Avant tout : plus aucun prélèvement. Si la transaction échoue ensuite, la résiliation sera
         // simplement refaite au passage suivant (sans effet sur un abonnement déjà résilié).
-        const stripePending = await hooks.closeBilling(u.id);
+        const stripe = await hooks.closeBilling(u.id);
         const counts = await this.eraseOne(tx, u.id);
         let idpDeleted = !u.idp_subject;
         if (u.idp_subject) {
@@ -139,9 +140,9 @@ export class PgPrivacyRepository extends PrivacyRepository {
           }
         }
         await tx.query(
-          `INSERT INTO iam.erasure_log (user_id, requested_at, idp_deleted, idp_subject, counts, stripe_subscriptions_pending)
-           VALUES ($1, $2, $3, $4, $5, $6)`,
-          [u.id, u.deletion_requested_at, idpDeleted, idpDeleted ? null : u.idp_subject, JSON.stringify(counts), stripePending],
+          `INSERT INTO iam.erasure_log (user_id, requested_at, idp_deleted, idp_subject, counts, stripe_subscriptions_pending, stripe_refunds_pending)
+           VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+          [u.id, u.deletion_requested_at, idpDeleted, idpDeleted ? null : u.idp_subject, JSON.stringify(counts), stripe.subscriptions, stripe.refunds],
         );
         return true;
       });
@@ -169,16 +170,20 @@ export class PgPrivacyRepository extends PrivacyRepository {
     return done;
   }
 
-  async retryBillingClosure(cancel: (subscriptionIds: string[]) => Promise<string[]>): Promise<number> {
-    const { rows } = await this.db.query<{ id: string; pending: string[] }>(
-      `SELECT id, stripe_subscriptions_pending AS pending FROM iam.erasure_log
-        WHERE cardinality(stripe_subscriptions_pending) > 0 ORDER BY id LIMIT 100`,
+  async retryBillingClosure(finish: (todo: BillingClosure) => Promise<BillingClosure>): Promise<number> {
+    const { rows } = await this.db.query<{ id: string; subscriptions: string[]; refunds: string[] }>(
+      `SELECT id, stripe_subscriptions_pending AS subscriptions, stripe_refunds_pending AS refunds FROM iam.erasure_log
+        WHERE cardinality(stripe_subscriptions_pending) + cardinality(stripe_refunds_pending) > 0 ORDER BY id LIMIT 100`,
     );
     let done = 0;
     for (const r of rows) {
-      const left = await cancel(r.pending);
-      if (left.length === r.pending.length) break; // paiement fermé ou Stripe en panne : inutile d'insister
-      await this.db.query(`UPDATE iam.erasure_log SET stripe_subscriptions_pending = $2 WHERE id = $1`, [r.id, left]);
+      const left = await finish({ subscriptions: r.subscriptions, refunds: r.refunds });
+      // Paiement fermé ou Stripe en panne : inutile d'insister sur les suivants.
+      if (left.subscriptions.length + left.refunds.length === r.subscriptions.length + r.refunds.length) break;
+      await this.db.query(
+        `UPDATE iam.erasure_log SET stripe_subscriptions_pending = $2, stripe_refunds_pending = $3 WHERE id = $1`,
+        [r.id, left.subscriptions, left.refunds],
+      );
       done++;
     }
     return done;

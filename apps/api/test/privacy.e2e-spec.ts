@@ -4,6 +4,8 @@ import request from 'supertest';
 import { UserProvisioner } from '../src/modules/iam/application/user-provisioner';
 import { PrivacyService } from '../src/modules/privacy/application/privacy.service';
 import { createTestApp, newIdentity } from './helpers/test-app';
+import { PaymentGateway } from '../src/modules/billing/application/ports';
+import { OfflineStripe, signedWebhook, stripeEvent, subscriptionObject } from './helpers/offline-stripe';
 
 const describeDb = process.env.DATABASE_URL ? describe : describe.skip;
 
@@ -104,5 +106,112 @@ describeDb('RGPD : export, effacement, conservation (e2e)', () => {
     await app.get(PrivacyService).runJobs();
     const left = (await pool.query(`SELECT id FROM ai.conversations WHERE user_id = $1`, [me.id])).rows.map((r) => r.id);
     expect(left).toEqual([recent]);
+  });
+});
+
+// Dans le même fichier que les autres tests d'effacement : un effacement à échéance traite tous les
+// comptes dus, et deux suites en parallèle s'effaceraient leurs comptes l'une à l'autre.
+describeDb('RGPD et paiement (e2e)', () => {
+  let app: INestApplication;
+  let tokenFor: Awaited<ReturnType<typeof createTestApp>>['tokenFor'];
+  let pool: Pool;
+  const stripe = new OfflineStripe();
+  const http = () => request(app.getHttpServer());
+  const webhook = (event: object) => {
+    const { payload, signature } = signedWebhook(event);
+    return http().post('/api/v1/billing/webhook').set('content-type', 'application/json').set('stripe-signature', signature).send(payload);
+  };
+  /** Échéance avancée pour ce compte seul (voir privacy.e2e-spec.ts), puis effacement. */
+  const eraseNow = async (userId: string) => {
+    await pool.query(`UPDATE iam.users SET deletion_due_at = now() - interval '1 second' WHERE id = $1`, [userId]);
+    await app.get(PrivacyService).eraseDue(new Date());
+  };
+
+  /** Abonné Premium, avec une facture payée. */
+  async function subscriber() {
+    const identity = newIdentity();
+    const token = await tokenFor(identity);
+    const as = (r: request.Test) => r.auth(token, { type: 'bearer' });
+    const id = (await as(http().get('/api/v1/me')).expect(200)).body.id as string;
+    const n = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const sub = `sub_rgpd_${n}`;
+    const customer = `cus_rgpd_${n}`;
+    await webhook(stripeEvent('customer.subscription.created', subscriptionObject({ id: sub, customer, userId: id }))).expect(200);
+    await webhook(stripeEvent('invoice.paid', {
+      id: `in_rgpd_${n}`, object: 'invoice', customer, status: 'paid', amount_paid: 999, amount_due: 999, currency: 'eur',
+      hosted_invoice_url: 'https://invoice.stripe.test/i/rgpd', invoice_pdf: null, created: Math.floor(Date.now() / 1000),
+    })).expect(200);
+    // Une tentative d'examen payée, pas encore utilisée.
+    const pi = `pi_rgpd_${n}`;
+    const purchase = (await pool.query(
+      `INSERT INTO billing.exam_purchases (user_id, certification_code, list_price_cents, discount_pct, amount_cents, status, stripe_payment_intent_id, paid_at)
+       VALUES ($1, 'LINUX-ADMIN', 7900, 20, 6320, 'paid', $2, now()) RETURNING id`, [id, pi])).rows[0].id as string;
+    return { id, as, sub, pi, purchase };
+  }
+  const purchaseStatus = async (id: string) => (await pool.query(`SELECT status FROM billing.exam_purchases WHERE id = $1`, [id])).rows[0].status;
+
+  beforeAll(async () => {
+    ({ app, tokenFor } = await createTestApp((b) => b.overrideProvider(PaymentGateway).useValue(stripe)));
+    pool = new Pool({ connectionString: process.env.DATABASE_URL });
+  });
+  afterAll(async () => {
+    await pool?.end();
+    await app?.close();
+  });
+  afterEach(() => (stripe.failing = false));
+
+  it('export : abonnement et factures, sans donnée de carte', async () => {
+    const me = await subscriber();
+    const data = (await me.as(http().get('/api/v1/me/privacy/export')).expect(200)).body.data;
+    expect(data.abonnements).toEqual([expect.objectContaining({ plan_code: 'premium', status: 'active' })]);
+    expect(data.factures).toEqual([expect.objectContaining({ amount_cents: 999, currency: 'EUR', url: 'https://invoice.stripe.test/i/rgpd' })]);
+    expect(data.achatsExamens).toEqual([expect.objectContaining({ certification_code: 'LINUX-ADMIN', amount_cents: 6320, status: 'paid' })]);
+  });
+
+  it('effacement : plus de paiement pendant le délai, abonnement résilié, examen non utilisé remboursé, factures gardées', async () => {
+    // Pendant le délai d'annulation : on ne fait pas payer un compte qui va disparaître.
+    const leaving = await tokenFor(newIdentity());
+    const asLeaving = (r: request.Test) => r.auth(leaving, { type: 'bearer' });
+    await asLeaving(http().get('/api/v1/me')).expect(200);
+    await asLeaving(http().post('/api/v1/me/privacy/erasure').send({ confirmation: 'SUPPRIMER' })).expect(200);
+    const refused = await asLeaving(http().post('/api/v1/me/billing/checkout').send({ plan: 'premium' })).expect(409);
+    expect(refused.body.message).toMatch(/suppression/);
+    await asLeaving(http().delete('/api/v1/me/privacy/erasure')).expect(200);
+    await asLeaving(http().post('/api/v1/me/billing/checkout').send({ plan: 'premium' })).expect(200);
+
+    const me = await subscriber();
+    await me.as(http().post('/api/v1/me/privacy/erasure').send({ confirmation: 'SUPPRIMER' })).expect(200);
+
+    await eraseNow(me.id);
+    expect(stripe.calls.filter((c) => c.method === 'cancelSubscriptionNow').map((c) => c.args)).toContain(me.sub);
+    expect(stripe.calls.filter((c) => c.method === 'refundPayment').map((c) => c.args)).toContain(me.pi);
+    expect(await purchaseStatus(me.purchase)).toBe('refunded');
+    const log = (await pool.query(`SELECT stripe_subscriptions_pending s, stripe_refunds_pending r FROM iam.erasure_log WHERE user_id = $1`, [me.id])).rows[0];
+    expect(log).toEqual({ s: [], r: [] });
+    // Pièces comptables : gardées, rattachées au compte anonymisé.
+    const kept = await pool.query(
+      `SELECT i.amount_cents FROM billing.invoices i JOIN billing.customers c ON c.id = i.customer_id WHERE c.user_id = $1`, [me.id]);
+    expect(kept.rows).toEqual([{ amount_cents: 999 }]);
+  });
+
+  it('Stripe injoignable : l’effacement a lieu, résiliation et remboursement sont repris par la tâche horaire', async () => {
+    const me = await subscriber();
+    await me.as(http().post('/api/v1/me/privacy/erasure').send({ confirmation: 'SUPPRIMER' })).expect(200);
+    stripe.failing = true;
+    await eraseNow(me.id);
+    const pending = async () => (await pool.query(
+      `SELECT stripe_subscriptions_pending s, stripe_refunds_pending r FROM iam.erasure_log WHERE user_id = $1`, [me.id])).rows[0];
+    expect((await pool.query(`SELECT status FROM iam.users WHERE id = $1`, [me.id])).rows[0].status).toBe('deleted');
+    expect(await pending()).toEqual({ s: [me.sub], r: [me.pi] });
+    expect(await purchaseStatus(me.purchase)).toBe('paid');
+
+    // Toujours en panne : rien ne change.
+    await app.get(PrivacyService).runJobs();
+    expect(await pending()).toEqual({ s: [me.sub], r: [me.pi] });
+
+    stripe.failing = false;
+    await app.get(PrivacyService).runJobs();
+    expect(await pending()).toEqual({ s: [], r: [] });
+    expect(await purchaseStatus(me.purchase)).toBe('refunded');
   });
 });
