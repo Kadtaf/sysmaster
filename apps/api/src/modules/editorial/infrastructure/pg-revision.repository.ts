@@ -1,5 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
-import type { ContentKind, ContentPublishedV1, RevisionStatus, RevisionSummaryDto } from '@sysmaster/contracts';
+import type { ContentKind, ContentPublishedV1, EditorialRevisionReviewedV1, RevisionStatus, RevisionSummaryDto } from '@sysmaster/contracts';
+import type { PoolClient } from 'pg';
 import { Database } from '../../../shared/database.module';
 import {
   CONTENT_KIND_ADAPTERS, ContentKindAdapter, OpenRevisionExistsError, RevisionAction, RevisionRecord, RevisionRepository,
@@ -119,6 +120,10 @@ export class PgRevisionRepository extends RevisionRepository {
       await tx.query(`INSERT INTO editorial.revision_events (revision_id, actor_id, action, comment) VALUES ($1, $2, $3, $4)`, [
         id, actorId, action, comment,
       ]);
+      if (reviewing) {
+        const { rows } = await tx.query<{ kind: string; author_id: string }>(`SELECT kind, author_id FROM editorial.revisions WHERE id = $1`, [id]);
+        await emitReviewed(tx, { revisionId: id, kind: rows[0].kind, authorId: rows[0].author_id, reviewerId: actorId, decision: 'changes_requested' });
+      }
     });
   }
 
@@ -154,6 +159,15 @@ export class PgRevisionRepository extends RevisionRepository {
         `INSERT INTO platform.outbox_events (aggregate, aggregate_id, type, payload) VALUES ($1, $2, $3, $4)`,
         [`editorial.${revision.kind}`, revision.id, adapter.publishedEvent, JSON.stringify(event)],
       );
+      await emitReviewed(tx, { revisionId: revision.id, kind: revision.kind, authorId: revision.authorId, reviewerId, decision: 'approved' });
     });
   }
+}
+
+function emitReviewed(tx: PoolClient, event: EditorialRevisionReviewedV1) {
+  return tx.query(
+    `INSERT INTO platform.outbox_events (aggregate, aggregate_id, type, payload)
+     VALUES ('editorial.revision', $1, 'editorial.revision.reviewed.v1', $2)`,
+    [event.revisionId, JSON.stringify(event)],
+  );
 }

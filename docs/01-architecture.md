@@ -209,6 +209,10 @@ Catalogue initial des événements :
 | `assessment.certificate.issued.v1` | Assessment | Notifications, Gamification, Community (profil) |
 | `diagnostic.session.completed.v1` | Diagnostic | Learning (recommande des leçons liées aux causes) |
 | `billing.subscription.changed.v1` | Billing | IAM (droits), Notifications |
+| `community.reply.posted.v1` | Community | Notifications (auteur du sujet) |
+| `community.answer.accepted.v1` | Community | Gamification, Notifications |
+| `community.mentorship.changed.v1` | Community | Notifications (l'autre personne du binôme) |
+| `editorial.revision.reviewed.v1` | Éditorial | Notifications (auteur de la contribution) |
 
 ---
 

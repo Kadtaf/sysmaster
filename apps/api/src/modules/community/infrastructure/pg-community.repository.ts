@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type {
+  CommunityReplyPostedV1,
   CommunityCategoryDto, ModerationItemDto, SimilarThreadDto, ThreadKind, ThreadListQuery, ThreadSummaryDto, VoteTarget,
 } from '@sysmaster/contracts';
 import type { PoolClient } from 'pg';
@@ -241,7 +242,16 @@ export class PgCommunityRepository extends CommunityRepository {
         `INSERT INTO community.posts (thread_id, author_id, body_md) VALUES ($1, $2, $3) RETURNING id`,
         [threadId, authorId, bodyMd],
       );
-      await tx.query(`UPDATE community.threads SET post_count = post_count + 1, last_activity_at = now() WHERE id = $1`, [threadId]);
+      const t = await tx.query<{ author_id: string; title: string }>(
+        `UPDATE community.threads SET post_count = post_count + 1, last_activity_at = now() WHERE id = $1 RETURNING author_id, title`,
+        [threadId],
+      );
+      const event: CommunityReplyPostedV1 = { threadId, postId: rows[0].id, authorId, threadAuthorId: t.rows[0].author_id, threadTitle: t.rows[0].title };
+      await tx.query(
+        `INSERT INTO platform.outbox_events (aggregate, aggregate_id, type, payload)
+         VALUES ('community.thread', $1, 'community.reply.posted.v1', $2)`,
+        [threadId, JSON.stringify(event)],
+      );
       return rows[0].id;
     });
   }

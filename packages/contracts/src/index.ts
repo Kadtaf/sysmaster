@@ -1313,3 +1313,78 @@ export type CheckoutInput = z.infer<typeof CheckoutSchema>;
 export interface RedirectDto {
   url: string;
 }
+
+// --- Notifications (docs/03 §2.9) ----------------------------------------------
+
+/** Ce qui peut déclencher une notification ; chacun se coupe dans Mon compte → Notifications. */
+export const NOTIFICATION_TYPES = ['community_reply', 'answer_accepted', 'mentorship', 'certificate_issued', 'editorial_review'] as const;
+export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
+/** Canaux livrés. L'e-mail viendra quand un serveur d'envoi sera configuré. */
+export const NOTIFICATION_CHANNELS = ['in_app'] as const;
+export type NotificationChannel = (typeof NOTIFICATION_CHANNELS)[number];
+
+export interface NotificationDto {
+  id: string;
+  type: NotificationType;
+  title: string;
+  body: string | null;
+  /** Lien interne vers ce dont parle la notification (chemin, jamais d'adresse externe). */
+  href: string | null;
+  read: boolean;
+  createdAt: string;
+}
+
+export interface NotificationListDto {
+  items: NotificationDto[];
+  unread: number;
+}
+
+export interface NotificationPreferenceDto {
+  type: NotificationType;
+  channel: NotificationChannel;
+  enabled: boolean;
+}
+
+export const NotificationPreferencesSchema = z.object({
+  preferences: z
+    .array(z.object({ type: z.enum(NOTIFICATION_TYPES), channel: z.enum(NOTIFICATION_CHANNELS), enabled: z.boolean() }))
+    .max(NOTIFICATION_TYPES.length * NOTIFICATION_CHANNELS.length),
+});
+export type NotificationPreferencesInput = z.infer<typeof NotificationPreferencesSchema>;
+
+/** Une réponse est publiée dans un sujet. */
+export interface CommunityReplyPostedV1 {
+  threadId: string;
+  postId: string;
+  authorId: string;
+  threadAuthorId: string;
+  threadTitle: string;
+}
+
+/** Une demande de mentorat est créée ou change d'état. */
+export interface CommunityMentorshipChangedV1 {
+  mentorshipId: string;
+  mentorId: string;
+  menteeId: string;
+  status: 'requested' | 'active' | 'ended' | 'declined';
+  /** Qui a fait le changement : la personne notifiée est l'autre. */
+  actorId: string;
+  topic: string;
+}
+
+/** Une contribution éditoriale a été relue. */
+export interface EditorialRevisionReviewedV1 {
+  revisionId: string;
+  kind: string;
+  authorId: string;
+  reviewerId: string;
+  decision: 'approved' | 'changes_requested';
+}
+
+export interface CertificateIssuedV1 {
+  certificateId: string;
+  serial: string;
+  certificationCode: string;
+  userId: string;
+  score: number;
+}

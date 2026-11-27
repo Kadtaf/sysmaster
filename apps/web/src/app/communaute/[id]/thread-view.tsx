@@ -118,7 +118,7 @@ export function ThreadView({ initial }: { initial: ThreadDto }) {
   const canVoteOn = (mine: boolean, hidden: boolean) => !mine && !hidden && !pending;
 
   const postCard = (p: PostDto) => (
-    <li key={p.id}>
+    <li key={p.id} id={`post-${p.id}`} className="scroll-mt-20">
       <Card className={cn('flex gap-3', p.accepted && 'border-emerald-600 dark:border-emerald-500')}>
         <Votes score={p.score} myVote={p.myVote} disabled={!canVoteOn(p.mine, !!p.hidden)} onVote={(v) => vote('post', p.id, v)} label="de la réponse" />
         <div className="min-w-0 flex-1 space-y-3">

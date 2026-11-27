@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import type { MentorDto, MentorProfileInput, StudyGroupDto, StudyGroupMemberDto } from '@sysmaster/contracts';
+import type { CommunityMentorshipChangedV1, MentorDto, MentorProfileInput, StudyGroupDto, StudyGroupMemberDto } from '@sysmaster/contracts';
+import type { PoolClient } from 'pg';
 import { Database } from '../../../shared/database.module';
 import type { MentorshipStatus } from '../domain/social';
 import { Channel, GroupRow, MentorshipRow, SocialRepository, StoredMessage } from '../application/social-ports';
@@ -193,11 +194,14 @@ export class PgSocialRepository extends SocialRepository {
 
   async requestMentorship(mentorId: string, menteeId: string, topic: string, message: string): Promise<string | null> {
     try {
-      const { rows } = await this.db.query<{ id: string }>(
-        `INSERT INTO community.mentorships (mentor_id, mentee_id, topic, message) VALUES ($1, $2, $3, $4) RETURNING id`,
-        [mentorId, menteeId, topic, message],
-      );
-      return rows[0].id;
+      return await this.db.transaction(async (tx) => {
+        const { rows } = await tx.query<{ id: string }>(
+          `INSERT INTO community.mentorships (mentor_id, mentee_id, topic, message) VALUES ($1, $2, $3, $4) RETURNING id`,
+          [mentorId, menteeId, topic, message],
+        );
+        await emitMentorship(tx, { mentorshipId: rows[0].id, mentorId, menteeId, status: 'requested', actorId: menteeId, topic });
+        return rows[0].id;
+      });
     } catch (err) {
       if ((err as { code?: string }).code === '23505') return null;
       throw err;
@@ -219,16 +223,22 @@ export class PgSocialRepository extends SocialRepository {
     return rows[0] ? toMentorship(rows[0]) : null;
   }
 
-  async setMentorshipStatus(id: string, from: MentorshipStatus, to: MentorshipStatus): Promise<boolean> {
-    const { rowCount } = await this.db.query(
-      `UPDATE community.mentorships
-          SET status = $3,
-              responded_at = CASE WHEN $2 = 'requested' THEN now() ELSE responded_at END,
-              ended_at = CASE WHEN $3 = 'ended' THEN now() ELSE ended_at END
-        WHERE id = $1 AND status = $2`,
-      [id, from, to],
-    );
-    return rowCount === 1;
+  setMentorshipStatus(id: string, from: MentorshipStatus, to: MentorshipStatus, actorId: string): Promise<boolean> {
+    return this.db.transaction(async (tx) => {
+      const { rows } = await tx.query<{ mentor_id: string; mentee_id: string; topic: string }>(
+        `UPDATE community.mentorships
+            SET status = $3,
+                responded_at = CASE WHEN $2 = 'requested' THEN now() ELSE responded_at END,
+                ended_at = CASE WHEN $3 = 'ended' THEN now() ELSE ended_at END
+          WHERE id = $1 AND status = $2
+          RETURNING mentor_id, mentee_id, topic`,
+        [id, from, to],
+      );
+      const m = rows[0];
+      if (!m) return false;
+      await emitMentorship(tx, { mentorshipId: id, mentorId: m.mentor_id, menteeId: m.mentee_id, status: to, actorId, topic: m.topic });
+      return true;
+    });
   }
 
   // ---------- Messages ----------
@@ -274,4 +284,12 @@ export class PgSocialRepository extends SocialRepository {
   async hideMessage(id: string, by: string): Promise<void> {
     await this.db.query(`UPDATE community.messages SET hidden_at = coalesce(hidden_at, now()), hidden_by = coalesce(hidden_by, $2) WHERE id = $1`, [id, by]);
   }
+}
+
+function emitMentorship(tx: PoolClient, event: CommunityMentorshipChangedV1) {
+  return tx.query(
+    `INSERT INTO platform.outbox_events (aggregate, aggregate_id, type, payload)
+     VALUES ('community.mentorship', $1, 'community.mentorship.changed.v1', $2)`,
+    [event.mentorshipId, JSON.stringify(event)],
+  );
 }
