@@ -67,6 +67,58 @@ export class PgBillingRepository extends BillingRepository {
     return rows.map((r) => ({ amountCents: r.amount_cents, currency: r.currency, status: r.status, issuedAt: r.issued_at.toISOString(), url: r.hosted_url ?? r.pdf_url }));
   }
 
+  async createExamPurchase(p: { userId: string; code: string; listPriceCents: number; discountPct: number; amountCents: number; currency: string }): Promise<string> {
+    const { rows } = await this.db.query<{ id: string }>(
+      `INSERT INTO billing.exam_purchases (user_id, certification_code, list_price_cents, discount_pct, amount_cents, currency)
+       VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
+      [p.userId, p.code, p.listPriceCents, p.discountPct, p.amountCents, p.currency],
+    );
+    return rows[0].id;
+  }
+
+  async attachCheckout(purchaseId: string, checkoutSessionId: string): Promise<void> {
+    await this.db.query(`UPDATE billing.exam_purchases SET stripe_checkout_session_id = $2 WHERE id = $1`, [purchaseId, checkoutSessionId]);
+  }
+
+  async hasUnusedExamPurchase(userId: string, code: string): Promise<boolean> {
+    const { rowCount } = await this.db.query(
+      `SELECT 1 FROM billing.exam_purchases WHERE user_id = $1 AND certification_code = $2 AND status = 'paid' LIMIT 1`,
+      [userId, code],
+    );
+    return Boolean(rowCount);
+  }
+
+  async examCredits(userId: string): Promise<Set<string>> {
+    const { rows } = await this.db.query<{ certification_code: string }>(
+      `SELECT DISTINCT certification_code FROM billing.exam_purchases WHERE user_id = $1 AND status = 'paid'`,
+      [userId],
+    );
+    return new Set(rows.map((r) => r.certification_code));
+  }
+
+  async consumeExamPurchase(userId: string, code: string): Promise<string | null> {
+    const { rows } = await this.db.query<{ id: string }>(
+      `UPDATE billing.exam_purchases SET status = 'consumed', consumed_at = now()
+        WHERE id = (SELECT id FROM billing.exam_purchases
+                     WHERE user_id = $1 AND certification_code = $2 AND status = 'paid'
+                     ORDER BY paid_at LIMIT 1 FOR UPDATE SKIP LOCKED)
+        RETURNING id`,
+      [userId, code],
+    );
+    return rows[0]?.id ?? null;
+  }
+
+  async releaseExamPurchase(purchaseId: string): Promise<void> {
+    await this.db.query(
+      `UPDATE billing.exam_purchases SET status = 'paid', consumed_at = NULL WHERE id = $1 AND status = 'consumed' AND exam_session_id IS NULL`,
+      [purchaseId],
+    );
+  }
+
+  async linkExamSession(purchaseId: string, examSessionId: string): Promise<void> {
+    await this.db.query(`UPDATE billing.exam_purchases SET exam_session_id = $2 WHERE id = $1`, [purchaseId, examSessionId]);
+  }
+
   applyEvent(e: VerifiedEvent, planForPrice: (priceId: string) => string | null): Promise<boolean> {
     return this.db.transaction(async (tx) => {
       // Idempotence : Stripe renvoie un événement tant qu'il n'a pas reçu 2xx, parfois plusieurs fois.
@@ -129,6 +181,36 @@ export class PgBillingRepository extends BillingRepository {
              last_event_at = EXCLUDED.last_event_at, updated_at = now()`,
           [customer, plan, ev.subscriptionId, ev.priceId, ev.status, ev.currentPeriodEnd, ev.cancelAtPeriodEnd, at],
         );
+        return;
+      }
+      case 'exam_payment': {
+        if (!/^[0-9a-f-]{36}$/i.test(ev.purchaseId)) return;
+        const { rows } = await tx.query<{ status: string; stripe_checkout_session_id: string | null }>(
+          `SELECT status, stripe_checkout_session_id FROM billing.exam_purchases WHERE id = $1 FOR UPDATE`,
+          [ev.purchaseId],
+        );
+        const p = rows[0];
+        // L'achat doit correspondre à la session qui l'a payé : une métadonnée recopiée ailleurs ne suffit pas.
+        if (!p || (p.stripe_checkout_session_id && p.stripe_checkout_session_id !== ev.checkoutSessionId)) {
+          this.logger.warn(`Paiement d'examen ${ev.checkoutSessionId} : achat ${ev.purchaseId} introuvable ou d'une autre session, ignoré.`);
+          return;
+        }
+        if (ev.outcome === 'paid' && (p.status === 'pending' || p.status === 'expired')) {
+          await tx.query(
+            `UPDATE billing.exam_purchases SET status = 'paid', paid_at = now(), stripe_checkout_session_id = $2,
+                    stripe_payment_intent_id = COALESCE($3, stripe_payment_intent_id) WHERE id = $1`,
+            [ev.purchaseId, ev.checkoutSessionId, ev.paymentIntentId],
+          );
+        } else if (ev.outcome === 'pending') {
+          await tx.query(`UPDATE billing.exam_purchases SET stripe_payment_intent_id = COALESCE($2, stripe_payment_intent_id) WHERE id = $1`, [ev.purchaseId, ev.paymentIntentId]);
+        } else if ((ev.outcome === 'failed' || ev.outcome === 'expired') && p.status === 'pending') {
+          await tx.query(`UPDATE billing.exam_purchases SET status = 'expired' WHERE id = $1`, [ev.purchaseId]);
+        }
+        return;
+      }
+      case 'refund': {
+        // Remboursé avant d'avoir servi : la tentative n'est plus disponible. Déjà utilisé : l'historique reste.
+        await tx.query(`UPDATE billing.exam_purchases SET status = 'refunded' WHERE stripe_payment_intent_id = $1 AND status = 'paid'`, [ev.paymentIntentId]);
         return;
       }
       case 'invoice': {

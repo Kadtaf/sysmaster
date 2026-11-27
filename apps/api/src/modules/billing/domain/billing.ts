@@ -73,3 +73,17 @@ export function parsePriceMap(raw: string | undefined): Map<string, string> {
 export function isStale(lastEventAt: Date | null, eventAt: Date): boolean {
   return lastEventAt !== null && eventAt < lastEventAt;
 }
+
+/** Prix d'un examen après la remise de l'offre, arrondi au centime. */
+export function examPrice(listCents: number, discountPct: number): number {
+  const pct = Math.min(100, Math.max(0, discountPct));
+  return Math.round((listCents * (100 - pct)) / 100);
+}
+
+/**
+ * Un examen se paie seulement si le paiement est ouvert et que son prix (après remise) n'est pas nul.
+ * Paiement fermé : les examens restent ouverts comme avant, rien n'est durci.
+ */
+export function examPaymentRequired(enabled: boolean, amountCents: number): boolean {
+  return enabled && amountCents > 0;
+}

@@ -1,46 +1,14 @@
 import { INestApplication } from '@nestjs/common';
 import { Pool } from 'pg';
-import Stripe from 'stripe';
 import request from 'supertest';
 import { BillingService } from '../src/modules/billing/application/billing.service';
 import { PaymentGateway } from '../src/modules/billing/application/ports';
-import { StripeGateway } from '../src/modules/billing/infrastructure/stripe.gateway';
 import { createTestApp } from './helpers/test-app';
+import { OfflineStripe, signedWebhook, stripeEvent, subscriptionObject, WHSEC } from './helpers/offline-stripe';
 
 const describeDb = process.env.DATABASE_URL ? describe : describe.skip;
-const WHSEC = 'whsec_e2e_secret';
-const signer = new Stripe('sk_test_x').webhooks;
-
-/** Vraie vérification de signature et vraie traduction ; seuls les appels sortants vers Stripe sont simulés. */
-class OfflineStripe extends StripeGateway {
-  readonly calls: { method: string; args: unknown }[] = [];
-  private n = 0;
-  constructor() {
-    super({ secretKey: 'sk_test_offline', webhookSecret: WHSEC, prices: 'premium:price_premium,pro:price_pro' });
-  }
-  override async createCustomer(userId: string) {
-    this.calls.push({ method: 'createCustomer', args: userId });
-    return `cus_e2e_${Date.now()}_${++this.n}`;
-  }
-  override async createCheckout(o: Parameters<StripeGateway['createCheckout']>[0]) {
-    this.calls.push({ method: 'createCheckout', args: o });
-    return 'https://checkout.stripe.test/c/pay/cs_test_1';
-  }
-  override async createPortal(customerId: string, returnUrl: string) {
-    this.calls.push({ method: 'createPortal', args: { customerId, returnUrl } });
-    return 'https://billing.stripe.test/p/session_1';
-  }
-}
-
-let seq = 0;
-const evt = (type: string, object: Record<string, unknown>, created = Math.floor(Date.now() / 1000)) => ({
-  id: `evt_e2e_${Date.now()}_${++seq}`, object: 'event', type, created, data: { object },
-});
-const subscription = (o: { id: string; customer: string; price?: string; status?: string; userId?: string; cancel?: boolean }) => ({
-  id: o.id, object: 'subscription', customer: o.customer, status: o.status ?? 'active', cancel_at_period_end: o.cancel ?? false, cancel_at: null,
-  metadata: o.userId ? { user_id: o.userId } : {},
-  items: { data: [{ price: { id: o.price ?? 'price_premium' }, current_period_end: Math.floor(Date.now() / 1000) + 30 * 86400 }] },
-});
+const evt = stripeEvent;
+const subscription = subscriptionObject;
 
 describeDb('Paiement (e2e)', () => {
   describe('sans clé Stripe', () => {
@@ -76,12 +44,8 @@ describeDb('Paiement (e2e)', () => {
     const stripe = new OfflineStripe();
     const http = () => request(app.getHttpServer());
     const webhook = (event: object, secret = WHSEC) => {
-      const payload = JSON.stringify(event);
-      return http()
-        .post('/api/v1/billing/webhook')
-        .set('content-type', 'application/json')
-        .set('stripe-signature', signer.generateTestHeaderString({ payload, secret }))
-        .send(payload);
+      const { payload, signature } = signedWebhook(event, secret);
+      return http().post('/api/v1/billing/webhook').set('content-type', 'application/json').set('stripe-signature', signature).send(payload);
     };
 
     beforeAll(async () => {

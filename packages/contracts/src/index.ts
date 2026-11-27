@@ -699,6 +699,11 @@ export interface CertificationDto {
     /** false tant que la banque relue n'a pas assez de questions pour tirer un examen. */
     available: boolean;
   };
+  /**
+   * Paiement de l'examen. required est faux tant que le paiement en ligne est fermé (examen ouvert
+   * sans payer) ; amountCents tient compte de la remise de l'offre de la personne connectée.
+   */
+  payment: { required: boolean; amountCents: number; discountPct: number };
   requirements: CertificationRequirementDto[];
   /** Situation de l'utilisateur connecté ; null pour un visiteur. */
   me: {
@@ -708,6 +713,8 @@ export interface CertificationDto {
     nextAttemptAt: string | null;
     certificate: { serial: string; status: CertificateStatus } | null;
     openSession: { id: string; deadlineAt: string } | null;
+    /** Une tentative payée attend d'être utilisée. */
+    paid: boolean;
   } | null;
 }
 export interface ExamSessionDto {

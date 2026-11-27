@@ -16,6 +16,15 @@ export type BillingEvent =
       userId: string | null;
     }
   | {
+      /** Paiement d'un examen : payé, en attente (prélèvement), échoué ou session expirée. */
+      kind: 'exam_payment';
+      purchaseId: string;
+      checkoutSessionId: string;
+      paymentIntentId: string | null;
+      outcome: 'paid' | 'pending' | 'failed' | 'expired';
+    }
+  | { kind: 'refund'; paymentIntentId: string }
+  | {
       kind: 'invoice';
       invoiceId: string;
       customerId: string;
@@ -45,6 +54,10 @@ export abstract class PaymentGateway {
   abstract createCustomer(userId: string): Promise<string>;
   abstract createCheckout(opts: { customerId: string; priceId: string; userId: string; successUrl: string; cancelUrl: string }): Promise<string>;
   abstract createPortal(customerId: string, returnUrl: string): Promise<string>;
+  /** Paiement unique d'un examen (montant calculé ici, remise comprise). Renvoie l'adresse et l'identifiant de session. */
+  abstract createExamCheckout(o: {
+    customerId: string; userId: string; purchaseId: string; name: string; amountCents: number; currency: string; successUrl: string; cancelUrl: string;
+  }): Promise<{ url: string; sessionId: string }>;
   /** Vérifie la signature et traduit l'événement. Lève InvalidWebhookError si la signature est fausse. */
   abstract verifyWebhook(rawBody: Buffer, signature: string | undefined): VerifiedEvent;
 }
@@ -76,5 +89,15 @@ export abstract class BillingRepository {
    * Applique un événement une seule fois (idempotence par identifiant Stripe), dans une transaction.
    * Renvoie false si l'événement avait déjà été traité.
    */
+  abstract createExamPurchase(p: { userId: string; code: string; listPriceCents: number; discountPct: number; amountCents: number; currency: string }): Promise<string>;
+  abstract attachCheckout(purchaseId: string, checkoutSessionId: string): Promise<void>;
+  /** Achat payé et pas encore utilisé pour cette certification. */
+  abstract hasUnusedExamPurchase(userId: string, code: string): Promise<boolean>;
+  /** Certifications pour lesquelles la personne a une tentative payée non utilisée. */
+  abstract examCredits(userId: string): Promise<Set<string>>;
+  /** Consomme un achat payé (verrou de ligne : deux démarrages simultanés ne consomment qu'un achat). */
+  abstract consumeExamPurchase(userId: string, code: string): Promise<string | null>;
+  abstract releaseExamPurchase(purchaseId: string): Promise<void>;
+  abstract linkExamSession(purchaseId: string, examSessionId: string): Promise<void>;
   abstract applyEvent(e: VerifiedEvent, planForPrice: (priceId: string) => string | null): Promise<boolean>;
 }

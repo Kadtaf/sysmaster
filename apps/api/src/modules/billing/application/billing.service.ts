@@ -1,6 +1,6 @@
-import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
+import { BadRequestException, ConflictException, HttpException, HttpStatus, Injectable, Logger, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import type { BillingCatalogDto, BillingStatusDto, CheckoutInput, RedirectDto } from '@sysmaster/contracts';
-import { aiDailyCap, aiQuestionsPerDay, certificationDiscountPct, checkoutBlocker, effectivePlan } from '../domain/billing';
+import { aiDailyCap, aiQuestionsPerDay, certificationDiscountPct, checkoutBlocker, effectivePlan, examPaymentRequired, examPrice } from '../domain/billing';
 import { BillingRepository, InvalidWebhookError, PaymentGateway } from './ports';
 
 /** Adresse du site, pour les retours de Stripe Checkout et du portail. */
@@ -106,6 +106,61 @@ export class BillingService {
     }
     const applied = await this.repo.applyEvent(verified, (price) => this.gateway.planForPrice(price));
     return { received: true, duplicate: !applied };
+  }
+
+  /** Prix d'un examen pour cette personne (remise de son offre) et s'il doit être payé avant de commencer. */
+  async examOffer(userId: string | null, listPriceCents: number): Promise<{ required: boolean; discountPct: number; amountCents: number }> {
+    const discountPct = userId && this.gateway.enabled ? certificationDiscountPct(await this.repo.features(effectivePlan(await this.repo.subscriptions(userId)))) : 0;
+    const amountCents = examPrice(listPriceCents, discountPct);
+    return { required: examPaymentRequired(this.gateway.enabled, amountCents), discountPct, amountCents };
+  }
+
+  /** Ce qu'il faut pour afficher le prix des examens à une personne : paiement ouvert, remise, tentatives déjà payées. */
+  async examContext(userId: string | null): Promise<{ enabled: boolean; discountPct: number; credits: Set<string> }> {
+    if (!this.gateway.enabled || !userId) return { enabled: this.gateway.enabled, discountPct: 0, credits: new Set() };
+    const [subs, credits] = await Promise.all([this.repo.subscriptions(userId), this.repo.examCredits(userId)]);
+    return { enabled: true, discountPct: certificationDiscountPct(await this.repo.features(effectivePlan(subs))), credits };
+  }
+
+  async purchaseExam(userId: string, exam: { code: string; title: string; listPriceCents: number }): Promise<RedirectDto> {
+    if (!this.gateway.enabled) throw new ServiceUnavailableException('Le paiement en ligne n’est pas encore ouvert : l’examen est accessible sans paiement.');
+    const offer = await this.examOffer(userId, exam.listPriceCents);
+    if (!offer.required) throw new ConflictException('Cet examen est gratuit : aucun paiement nécessaire.');
+    if (await this.repo.hasUnusedExamPurchase(userId, exam.code)) throw new ConflictException('Vous avez déjà payé une tentative pour cet examen : vous pouvez le commencer.');
+    const customerId = await this.customerFor(userId);
+    const purchaseId = await this.repo.createExamPurchase({
+      userId, code: exam.code, listPriceCents: exam.listPriceCents, discountPct: offer.discountPct, amountCents: offer.amountCents, currency: 'EUR',
+    });
+    const base = webUrl();
+    const page = `${base}/certifications/${encodeURIComponent(exam.code)}`;
+    const { url, sessionId } = await this.gateway.createExamCheckout({
+      customerId, userId, purchaseId, name: `Examen de certification ${exam.title}`, amountCents: offer.amountCents, currency: 'EUR',
+      successUrl: `${page}?paiement=ok`, cancelUrl: `${page}?paiement=annule`,
+    });
+    await this.repo.attachCheckout(purchaseId, sessionId);
+    return { url };
+  }
+
+  /**
+   * À l'ouverture d'un examen : consomme une tentative payée si l'examen se paie (402 sinon).
+   * Renvoie l'achat consommé, à relier à la session ou à rendre si l'ouverture échoue.
+   */
+  async consumeExam(userId: string, code: string, listPriceCents: number): Promise<string | null> {
+    const offer = await this.examOffer(userId, listPriceCents);
+    if (!offer.required) return null;
+    const purchase = await this.repo.consumeExamPurchase(userId, code);
+    if (!purchase) {
+      throw new HttpException({ message: 'Cet examen se paie avant de commencer.', amountCents: offer.amountCents }, HttpStatus.PAYMENT_REQUIRED);
+    }
+    return purchase;
+  }
+
+  releaseExam(purchaseId: string) {
+    return this.repo.releaseExamPurchase(purchaseId);
+  }
+
+  linkExamSession(purchaseId: string, examSessionId: string) {
+    return this.repo.linkExamSession(purchaseId, examSessionId);
   }
 
   private async customerFor(userId: string): Promise<string> {

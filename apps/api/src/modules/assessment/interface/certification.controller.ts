@@ -2,7 +2,7 @@ import { Body, Controller, Get, Header, HttpCode, Param, Post } from '@nestjs/co
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import {
   ExamSubmissionSchema, RevokeCertificateSchema,
-  type CertificateDto, type CertificationDto, type ExamResultDto, type ExamSessionDto,
+  type CertificateDto, type CertificationDto, type ExamResultDto, type ExamSessionDto, type RedirectDto,
 } from '@sysmaster/contracts';
 import { parse } from '../../editorial/application/editorial.service';
 import type { AuthenticatedUser } from '../../iam/domain/identity';
@@ -37,6 +37,17 @@ export class CertificationController {
   })
   start(@CurrentUser() user: AuthenticatedUser, @Param('code') code: string): Promise<ExamSessionDto> {
     return this.certs.start(user, code);
+  }
+
+  @ApiBearerAuth()
+  @Post('certifications/:code/purchase')
+  @HttpCode(200)
+  @RateLimit(LIMITS.billing)
+  @ApiOperation({
+    summary: 'Page de paiement Stripe pour une tentative d’examen (remise de l’offre comprise). 403 si l’examen ne peut pas être passé maintenant, 409 si une tentative payée attend déjà, 503 si le paiement est fermé',
+  })
+  purchase(@CurrentUser() user: AuthenticatedUser, @Param('code') code: string): Promise<RedirectDto> {
+    return this.certs.purchase(user, code);
   }
 
   @ApiBearerAuth()
