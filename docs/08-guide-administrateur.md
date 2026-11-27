@@ -12,6 +12,16 @@ Ce guide couvre l'exploitation de ce qui est livré : installation, comptes et r
 
 Les variables d'environnement sont décrites dans [`.env.example`](../.env.example) et dans [04 §9](04-specifications-techniques.md#9-variables-denvironnement). En production, **aucun** des secrets par défaut ne doit rester en place : la liste est dans [06, « Production : à changer impérativement »](06-authentification.md#production--à-changer-impérativement).
 
+### Réglages de sécurité
+
+- **Refus de démarrer** : en production (`NODE_ENV=production`), l'API s'arrête au démarrage si `AI_SERVICE_TOKEN` manque, vaut la valeur de développement ou fait moins de 32 caractères, si `CORS_ORIGINS` est vide ou vaut `*`, ou si `OIDC_ISSUER` manque, ou si une seule des deux clés Stripe est fournie. Le service IA refuse lui aussi le jeton de développement dès que `AI_LLM=claude`. Le message d'erreur nomme la variable à corriger.
+- **Limitation de débit** : 600 requêtes par minute et par personne (ou par adresse IP sans connexion), réglable par `RATE_LIMIT_PER_MINUTE` (0 la coupe). Des limites plus serrées protègent les routes coûteuses ou devinables : 20 questions à l'IA par minute (assistant et diagnostic), 10 générations de quiz ou de lab par 5 minutes, 10 examens ouverts par heure, 10 essais de code de groupe par 10 minutes, 5 exports de données personnelles par heure, 30 vérifications de certificat par minute, 10 ouvertures de paiement ou du portail Stripe par 10 minutes. Au-delà : `429` avec `Retry-After`. Le compteur est propre à chaque instance de l'API.
+- **Adresse IP derrière un proxy** : `TRUST_PROXY=1` (valeur du chart) fait confiance à l'ingress pour `X-Forwarded-For`. Sans proxy déclaré, cet en-tête est ignoré, sinon n'importe qui choisirait l'adresse qui lui sert de clé.
+- **Documentation OpenAPI** (`/api/docs`) : fermée en production, sauf `API_DOCS=true`.
+- **En-têtes** : l'API envoie ceux de helmet avec une politique de contenu `default-src 'none'` (elle ne sert que du JSON). Le site interdit les ressources tierces, l'intégration dans un cadre et les formulaires vers d'autres sites (`apps/web/next.config.ts`). Si vous ajoutez un outil externe (mesure d'audience, police distante), il faut l'y déclarer, et la page de confidentialité doit le dire.
+- **Données envoyées au modèle** : avant chaque appel, le service IA masque e-mails, mots de passe (`password=…`, chaînes de connexion), jetons et clés d'API, clés privées, numéros de carte, IBAN et téléphones. Les adresses IP, noms d'hôtes et chemins restent, car le diagnostic en a besoin. Le journal du service ne garde que le nombre d'éléments masqués, jamais le texte.
+- **Dépendances** : la CI échoue si `pnpm audit --prod` trouve une faille élevée ou critique. Mettez la dépendance à jour, ou, si elle ne sert qu'à la construction, forcez une version corrigée dans `pnpm.overrides` (c'est le cas de `postcss`, tiré par Next.js).
+
 ## 2. Rôles
 
 Les rôles se donnent dans **Keycloak** (console d'administration → royaume `sysmaster` → Utilisateurs → *Role mapping*). L'API les relit dans le jeton à chaque connexion et les recopie dans `iam.user_roles` : il n'y a rien à faire côté base.

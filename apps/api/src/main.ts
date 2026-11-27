@@ -1,16 +1,20 @@
 import { ConsoleLogger, Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
-import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { configureApp } from './bootstrap';
 import { startMetricsServer } from './shared/observability/metrics.server';
+import { productionConfigProblems } from './shared/security/production-config';
 
 async function main() {
+  const problems = productionConfigProblems();
+  if (problems.length) {
+    for (const p of problems) Logger.error(p, 'Configuration');
+    process.exit(1);
+  }
   // LOG_FORMAT=json : une ligne JSON par message, lisible par Loki, CloudWatch ou Elasticsearch.
   const json = process.env.LOG_FORMAT === 'json';
   // rawBody : la signature des webhooks Stripe se vérifie sur le corps exact reçu.
   const app = await NestFactory.create(AppModule, { logger: new ConsoleLogger({ json, colors: !json }), rawBody: true });
-  app.use(helmet());
   app.enableShutdownHooks();
   configureApp(app);
   const port = Number(process.env.API_PORT ?? 4000);

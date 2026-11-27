@@ -5,6 +5,7 @@ import { parse } from '../../editorial/application/editorial.service';
 import type { AuthenticatedUser } from '../../iam/domain/identity';
 import { CurrentUser, Public } from '../../iam/interface/auth.decorators';
 import { BillingService } from '../application/billing.service';
+import { LIMITS, RateLimit } from '../../../shared/security/rate-limit';
 
 @ApiTags('billing')
 @Controller()
@@ -27,6 +28,7 @@ export class BillingController {
 
   @ApiBearerAuth()
   @Post('me/billing/checkout')
+  @RateLimit(LIMITS.billing)
   @HttpCode(200)
   @ApiOperation({ summary: 'Page de paiement Stripe pour { plan: premium | pro } ; 409 si un abonnement existe déjà, 503 si le paiement est fermé' })
   checkout(@CurrentUser() user: AuthenticatedUser, @Body() body: unknown): Promise<RedirectDto> {
@@ -35,6 +37,7 @@ export class BillingController {
 
   @ApiBearerAuth()
   @Post('me/billing/portal')
+  @RateLimit(LIMITS.billing)
   @HttpCode(200)
   @ApiOperation({ summary: 'Portail Stripe : changer de carte ou d’offre, résilier, télécharger les factures' })
   portal(@CurrentUser() user: AuthenticatedUser): Promise<RedirectDto> {

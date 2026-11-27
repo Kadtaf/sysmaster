@@ -725,7 +725,7 @@ export const ExamSubmissionSchema = z.object({
   integrity: z.object({
     tabSwitches: z.number().int().min(0).max(10_000).default(0),
     pastes: z.number().int().min(0).max(10_000).default(0),
-  }).default({}),
+  }).prefault({}),
 });
 export type ExamSubmissionInput = z.infer<typeof ExamSubmissionSchema>;
 export interface ExamResultDto {

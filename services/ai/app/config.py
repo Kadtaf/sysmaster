@@ -1,6 +1,9 @@
 from functools import lru_cache
 
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+DEV_TOKEN = "dev-only-ai-token"
 
 
 class Settings(BaseSettings):
@@ -17,7 +20,7 @@ class Settings(BaseSettings):
     # API cœur, interrogée pour la base de connaissances (le service IA ne lit pas la base directement).
     core_api_url: str = "http://localhost:4000/api/v1"
     # Jeton partagé avec l'API cœur : le service n'est pas exposé publiquement.
-    ai_service_token: str = "dev-only-ai-token"
+    ai_service_token: str = DEV_TOKEN
     # Profils d'agents publiés dans le back-office : relus au plus tard après ce délai (secondes).
     profiles_ttl_seconds: float = 60.0
     # Documentation officielle (Qdrant). Vide : seules les fiches SysMaster servent de contexte.
@@ -32,6 +35,13 @@ class Settings(BaseSettings):
     rag_min_similarity: float = 0.3
     rag_kb_documents: int = 3
     rag_official_documents: int = 3
+
+    @model_validator(mode="after")
+    def _token_reel_avec_claude(self) -> "Settings":
+        # Avec un vrai modèle (payant), le jeton de développement, connu de tous, ouvrirait le service.
+        if self.ai_llm == "claude" and (self.ai_service_token == DEV_TOKEN or len(self.ai_service_token) < 32):
+            raise ValueError("AI_SERVICE_TOKEN doit être un secret d'au moins 32 caractères quand AI_LLM=claude")
+        return self
 
 
 @lru_cache

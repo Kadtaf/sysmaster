@@ -235,7 +235,7 @@ Règles dans `apps/api/src/modules/gamification/domain/rules.ts`, testées unita
 
 ## 9. Variables d'environnement
 
-Voir [`.env.example`](../.env.example). Principales : `DATABASE_URL`, `REDIS_URL`, `QDRANT_URL`, `API_PORT`, `NEXT_PUBLIC_API_URL`, `CORS_ORIGINS`, et pour l'identité `OIDC_ISSUER`, `OIDC_AUDIENCE`, `OIDC_JWKS_URL`, `NEXTAUTH_URL`, `NEXTAUTH_SECRET`, `KEYCLOAK_ISSUER`, `KEYCLOAK_INTERNAL_ISSUER`, `KEYCLOAK_CLIENT_ID`, `KEYCLOAK_CLIENT_SECRET`.
+Voir [`.env.example`](../.env.example). Principales : `DATABASE_URL`, `REDIS_URL`, `QDRANT_URL`, `API_PORT`, `NEXT_PUBLIC_API_URL`, `CORS_ORIGINS`, et pour l'identité `OIDC_ISSUER`, `OIDC_AUDIENCE`, `OIDC_JWKS_URL`, `NEXTAUTH_URL`, `NEXTAUTH_SECRET`, `KEYCLOAK_ISSUER`, `KEYCLOAK_INTERNAL_ISSUER`, `KEYCLOAK_CLIENT_ID`, `KEYCLOAK_CLIENT_SECRET`. Sécurité : `RATE_LIMIT_PER_MINUTE`, `TRUST_PROXY`, `API_DOCS` ([08 §1](08-guide-administrateur.md#réglages-de-sécurité)).
 
 Assistant : `AI_SERVICE_URL`, `AI_SERVICE_TOKEN`, `AI_SERVICE_TIMEOUT_MS`, `AI_LAB_TIMEOUT_MS` (génération d'un lab, 240 s par appel ; prévoir un délai de proxy d'entrée suffisant), `ASSISTANT_DAILY_QUOTA`, `CERT_SIGNING_KEY` (clé Ed25519 PEM des certificats ; sans elle en production, aucun examen n'est ouvert ; `CERT_ALLOW_DEV_KEY=true` autorise la clé de développement, pile locale seulement) (API) ; `AI_LLM` (`fake` ou `claude`), `AI_MODEL`, `AI_EFFORT`, `ANTHROPIC_API_KEY`, `CORE_API_URL`, `QDRANT_URL`, `AI_EMBEDDER` (`fastembed` ou `hash`), `EMBED_MODEL`, `RAG_MIN_SIMILARITY` (service IA).
 

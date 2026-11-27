@@ -5,6 +5,7 @@ import { parse } from '../../editorial/application/editorial.service';
 import type { AuthenticatedUser } from '../../iam/domain/identity';
 import { CurrentUser } from '../../iam/interface/auth.decorators';
 import { PrivacyService } from '../application/privacy.service';
+import { LIMITS, RateLimit } from '../../../shared/security/rate-limit';
 
 @ApiTags('privacy')
 @ApiBearerAuth()
@@ -19,6 +20,7 @@ export class PrivacyController {
   }
 
   @Get('export')
+  @RateLimit(LIMITS.privacyExport)
   @Header('content-disposition', 'attachment; filename="sysmaster-mes-donnees.json"')
   @Header('cache-control', 'no-store')
   @ApiOperation({ summary: 'Export de toutes mes données (droit d’accès et portabilité)' })

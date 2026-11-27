@@ -3,6 +3,7 @@ import { Controller, Get, Headers, UnauthorizedException } from '@nestjs/common'
 import { ApiExcludeController } from '@nestjs/swagger';
 import { Database } from '../../../shared/database.module';
 import { Public } from '../../iam/interface/auth.decorators';
+import { DEV_AI_TOKEN } from '../../../shared/security/production-config';
 
 export interface AgentProfileForAi {
   code: string;
@@ -18,7 +19,7 @@ export interface AgentProfileForAi {
 @ApiExcludeController()
 @Controller('ai')
 export class AgentProfilesController {
-  private readonly token = Buffer.from(process.env.AI_SERVICE_TOKEN ?? 'dev-only-ai-token');
+  private readonly token = Buffer.from(process.env.AI_SERVICE_TOKEN ?? DEV_AI_TOKEN);
 
   constructor(private readonly db: Database) {}
 
