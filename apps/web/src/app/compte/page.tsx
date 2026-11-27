@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import type { EnrollmentDto } from '@sysmaster/contracts';
+import type { EnrollmentDto, PrivacyStatusDto } from '@sysmaster/contracts';
 import { ProgressBar } from '@/components/progress-bar';
 import { redirect } from 'next/navigation';
 import { getServerSession } from 'next-auth';
@@ -11,6 +11,7 @@ import { buttonVariants } from '@/components/ui/button';
 import { Card, CardDescription, CardTitle } from '@/components/ui/card';
 import { ApiUnavailableError, apiGet } from '@/lib/api';
 import { accountSecurityUrl, authOptions } from '@/lib/auth';
+import { PrivacyPanel } from './privacy-panel';
 
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = { title: 'Mon compte' };
@@ -36,10 +37,12 @@ export default async function AccountPage() {
 
   let me: Me | null;
   let enrollments: EnrollmentDto[] | null;
+  let privacy: PrivacyStatusDto | null;
   try {
-    [me, enrollments] = await Promise.all([
+    [me, enrollments, privacy] = await Promise.all([
       apiGet<Me>('/me', session.accessToken),
       apiGet<EnrollmentDto[]>('/me/learning', session.accessToken),
+      apiGet<PrivacyStatusDto>('/me/privacy', session.accessToken),
     ]);
   } catch (e) {
     if (e instanceof ApiUnavailableError) return <ApiUnavailable />;
@@ -89,6 +92,17 @@ export default async function AccountPage() {
           Gérer la sécurité du compte <ExternalLink className="size-4" aria-hidden />
         </a>
       </Card>
+
+      {privacy && (
+        <Card>
+          <CardTitle>Mes données personnelles</CardTitle>
+          <CardDescription>
+            Vos droits RGPD : accès, portabilité et effacement. Les détails sont dans la{' '}
+            <Link href="/confidentialite" className="text-primary hover:underline">politique de confidentialité</Link>.
+          </CardDescription>
+          <PrivacyPanel status={privacy} />
+        </Card>
+      )}
 
       <Card>
         <CardTitle>Droits de l&apos;offre</CardTitle>

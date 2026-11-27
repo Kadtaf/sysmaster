@@ -32,6 +32,8 @@ export const LIMITS = {
   certificateLookup: { bucket: 'certificate-lookup', limit: 30, windowS: 60 },
   /** Rejoindre un groupe privé par son code : empêche de deviner les codes d'invitation. */
   groupJoinCode: { bucket: 'group-join-code', limit: 10, windowS: 600 },
+  /** Export RGPD : une trentaine de requêtes en base par export. */
+  privacyExport: { bucket: 'privacy-export', limit: 5, windowS: 3600 },
   /** Démarrer un examen. */
   examStart: { bucket: 'exam-start', limit: 10, windowS: 3600 },
 } satisfies Record<string, RateLimitRule>;

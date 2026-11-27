@@ -69,8 +69,12 @@ export class PgUserRepository extends UserRepository {
       const roles = (
         await tx.query<{ role_code: string }>('SELECT role_code FROM iam.user_roles WHERE user_id = $1', [id])
       ).rows.map((r) => r.role_code);
+      const due = (await tx.query<{ deletion_due_at: Date | null }>('SELECT deletion_due_at FROM iam.users WHERE id = $1', [id])).rows[0];
 
-      return { id, subject: c.subject, email: c.email, displayName: c.displayName, roles: knownRoles(roles) as GlobalRole[] };
+      return {
+        id, subject: c.subject, email: c.email, displayName: c.displayName, roles: knownRoles(roles) as GlobalRole[],
+        deletionDueAt: due?.deletion_due_at ?? null,
+      };
     });
   }
 

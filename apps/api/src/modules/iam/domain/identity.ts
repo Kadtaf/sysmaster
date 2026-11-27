@@ -21,6 +21,8 @@ export interface AuthenticatedUser {
   email: string;
   displayName: string;
   roles: GlobalRole[];
+  /** Suppression RGPD programmée : le cache d'authentification ne doit pas survivre à cette date. */
+  deletionDueAt?: Date | null;
 }
 
 /** Ne conserve que les rôles connus de l'application : un rôle Keycloak inconnu n'ouvre aucun droit. */
