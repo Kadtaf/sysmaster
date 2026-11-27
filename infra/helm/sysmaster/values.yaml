@@ -11,7 +11,8 @@ imagePullSecrets: []
 # Secret Kubernetes existant (jamais dans Git) contenant :
 #   DATABASE_URL, NEXTAUTH_SECRET, KEYCLOAK_CLIENT_SECRET,
 #   AI_SERVICE_TOKEN (si ai.enabled), ANTHROPIC_API_KEY (si ai.llm=claude),
-#   CERT_SIGNING_KEY (clé Ed25519 PEM des certificats ; sans elle, aucun examen n'est ouvert)
+#   CERT_SIGNING_KEY (clé Ed25519 PEM des certificats ; sans elle, aucun examen n'est ouvert),
+#   KEYCLOAK_ADMIN_CLIENT_ID / KEYCLOAK_ADMIN_CLIENT_SECRET (facultatifs : suppression Keycloak des comptes effacés)
 existingSecret: sysmaster-secrets
 
 publicUrl: https://sysmaster.example.com   # URL vue par le navigateur (front et API sur le même hôte)
