@@ -1,7 +1,8 @@
 import { BadRequestException, ConflictException, Injectable, Logger, OnApplicationBootstrap, OnApplicationShutdown } from '@nestjs/common';
 import type { PrivacyStatusDto } from '@sysmaster/contracts';
 import { canCancelErasure, ERASURE_CONFIRMATION, ERASURE_GRACE_DAYS, erasureDueAt, erasureRequestBlocker, RETENTION_DAYS } from '../domain/privacy';
-import { IdentityAdmin, PrivacyRepository } from './ports';
+import { BillingService } from '../../billing/application/billing.service';
+import { ErasureHooks, IdentityAdmin, PrivacyRepository } from './ports';
 
 @Injectable()
 export class PrivacyService implements OnApplicationBootstrap, OnApplicationShutdown {
@@ -12,7 +13,13 @@ export class PrivacyService implements OnApplicationBootstrap, OnApplicationShut
   constructor(
     private readonly repo: PrivacyRepository,
     private readonly idp: IdentityAdmin,
+    private readonly billing: BillingService,
   ) {}
+
+  private readonly hooks: ErasureHooks = {
+    idpDelete: (subject) => this.idp.deleteUser(subject),
+    closeBilling: (userId) => this.billing.closeForErasure(userId),
+  };
 
   /** Tâche périodique : effacements arrivés à échéance, puis durées de conservation. */
   onApplicationBootstrap() {
@@ -32,7 +39,8 @@ export class PrivacyService implements OnApplicationBootstrap, OnApplicationShut
     if (!this.running) {
       this.running = (async () => {
         const erased = await this.eraseDue(now);
-        await this.repo.retryIdentityDeletion((subject) => this.idp.deleteUser(subject));
+        await this.repo.retryIdentityDeletion(this.hooks.idpDelete);
+        await this.repo.retryBillingClosure((ids) => this.billing.cancelSubscriptions(ids));
         const retention = await this.repo.applyRetention(now);
         const purged = Object.entries(retention).filter(([, n]) => n > 0);
         if (erased || purged.length) this.logger.log(`RGPD : ${erased} compte(s) effacé(s) ; conservation : ${JSON.stringify(Object.fromEntries(purged))}`);
@@ -43,7 +51,7 @@ export class PrivacyService implements OnApplicationBootstrap, OnApplicationShut
   }
 
   eraseDue(now = new Date()) {
-    return this.repo.erase(now, 100, (subject) => this.idp.deleteUser(subject));
+    return this.repo.erase(now, 100, this.hooks);
   }
 
   async status(userId: string, now = new Date()): Promise<PrivacyStatusDto> {

@@ -67,6 +67,21 @@ export class PgBillingRepository extends BillingRepository {
     return rows.map((r) => ({ amountCents: r.amount_cents, currency: r.currency, status: r.status, issuedAt: r.issued_at.toISOString(), url: r.hosted_url ?? r.pdf_url }));
   }
 
+  async openSubscriptionIds(userId: string): Promise<string[]> {
+    const { rows } = await this.db.query<{ stripe_subscription_id: string }>(
+      `SELECT s.stripe_subscription_id FROM billing.subscriptions s JOIN billing.customers c ON c.id = s.customer_id
+        WHERE c.user_id = $1 AND s.stripe_subscription_id IS NOT NULL AND s.status NOT IN ('canceled', 'incomplete_expired')
+        ORDER BY s.created_at`,
+      [userId],
+    );
+    return rows.map((r) => r.stripe_subscription_id);
+  }
+
+  async erasureScheduled(userId: string): Promise<boolean> {
+    const { rows } = await this.db.query(`SELECT 1 FROM iam.users WHERE id = $1 AND (deletion_requested_at IS NOT NULL OR status = 'deleted')`, [userId]);
+    return rows.length > 0;
+  }
+
   async createExamPurchase(p: { userId: string; code: string; listPriceCents: number; discountPct: number; amountCents: number; currency: string }): Promise<string> {
     const { rows } = await this.db.query<{ id: string }>(
       `INSERT INTO billing.exam_purchases (user_id, certification_code, list_price_cents, discount_pct, amount_cents, currency)

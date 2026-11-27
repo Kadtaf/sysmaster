@@ -68,8 +68,10 @@ describeDb('RGPD : export, effacement, conservation (e2e)', () => {
     // Avant l'échéance : rien n'est effacé.
     await privacy.eraseDue(new Date());
     expect((await pool.query(`SELECT status FROM iam.users WHERE id = $1`, [me.id])).rows[0].status).toBe('active');
-    // Après le délai de grâce.
-    await privacy.eraseDue(new Date(Date.now() + 8 * 86_400_000));
+    // Après le délai de grâce. L'échéance est avancée pour ce compte seul : avancer l'horloge effacerait
+    // aussi les comptes que les autres suites, lancées en parallèle, ont mis en attente.
+    await pool.query(`UPDATE iam.users SET deletion_due_at = now() - interval '1 second' WHERE id = $1`, [me.id]);
+    await privacy.eraseDue(new Date());
 
     const u = (await pool.query(`SELECT email, display_name, idp_subject, status FROM iam.users WHERE id = $1`, [me.id])).rows[0];
     expect(u).toEqual({ email: `supprime-${me.id}@invalid`, display_name: 'Compte supprimé', idp_subject: null, status: 'deleted' });

@@ -89,6 +89,19 @@ export class StripeGateway extends PaymentGateway {
     return s.url;
   }
 
+  async cancelSubscriptionNow(subscriptionId: string): Promise<void> {
+    const api = this.api();
+    try {
+      const s = await api.subscriptions.retrieve(subscriptionId);
+      if (s.status === 'canceled' || s.status === 'incomplete_expired') return;
+      // Sans remboursement au prorata ni facture de clôture : la personne a demandé la suppression de son compte.
+      await api.subscriptions.cancel(subscriptionId, {}, { idempotencyKey: `erasure-cancel-${subscriptionId}` });
+    } catch (err) {
+      if ((err as { code?: string }).code === 'resource_missing') return;
+      throw err;
+    }
+  }
+
   async createExamCheckout(o: {
     customerId: string; userId: string; purchaseId: string; name: string; amountCents: number; currency: string; successUrl: string; cancelUrl: string;
   }): Promise<{ url: string; sessionId: string }> {

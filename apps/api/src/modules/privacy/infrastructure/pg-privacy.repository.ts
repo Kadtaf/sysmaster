@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import type { PoolClient } from 'pg';
 import { Database } from '../../../shared/database.module';
-import { PrivacyRepository, RetentionResult } from '../application/ports';
+import { ErasureHooks, PrivacyRepository, RetentionResult } from '../application/ports';
 import { ANONYMIZED_NAME, anonymizedEmail, ErasureState, RETENTION_DAYS, retentionCutoff } from '../domain/privacy';
 
 /**
@@ -58,6 +58,13 @@ const EXPORT: [string, string][] = [
   ['notifications', `SELECT channel, type, payload, read_at, created_at FROM notification.notifications WHERE user_id = $1`],
   ['preferencesNotifications', `SELECT type, channel, enabled FROM notification.preferences WHERE user_id = $1`],
   ['contributionsEditoriales', `SELECT id, kind, status, submitted_at, reviewed_at, created_at FROM editorial.revisions WHERE author_id = $1`],
+  // Paiement : aucune donnée de carte (Stripe la garde) ; montants, états et dates seulement.
+  ['abonnements', `SELECT s.plan_code, s.status, s.current_period_end, s.cancel_at_period_end, s.created_at
+                     FROM billing.subscriptions s JOIN billing.customers c ON c.id = s.customer_id WHERE c.user_id = $1 ORDER BY s.created_at`],
+  ['factures', `SELECT i.amount_cents, i.currency, i.status, i.issued_at, coalesce(i.hosted_url, i.pdf_url) AS url
+                  FROM billing.invoices i JOIN billing.customers c ON c.id = i.customer_id WHERE c.user_id = $1 ORDER BY i.issued_at`],
+  ['achatsExamens', `SELECT certification_code, list_price_cents, discount_pct, amount_cents, currency, status, created_at, paid_at, consumed_at
+                       FROM billing.exam_purchases WHERE user_id = $1 ORDER BY created_at`],
   ['journalActions', `SELECT action, target_type, target_id, created_at FROM platform.audit_log WHERE actor_id = $1 ORDER BY created_at`],
 ];
 
@@ -107,7 +114,7 @@ export class PgPrivacyRepository extends PrivacyRepository {
     return rowCount === 1;
   }
 
-  async erase(now: Date, limit: number, idpDelete: (subject: string) => Promise<boolean>): Promise<number> {
+  async erase(now: Date, limit: number, hooks: ErasureHooks): Promise<number> {
     let done = 0;
     for (; done < limit; done++) {
       const erased = await this.db.transaction(async (tx) => {
@@ -119,18 +126,22 @@ export class PgPrivacyRepository extends PrivacyRepository {
         );
         const u = rows[0];
         if (!u) return false;
+        // Avant tout : plus aucun prélèvement. Si la transaction échoue ensuite, la résiliation sera
+        // simplement refaite au passage suivant (sans effet sur un abonnement déjà résilié).
+        const stripePending = await hooks.closeBilling(u.id);
         const counts = await this.eraseOne(tx, u.id);
         let idpDeleted = !u.idp_subject;
         if (u.idp_subject) {
           try {
-            idpDeleted = await idpDelete(u.idp_subject);
+            idpDeleted = await hooks.idpDelete(u.idp_subject);
           } catch (err) {
             this.logger.error(`Suppression chez le fournisseur d'identité impossible pour ${u.id} : ${(err as Error).message}`);
           }
         }
         await tx.query(
-          `INSERT INTO iam.erasure_log (user_id, requested_at, idp_deleted, idp_subject, counts) VALUES ($1, $2, $3, $4, $5)`,
-          [u.id, u.deletion_requested_at, idpDeleted, idpDeleted ? null : u.idp_subject, JSON.stringify(counts)],
+          `INSERT INTO iam.erasure_log (user_id, requested_at, idp_deleted, idp_subject, counts, stripe_subscriptions_pending)
+           VALUES ($1, $2, $3, $4, $5, $6)`,
+          [u.id, u.deletion_requested_at, idpDeleted, idpDeleted ? null : u.idp_subject, JSON.stringify(counts), stripePending],
         );
         return true;
       });
@@ -153,6 +164,21 @@ export class PgPrivacyRepository extends PrivacyRepository {
       }
       if (!ok) break; // pas de client d'administration, ou fournisseur en panne : inutile d'insister sur les suivants
       await this.db.query(`UPDATE iam.erasure_log SET idp_deleted = true, idp_subject = NULL WHERE id = $1`, [r.id]);
+      done++;
+    }
+    return done;
+  }
+
+  async retryBillingClosure(cancel: (subscriptionIds: string[]) => Promise<string[]>): Promise<number> {
+    const { rows } = await this.db.query<{ id: string; pending: string[] }>(
+      `SELECT id, stripe_subscriptions_pending AS pending FROM iam.erasure_log
+        WHERE cardinality(stripe_subscriptions_pending) > 0 ORDER BY id LIMIT 100`,
+    );
+    let done = 0;
+    for (const r of rows) {
+      const left = await cancel(r.pending);
+      if (left.length === r.pending.length) break; // paiement fermé ou Stripe en panne : inutile d'insister
+      await this.db.query(`UPDATE iam.erasure_log SET stripe_subscriptions_pending = $2 WHERE id = $1`, [r.id, left]);
       done++;
     }
     return done;
@@ -252,6 +278,9 @@ export class PgPrivacyRepository extends PrivacyRepository {
                                                       WHERE started_at < $1 AND integrity <> '{}'`, at(RETENTION_DAYS.examIntegrity));
     await run('labs.instances.transcript', `UPDATE labs.instances SET transcript = '[]'
                                              WHERE ended_at < $1 AND transcript <> '[]'`, at(RETENTION_DAYS.labTranscripts));
+    // Pièces comptables : dix ans, puis plus rien (Stripe garde son propre exemplaire des factures).
+    await run('billing.invoices', `DELETE FROM billing.invoices WHERE issued_at < $1`, at(RETENTION_DAYS.billingRecords));
+    await run('billing.exam_purchases', `DELETE FROM billing.exam_purchases WHERE created_at < $1`, at(RETENTION_DAYS.billingRecords));
     return result;
   }
 }
