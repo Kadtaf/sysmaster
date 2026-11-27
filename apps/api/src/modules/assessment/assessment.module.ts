@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { BillingModule } from '../billing/billing.module';
 import { CertificateSigner, CertificationRepository } from './application/certification-ports';
 import { CertificationService } from './application/certification.service';
 import { PracticeService } from './application/practice.service';
@@ -11,6 +12,7 @@ import { QuizController } from './interface/quiz.controller';
 
 /** Évaluation : quiz d'entraînement publiés depuis le back-office, examens de certification et certificats signés. */
 @Module({
+  imports: [BillingModule],
   controllers: [QuizController, CertificationController],
   providers: [
     PracticeService,

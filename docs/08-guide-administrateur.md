@@ -109,7 +109,7 @@ Pourquoi : un cas de référence fige un diagnostic qu'on sait juste ; toute mod
 - **Ouvrir un examen** : il faut, dans la banque, au moins autant de questions **relues** (choix unique ou multiple) des plateformes de la certification que l'examen en tire. Les banques des dix certifications sont écrites dans `db/content/exam-banks/` : chaque question a quatre propositions et une explication de la bonne réponse et des mauvaises ; le générateur mélange l'ordre des propositions. Les quiz publiés depuis le back-office alimentent aussi la banque ; le brouillon par l'IA aide à la constituer, toujours relu. Les conditions (plateformes, labs exigés, seuil, délai après échec) sont dans `db/seeds/008_certifications.sql`, la taille, la durée et les niveaux tirés des examens dont la banque est prête dans `db/content/exam-banks.mjs`. Les niveaux (`exam_difficulties`, migration 017) séparent deux certifications d'une même plateforme : Windows Technician et Linux Administrator tirent les niveaux débutant et intermédiaire, Windows Administrator les niveaux intermédiaire à expert ; Linux Server Expert et SysMaster Expert ne tirent que les niveaux avancé et expert.
 - **Retirer une question d'examen** : `UPDATE assessment.questions SET reviewed = false WHERE id = '…'`. Elle n'est plus tirée, et le seed ne la remet pas en service. Vérifiez qu'il reste assez de questions relues pour la taille de l'examen, sinon il se ferme.
 - **Révoquer** : `POST /api/v1/certificates/<numéro>/revoke` avec `{ "reason": "…" }` (administrateurs). La page de vérification affiche aussitôt « révoqué » et le motif. Les signaux d'intégrité d'un examen (changements d'onglet, collages) sont dans `assessment.exam_sessions.integrity`, pour la relecture d'un cas litigieux.
-- Le paiement des examens arrivera avec Stripe : aujourd'hui, `price_cents` est affiché mais non perçu.
+- **Paiement des examens** : tant que le paiement en ligne est fermé, les examens restent gratuits. Une fois ouvert, chaque tentative se paie au prix `price_cents` de la certification, moins la remise de l'offre (−20 % Premium, −40 % Pro), voir « Paiement (Stripe) ».
 
 ### Communauté
 
@@ -128,7 +128,7 @@ Pour l'ouvrir (commencez en mode test, clés `sk_test_…`) :
 
 1. **Produits et prix** : dans Stripe, créez un produit Premium et un produit Pro, chacun avec un prix mensuel récurrent **au même montant que `billing.plans`** (9,99 € et 19,99 € TTC), car la page Tarifs affiche les prix de la base. Notez les identifiants `price_…`.
 2. **Portail client** : dans *Paramètres → Billing → Portail client*, autorisez le changement de carte, la résiliation (en fin de période conseillé) et le passage d'une offre à l'autre entre ces deux prix.
-3. **Webhook** : ajoutez le point d'accès `https://<votre site>/api/v1/billing/webhook` avec les événements `checkout.session.completed`, `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`, `customer.subscription.paused`, `customer.subscription.resumed`, `invoice.finalized`, `invoice.paid`, `invoice.payment_failed`, `invoice.voided`. Notez le secret de signature `whsec_…`.
+3. **Webhook** : ajoutez le point d'accès `https://<votre site>/api/v1/billing/webhook` avec les événements `checkout.session.completed`, `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`, `customer.subscription.paused`, `customer.subscription.resumed`, `invoice.finalized`, `invoice.paid`, `invoice.payment_failed`, `invoice.voided`, et pour les examens `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed`, `checkout.session.expired`, `charge.refunded`. Notez le secret de signature `whsec_…`.
 4. **Secrets** : `STRIPE_SECRET_KEY` (une clé restreinte suffit : écriture sur Customers, Checkout Sessions et Customer portal) et `STRIPE_WEBHOOK_SECRET` dans `sysmaster-secrets` ; `billing.prices` (« `premium:price_…,pro:price_…` ») dans les valeurs Helm. En local : les mêmes variables dans `.env`, et `stripe listen --forward-to localhost:4000/api/v1/billing/webhook` pour recevoir les webhooks.
 5. **TVA** (facultatif) : activez Stripe Tax dans Stripe, puis `billing.automaticTax: true`. L'adresse de facturation est alors demandée au paiement.
 
@@ -140,7 +140,9 @@ Comportement :
 - **Un seul abonnement** : un second paiement est refusé (409). Changer d'offre, de carte ou résilier passe par le portail Stripe (bouton « Gérer mon abonnement »).
 - **Prix inconnu** : un abonnement dont le prix n'est pas dans `STRIPE_PRICES` répond 500 au webhook ; Stripe le renvoie pendant trois jours, le temps de corriger la variable. Le journal de l'API nomme le prix.
 
-Pas encore livré : paiement des examens avec la remise de l'offre, coupons propres à SysMaster (les codes promo Stripe fonctionnent déjà au paiement), licences par siège, affiliation, marketplace.
+- **Examens** : une tentative payée par examen, au prix de la certification moins la remise de l'offre, calculée par SysMaster (aucun prix à créer dans Stripe). Le paiement n'est proposé que si l'examen peut être passé tout de suite (prérequis, labs, délai après échec), pour ne jamais faire payer pour rien. La tentative est consommée quand l'examen démarre ; reprendre un examen en cours ne coûte rien. Un remboursement total avant usage (depuis le tableau de bord Stripe) annule la tentative ; après usage, l'historique reste. Les achats sont dans `billing.exam_purchases`.
+
+Pas encore livré : coupons propres à SysMaster (les codes promo Stripe fonctionnent déjà au paiement), licences par siège, affiliation, marketplace.
 
 ## 4. Événements (outbox)
 

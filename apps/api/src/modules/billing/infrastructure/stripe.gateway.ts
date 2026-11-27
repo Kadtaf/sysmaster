@@ -89,6 +89,41 @@ export class StripeGateway extends PaymentGateway {
     return s.url;
   }
 
+  async createExamCheckout(o: {
+    customerId: string; userId: string; purchaseId: string; name: string; amountCents: number; currency: string; successUrl: string; cancelUrl: string;
+  }): Promise<{ url: string; sessionId: string }> {
+    const tax = this.settings.automaticTax;
+    const metadata = { kind: 'exam', purchase_id: o.purchaseId, user_id: o.userId };
+    const s = await this.api().checkout.sessions.create(
+      {
+        mode: 'payment',
+        customer: o.customerId,
+        client_reference_id: o.userId,
+        line_items: [{
+          quantity: 1,
+          price_data: {
+            currency: o.currency.toLowerCase(),
+            unit_amount: o.amountCents,
+            // Prix affichés TTC : la TVA calculée par Stripe Tax est comprise dans le montant.
+            ...(tax ? { tax_behavior: 'inclusive' as const } : {}),
+            product_data: { name: o.name },
+          },
+        }],
+        metadata,
+        payment_intent_data: { metadata },
+        // Une facture pour chaque examen payé, comme pour les abonnements.
+        invoice_creation: { enabled: true, invoice_data: { metadata } },
+        success_url: o.successUrl,
+        cancel_url: o.cancelUrl,
+        ...(tax ? { automatic_tax: { enabled: true }, customer_update: { address: 'auto' as const }, billing_address_collection: 'required' as const } : {}),
+      },
+      // Un double clic ne crée qu'une session pour le même achat.
+      { idempotencyKey: `exam-${o.purchaseId}` },
+    );
+    if (!s.url) throw new ServiceUnavailableException('Stripe n’a pas renvoyé de page de paiement.');
+    return { url: s.url, sessionId: s.id };
+  }
+
   verifyWebhook(rawBody: Buffer, signature: string | undefined): VerifiedEvent {
     if (!this.webhookSecret || !this.client) throw new InvalidWebhookError('webhook non configuré');
     if (!signature) throw new InvalidWebhookError('signature absente');
@@ -106,10 +141,29 @@ export class StripeGateway extends PaymentGateway {
 /** Traduit les événements utiles ; les autres sont notés et ignorés. */
 export function translate(e: Stripe.Event): BillingEvent | null {
   switch (e.type) {
-    case 'checkout.session.completed': {
+    case 'checkout.session.completed':
+    case 'checkout.session.async_payment_succeeded':
+    case 'checkout.session.async_payment_failed':
+    case 'checkout.session.expired': {
       const s = e.data.object;
+      if (s.mode === 'payment' && s.metadata?.kind === 'exam' && s.metadata.purchase_id) {
+        const outcome =
+          e.type === 'checkout.session.expired' ? 'expired'
+          : e.type === 'checkout.session.async_payment_failed' ? 'failed'
+          : s.payment_status === 'paid' || s.payment_status === 'no_payment_required' ? 'paid'
+          : 'pending'; // prélèvement SEPA : la confirmation arrive plus tard (async_payment_succeeded)
+        return { kind: 'exam_payment', purchaseId: s.metadata.purchase_id, checkoutSessionId: s.id, paymentIntentId: idOf(s.payment_intent), outcome };
+      }
       const customerId = idOf(s.customer);
-      return s.mode === 'subscription' && customerId ? { kind: 'checkout_completed', customerId, userId: s.client_reference_id ?? null } : null;
+      return e.type === 'checkout.session.completed' && s.mode === 'subscription' && customerId
+        ? { kind: 'checkout_completed', customerId, userId: s.client_reference_id ?? null }
+        : null;
+    }
+    case 'charge.refunded': {
+      const c = e.data.object;
+      const pi = idOf(c.payment_intent);
+      // Seul un remboursement total annule l'achat ; un geste partiel le laisse valable.
+      return pi && c.refunded ? { kind: 'refund', paymentIntentId: pi } : null;
     }
     case 'customer.subscription.created':
     case 'customer.subscription.updated':

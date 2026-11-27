@@ -4,7 +4,8 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { useCallback, useEffect, useRef, useState, useTransition } from 'react';
-import type { CertificationDto, ExamResultDto, ExamSessionDto } from '@sysmaster/contracts';
+import type { CertificationDto, ExamResultDto, ExamSessionDto, RedirectDto } from '@sysmaster/contracts';
+import { formatPrice } from '@/lib/billing';
 import { Markdown } from '@/components/markdown';
 import { Button } from '@/components/ui/button';
 import { Card, CardDescription, CardTitle } from '@/components/ui/card';
@@ -71,6 +72,18 @@ export function ExamPanel({ certification: c }: { certification: CertificationDt
       setError(null);
       try {
         setExam(await apiRequest<ExamSessionDto>('POST', `/certifications/${c.code}/exam`, session?.accessToken));
+      } catch (e) {
+        fail(e);
+      }
+    });
+
+  /** Paiement d'une tentative chez Stripe (redirection complète), puis retour sur cette page. */
+  const pay = () =>
+    startTransition(async () => {
+      setError(null);
+      try {
+        const { url } = await apiRequest<RedirectDto>('POST', `/certifications/${c.code}/purchase`, session?.accessToken);
+        window.location.assign(url);
       } catch (e) {
         fail(e);
       }
@@ -188,9 +201,21 @@ export function ExamPanel({ certification: c }: { certification: CertificationDt
           Le minuteur démarre dès que vous commencez et ne s’arrête pas si vous fermez la page. Prévoyez {Math.round(c.exam.timeLimitS / 60)} minutes au calme.
         </CardDescription>
       )}
-      <Button onClick={start} disabled={pending || (!me.eligible && !me.openSession)}>
-        {me.openSession ? 'Reprendre l’examen' : 'Commencer l’examen'}
-      </Button>
+      {!me.openSession && c.payment.required && !me.paid ? (
+        <>
+          <Button onClick={pay} disabled={pending || !me.eligible}>
+            {pending ? 'Ouverture du paiement…' : `Payer l’examen (${formatPrice(c.payment.amountCents)})`}
+          </Button>
+          <p className="text-xs text-muted-foreground">
+            Une tentative par paiement, à commencer quand vous voulez. Paiement par Stripe : SysMaster ne voit jamais votre carte.
+          </p>
+        </>
+      ) : (
+        <Button onClick={start} disabled={pending || (!me.eligible && !me.openSession)}>
+          {me.openSession ? 'Reprendre l’examen' : 'Commencer l’examen'}
+        </Button>
+      )}
+      {!me.openSession && me.paid && <p className="text-xs text-muted-foreground">Tentative payée : elle sera utilisée quand vous commencerez.</p>}
       {error && (
         <div role="alert" className="text-sm text-red-600">
           <p>{error.message}</p>

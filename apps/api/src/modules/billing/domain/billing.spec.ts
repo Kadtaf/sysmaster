@@ -1,4 +1,4 @@
-import { aiDailyCap, aiQuestionsPerDay, checkoutBlocker, effectivePlan, isStale, parsePriceMap, UNLIMITED_FAIR_USE } from './billing';
+import { examPaymentRequired, examPrice, aiDailyCap, aiQuestionsPerDay, checkoutBlocker, effectivePlan, isStale, parsePriceMap, UNLIMITED_FAIR_USE } from './billing';
 
 const sub = (plan: string, status: Parameters<typeof effectivePlan>[0][number]['status']) => ({ plan, status, currentPeriodEnd: null });
 
@@ -37,5 +37,16 @@ describe('facturation', () => {
     expect(isStale(null, new Date(1))).toBe(false);
     expect(isStale(new Date(2000), new Date(1000))).toBe(true);
     expect(isStale(new Date(1000), new Date(1000))).toBe(false);
+  });
+
+  it('prix d’examen : remise de l’offre, arrondie au centime ; payant seulement si le paiement est ouvert', () => {
+    expect(examPrice(7900, 0)).toBe(7900);
+    expect(examPrice(7900, 20)).toBe(6320);
+    expect(examPrice(4900, 40)).toBe(2940);
+    expect(examPrice(999, 33)).toBe(669);
+    expect(examPrice(7900, 150)).toBe(0);
+    expect(examPaymentRequired(false, 7900)).toBe(false);
+    expect(examPaymentRequired(true, 0)).toBe(false);
+    expect(examPaymentRequired(true, 6320)).toBe(true);
   });
 });

@@ -3,9 +3,12 @@ import type {
   CertificateDto, CertificationDto, ExamResultDto, ExamSessionDto, ExamSubmissionInput,
 } from '@sysmaster/contracts';
 import { randomBytes } from 'node:crypto';
+import type { RedirectDto } from '@sysmaster/contracts';
+import { BillingService } from '../../billing/application/billing.service';
 import type { AuthenticatedUser } from '../../iam/domain/identity';
 import { canonical, certificateStatus, eligibility, expiry, isLate, serialFor } from '../domain/certification';
 import { score } from '../domain/scoring';
+import { examPaymentRequired, examPrice } from '../../billing/domain/billing';
 import { CertificateSigner, CertificationRepository, CertificationRow, StoredCertificate, UserCertState } from './certification-ports';
 
 /**
@@ -18,17 +21,31 @@ export class CertificationService {
   constructor(
     private readonly repo: CertificationRepository,
     private readonly signer: CertificateSigner,
+    private readonly billing: BillingService,
   ) {}
 
   async list(user: AuthenticatedUser | null): Promise<CertificationDto[]> {
-    const [rows, state] = await Promise.all([this.repo.list(), user ? this.repo.userState(user.id) : null]);
-    return rows.map((c) => this.toDto(c, state));
+    const [rows, state, pay] = await Promise.all([this.repo.list(), user ? this.repo.userState(user.id) : null, this.billing.examContext(user?.id ?? null)]);
+    return rows.map((c) => this.toDto(c, state, pay));
   }
 
   async get(code: string, user: AuthenticatedUser | null): Promise<CertificationDto> {
     const c = await this.repo.find(code);
     if (!c) throw new NotFoundException('Certification introuvable');
-    return this.toDto(c, user ? await this.repo.userState(user.id) : null);
+    const [state, pay] = await Promise.all([user ? this.repo.userState(user.id) : null, this.billing.examContext(user?.id ?? null)]);
+    return this.toDto(c, state, pay);
+  }
+
+  /** Paiement d'une tentative : seulement si l'examen pourrait être passé tout de suite (pas de paiement pour rien). */
+  async purchase(user: AuthenticatedUser, code: string): Promise<RedirectDto> {
+    const c = await this.repo.find(code);
+    if (!c) throw new NotFoundException('Certification introuvable');
+    if (!this.signer.ready) throw new ServiceUnavailableException('Les certifications ne sont pas encore ouvertes sur cette plateforme.');
+    const state = await this.repo.userState(user.id);
+    if (state.openSessions.has(code)) throw new ConflictException('Un examen est déjà en cours pour cette certification.');
+    const e = this.eligibilityFor(c, state);
+    if (!e.eligible) throw new ForbiddenException({ message: 'Vous ne pouvez pas passer cet examen pour le moment.', reasons: e.reasons });
+    return this.billing.purchaseExam(user.id, { code: c.code, title: c.title, listPriceCents: c.priceCents });
   }
 
   /** Ouvre l'examen, ou reprend la session en cours (même tirage, même échéance). */
@@ -47,8 +64,20 @@ export class CertificationService {
     if (!this.signer.ready) throw new ServiceUnavailableException('Les certifications ne sont pas encore ouvertes sur cette plateforme.');
     const e = this.eligibilityFor(c, state);
     if (!e.eligible) throw new ForbiddenException({ message: 'Vous ne pouvez pas passer cet examen pour le moment.', reasons: e.reasons });
-    const s = await this.repo.startSession(user.id, c);
-    if (!s) throw new ConflictException('Un examen est déjà en cours pour cette certification.');
+    // Paiement ouvert : une tentative payée est consommée ici (402 s'il n'y en a pas), rendue si l'ouverture échoue.
+    const purchase = await this.billing.consumeExam(user.id, code, c.priceCents);
+    let s;
+    try {
+      s = await this.repo.startSession(user.id, c);
+    } catch (err) {
+      if (purchase) await this.billing.releaseExam(purchase);
+      throw err;
+    }
+    if (!s) {
+      if (purchase) await this.billing.releaseExam(purchase);
+      throw new ConflictException('Un examen est déjà en cours pour cette certification.');
+    }
+    if (purchase) await this.billing.linkExamSession(purchase, s.id);
     return this.sessionDto(s.id, c, s.startedAt, s.deadlineAt, s.questionIds);
   }
 
@@ -121,7 +150,8 @@ export class CertificationService {
     });
   }
 
-  private toDto(c: CertificationRow, state: UserCertState | null): CertificationDto {
+  private toDto(c: CertificationRow, state: UserCertState | null, pay: { enabled: boolean; discountPct: number; credits: Set<string> }): CertificationDto {
+    const amountCents = examPrice(c.priceCents, pay.discountPct);
     const now = new Date();
     const held = state?.certificates.get(c.code);
     const e = state ? this.eligibilityFor(c, state) : null;
@@ -129,6 +159,7 @@ export class CertificationService {
     return {
       code: c.code, title: c.title, description: c.description, level: c.level, validityMonths: c.validityMonths, priceCents: c.priceCents,
       exam: { questionCount: c.questionCount, timeLimitS: c.timeLimitS, passScore: c.passScore, retryAfterHours: c.retryAfterHours, available: this.signer.ready && c.bankSize >= c.questionCount },
+      payment: { required: examPaymentRequired(pay.enabled, amountCents), amountCents, discountPct: pay.discountPct },
       requirements: [
         ...c.prerequisites.map((p) => {
           const h = state?.certificates.get(p.code);
@@ -142,6 +173,7 @@ export class CertificationService {
         nextAttemptAt: e.nextAttemptAt?.toISOString() ?? null,
         certificate: held ? { serial: held.serial, status: certificateStatus(held, now) } : null,
         openSession: open && !isLate(open.deadlineAt, now) ? { id: open.id, deadlineAt: open.deadlineAt.toISOString() } : null,
+        paid: pay.credits.has(c.code),
       } : null,
     };
   }

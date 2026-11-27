@@ -73,6 +73,7 @@ Préfixe `/api/v1`. Documentation OpenAPI générée sur `/api/docs`. Authentifi
 | GET | `/certificates/:serial` | Public : vérification (titulaire, certification, dates, `status` valid/expired/revoked, `signatureValid`) |
 | GET | `/certificates/public-key` | Public : clé Ed25519 (PEM) qui vérifie les signatures |
 | POST | `/certificates/:serial/revoke` | Administrateurs : `{ reason }` |
+| POST | `/certifications/:code/purchase` | Paiement d'une tentative d'examen (Stripe Checkout, remise de l'offre) → `{ url }` ; 403 si l'examen ne peut pas être passé maintenant, 409 si une tentative payée attend, 503 si le paiement est fermé. Paiement ouvert : `POST /certifications/:code/exam` répond 402 sans tentative payée |
 | GET | `/billing/plans` | Public : offres, prix, quota IA, remise certifications ; `enabled` faux tant que Stripe n'est pas configuré |
 | GET | `/me/billing` | Offre appliquée, abonnement (statut, échéance, résiliation demandée), factures |
 | POST | `/me/billing/checkout` | `{ plan: premium \| pro }` → `{ url }` de Stripe Checkout ; 409 si un abonnement est déjà ouvert, 503 si le paiement est fermé |

@@ -7,19 +7,21 @@ import { ApiUnavailable } from '@/components/api-unavailable';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardTitle } from '@/components/ui/card';
 import { apiGet, ApiUnavailableError } from '@/lib/api';
+import { formatPrice } from '@/lib/billing';
 import { difficultyLabel } from '@/lib/labels';
 import { serverAccessToken } from '@/lib/session';
 import { ExamPanel } from './exam-panel';
 
 export const dynamic = 'force-dynamic';
-type Props = { params: Promise<{ code: string }> };
+type Props = { params: Promise<{ code: string }>; searchParams?: Promise<{ paiement?: string }> };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return { title: `Certification ${(await params).code}` };
 }
 
-export default async function CertificationPage({ params }: Props) {
+export default async function CertificationPage({ params, searchParams }: Props) {
   const { code } = await params;
+  const paiement = (await searchParams)?.paiement;
   const token = await serverAccessToken();
   let c: CertificationDto | null;
   try {
@@ -39,6 +41,12 @@ export default async function CertificationPage({ params }: Props) {
         <div className="mt-3 flex flex-wrap gap-2">
           <Badge>{difficultyLabel[c.level]}</Badge>
           <Badge>{c.validityMonths ? `Valable ${c.validityMonths / 12} ans` : 'Sans expiration'}</Badge>
+          {c.payment.required && (
+            <Badge>
+              Examen : {formatPrice(c.payment.amountCents)} TTC
+              {c.payment.discountPct > 0 ? ` (−${c.payment.discountPct} % avec votre offre)` : ''}
+            </Badge>
+          )}
         </div>
         <p className="mt-4 max-w-2xl text-muted-foreground">{c.description}</p>
       </header>
@@ -64,6 +72,13 @@ export default async function CertificationPage({ params }: Props) {
           </li>
         </ul>
       </Card>
+
+      {paiement === 'ok' && (
+        <p role="status" className="rounded-md border border-green-300 bg-green-50 p-3 text-sm text-green-900 dark:bg-green-950 dark:text-green-100">
+          Paiement reçu, merci. Votre tentative est disponible dès que Stripe la confirme, en général en quelques secondes : rechargez la page si le bouton « Commencer » n’apparaît pas encore.
+        </p>
+      )}
+      {paiement === 'annule' && <p role="status" className="rounded-md border p-3 text-sm">Paiement annulé : rien n’a été débité.</p>}
 
       {!c.exam.available ? (
         <p className="text-sm text-muted-foreground">L’examen ouvrira quand sa banque de questions relues sera complète.</p>

@@ -76,9 +76,9 @@ Les durées sont indicatives et supposent une équipe dédiée ; avec un dévelo
 
 ## Phase 5 — Certifications, communauté, monétisation
 
-- ✅ Examens tirés au sort dans la banque relue, chronométrés, intégrité légère ; certificats signés (Ed25519), imprimables avec QR code, page publique `/verify/<numéro>`, révocation. Les dix examens sont ouverts (banques relues, propositions mélangées, niveaux tirés par certification ; SysMaster Expert tire les questions avancées et expertes de Windows, Linux et réseau). ⏳ Paiement des examens, PDF généré côté serveur.
+- ✅ Examens tirés au sort dans la banque relue, chronométrés, intégrité légère ; certificats signés (Ed25519), imprimables avec QR code, page publique `/verify/<numéro>`, révocation. Les dix examens sont ouverts (banques relues, propositions mélangées, niveaux tirés par certification ; SysMaster Expert tire les questions avancées et expertes de Windows, Linux et réseau). ✅ Paiement des examens (Stripe, remise de l'offre), fermé sans clé. ⏳ PDF généré côté serveur.
 - ✅ Forum par catégorie, questions-réponses avec réponse acceptée (XP d'entraide), votes, recherche sans accents, questions similaires avant publication, signalements, masquage automatique, file de modération, verrouillage. ✅ Mentorat (profils, demandes, échanges privés) et groupes d'étude (publics ou sur invitation). ✅ Partage de scripts (explication et risque obligatoires, risque relevé automatiquement, relecture) et de démarches de lab (visibles une fois le lab résolu). ⏳ Notifications.
-- ✅ Stripe, abonnements Free/Premium/Pro : page `/tarifs`, paiement par Stripe Checkout, portail client, webhooks signés et idempotents, factures dans `/abonnement`, quota IA selon l'offre, TVA par Stripe Tax en option. Fermé tant que les clés ne sont pas fournies. ⏳ Paiement des examens avec remise, licences Entreprise/Centre/École/Université, coupons propres, affiliation, marketplace (Stripe Connect).
+- ✅ Stripe, abonnements Free/Premium/Pro : page `/tarifs`, paiement par Stripe Checkout, portail client, webhooks signés et idempotents, factures dans `/abonnement`, quota IA selon l'offre, TVA par Stripe Tax en option. Fermé tant que les clés ne sont pas fournies. ✅ Paiement des examens avec remise. ⏳ Licences Entreprise/Centre/École/Université, coupons propres, affiliation, marketplace (Stripe Connect).
 
 ## Phase 6 — Applications
 

@@ -64,4 +64,25 @@ describe('StripeGateway', () => {
     const payload = JSON.stringify({ id: 'evt_2', object: 'event', type: 'charge.succeeded', created: 1, data: { object: {} } });
     expect(g.verifyWebhook(Buffer.from(payload), sign(payload)).event).toBeNull();
   });
+
+  it('traduit le paiement d’un examen : payé, en attente (prélèvement), expiré, remboursé', () => {
+    const g = new StripeGateway({ secretKey: 'sk_test_x', webhookSecret: secret });
+    const session = (payment_status: string) => ({
+      id: 'cs_1', object: 'checkout.session', mode: 'payment', payment_status, payment_intent: 'pi_1', customer: 'cus_1',
+      metadata: { kind: 'exam', purchase_id: 'p-1' },
+    });
+    const run = (type: string, object: object) => {
+      const payload = JSON.stringify({ id: 'evt_x', object: 'event', type, created: 1, data: { object } });
+      return g.verifyWebhook(Buffer.from(payload), sign(payload)).event;
+    };
+    const base = { kind: 'exam_payment', purchaseId: 'p-1', checkoutSessionId: 'cs_1', paymentIntentId: 'pi_1' };
+    expect(run('checkout.session.completed', session('paid'))).toEqual({ ...base, outcome: 'paid' });
+    expect(run('checkout.session.completed', session('unpaid'))).toEqual({ ...base, outcome: 'pending' });
+    expect(run('checkout.session.async_payment_succeeded', session('paid'))).toEqual({ ...base, outcome: 'paid' });
+    expect(run('checkout.session.async_payment_failed', session('unpaid'))).toEqual({ ...base, outcome: 'failed' });
+    expect(run('checkout.session.expired', session('unpaid'))).toEqual({ ...base, outcome: 'expired' });
+    expect(run('charge.refunded', { id: 'ch_1', object: 'charge', payment_intent: 'pi_1', refunded: true })).toEqual({ kind: 'refund', paymentIntentId: 'pi_1' });
+    // Remboursement partiel : l'achat reste valable.
+    expect(run('charge.refunded', { id: 'ch_1', object: 'charge', payment_intent: 'pi_1', refunded: false })).toBeNull();
+  });
 });
