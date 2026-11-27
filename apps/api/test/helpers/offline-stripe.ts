@@ -7,8 +7,8 @@ const signer = new Stripe('sk_test_x').webhooks;
 /** Vraie vérification de signature et vraie traduction ; seuls les appels sortants vers Stripe sont simulés. */
 export class OfflineStripe extends StripeGateway {
   readonly calls: { method: string; args: unknown }[] = [];
-  /** Simule une panne de Stripe à la résiliation. */
-  failCancel = false;
+  /** Simule une panne de Stripe à la résiliation et au remboursement. */
+  failing = false;
   private n = 0;
   constructor() {
     super({ secretKey: 'sk_test_offline', webhookSecret: WHSEC, prices: 'premium:price_premium,pro:price_pro' });
@@ -27,7 +27,11 @@ export class OfflineStripe extends StripeGateway {
   }
   override async cancelSubscriptionNow(subscriptionId: string) {
     this.calls.push({ method: 'cancelSubscriptionNow', args: subscriptionId });
-    if (this.failCancel) throw new Error('Stripe injoignable (simulé)');
+    if (this.failing) throw new Error('Stripe injoignable (simulé)');
+  }
+  override async refundPayment(paymentIntentId: string) {
+    this.calls.push({ method: 'refundPayment', args: paymentIntentId });
+    if (this.failing) throw new Error('Stripe injoignable (simulé)');
   }
   override async createPortal(customerId: string, returnUrl: string) {
     this.calls.push({ method: 'createPortal', args: { customerId, returnUrl } });

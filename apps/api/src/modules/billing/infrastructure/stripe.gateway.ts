@@ -102,6 +102,15 @@ export class StripeGateway extends PaymentGateway {
     }
   }
 
+  async refundPayment(paymentIntentId: string): Promise<void> {
+    try {
+      await this.api().refunds.create({ payment_intent: paymentIntentId, reason: 'requested_by_customer' }, { idempotencyKey: `erasure-refund-${paymentIntentId}` });
+    } catch (err) {
+      if ((err as { code?: string }).code === 'charge_already_refunded') return;
+      throw err;
+    }
+  }
+
   async createExamCheckout(o: {
     customerId: string; userId: string; purchaseId: string; name: string; amountCents: number; currency: string; successUrl: string; cancelUrl: string;
   }): Promise<{ url: string; sessionId: string }> {

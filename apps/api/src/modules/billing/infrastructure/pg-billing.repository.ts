@@ -77,6 +77,19 @@ export class PgBillingRepository extends BillingRepository {
     return rows.map((r) => r.stripe_subscription_id);
   }
 
+  async unusedExamPayments(userId: string): Promise<string[]> {
+    const { rows } = await this.db.query<{ pi: string }>(
+      `SELECT stripe_payment_intent_id AS pi FROM billing.exam_purchases
+        WHERE user_id = $1 AND status = 'paid' AND stripe_payment_intent_id IS NOT NULL ORDER BY created_at`,
+      [userId],
+    );
+    return rows.map((r) => r.pi);
+  }
+
+  async markExamRefunded(paymentIntentId: string): Promise<void> {
+    await this.db.query(`UPDATE billing.exam_purchases SET status = 'refunded' WHERE stripe_payment_intent_id = $1 AND status = 'paid'`, [paymentIntentId]);
+  }
+
   async erasureScheduled(userId: string): Promise<boolean> {
     const { rows } = await this.db.query(`SELECT 1 FROM iam.users WHERE id = $1 AND (deletion_requested_at IS NOT NULL OR status = 'deleted')`, [userId]);
     return rows.length > 0;
