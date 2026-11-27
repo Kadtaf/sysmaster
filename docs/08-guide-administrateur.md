@@ -14,8 +14,8 @@ Les variables d'environnement sont décrites dans [`.env.example`](../.env.examp
 
 ### Réglages de sécurité
 
-- **Refus de démarrer** : en production (`NODE_ENV=production`), l'API s'arrête au démarrage si `AI_SERVICE_TOKEN` manque, vaut la valeur de développement ou fait moins de 32 caractères, si `CORS_ORIGINS` est vide ou vaut `*`, ou si `OIDC_ISSUER` manque. Le service IA refuse lui aussi le jeton de développement dès que `AI_LLM=claude`. Le message d'erreur nomme la variable à corriger.
-- **Limitation de débit** : 600 requêtes par minute et par personne (ou par adresse IP sans connexion), réglable par `RATE_LIMIT_PER_MINUTE` (0 la coupe). Des limites plus serrées protègent les routes coûteuses ou devinables : 20 questions à l'IA par minute (assistant et diagnostic), 10 générations de quiz ou de lab par 5 minutes, 10 examens ouverts par heure, 10 essais de code de groupe par 10 minutes, 5 exports de données personnelles par heure, 30 vérifications de certificat par minute. Au-delà : `429` avec `Retry-After`. Le compteur est propre à chaque instance de l'API.
+- **Refus de démarrer** : en production (`NODE_ENV=production`), l'API s'arrête au démarrage si `AI_SERVICE_TOKEN` manque, vaut la valeur de développement ou fait moins de 32 caractères, si `CORS_ORIGINS` est vide ou vaut `*`, ou si `OIDC_ISSUER` manque, ou si une seule des deux clés Stripe est fournie. Le service IA refuse lui aussi le jeton de développement dès que `AI_LLM=claude`. Le message d'erreur nomme la variable à corriger.
+- **Limitation de débit** : 600 requêtes par minute et par personne (ou par adresse IP sans connexion), réglable par `RATE_LIMIT_PER_MINUTE` (0 la coupe). Des limites plus serrées protègent les routes coûteuses ou devinables : 20 questions à l'IA par minute (assistant et diagnostic), 10 générations de quiz ou de lab par 5 minutes, 10 examens ouverts par heure, 10 essais de code de groupe par 10 minutes, 5 exports de données personnelles par heure, 30 vérifications de certificat par minute, 10 ouvertures de paiement ou du portail Stripe par 10 minutes. Au-delà : `429` avec `Retry-After`. Le compteur est propre à chaque instance de l'API.
 - **Adresse IP derrière un proxy** : `TRUST_PROXY=1` (valeur du chart) fait confiance à l'ingress pour `X-Forwarded-For`. Sans proxy déclaré, cet en-tête est ignoré, sinon n'importe qui choisirait l'adresse qui lui sert de clé.
 - **Documentation OpenAPI** (`/api/docs`) : fermée en production, sauf `API_DOCS=true`.
 - **En-têtes** : l'API envoie ceux de helmet avec une politique de contenu `default-src 'none'` (elle ne sert que du JSON). Le site interdit les ressources tierces, l'intégration dans un cadre et les formulaires vers d'autres sites (`apps/web/next.config.ts`). Si vous ajoutez un outil externe (mesure d'audience, police distante), il faut l'y déclarer, et la page de confidentialité doit le dire.
@@ -119,6 +119,28 @@ Pourquoi : un cas de référence fige un diagnostic qu'on sait juste ; toute mod
 - **Échanges privés** (groupes, mentorats) : un message signalé se masque par son auteur, le responsable du groupe ou un modérateur (`POST /api/v1/community/messages/<id>/hide`). Rien n'est effacé : `community.messages.hidden_by` garde la trace. Quand le dernier membre quitte un groupe, celui-ci est fermé et ses messages sont supprimés.
 - **Scripts partagés** : les rôles `reviewer`, `moderator` et `admin` voient « Marquer comme relu » sur un script qui n'est pas le leur. Relisez le code ligne à ligne : la détection automatique du risque repère les motifs courants, pas tout. Un script dangereux ou trompeur se masque comme n'importe quel sujet.
 - **Catégories** : `db/seeds/009_communaute.sql` (nom, description, ordre). Le slug d'une catégorie apparaît dans les URL : ne le changez pas.
+
+### Paiement (Stripe)
+
+Le paiement est **fermé tant que les clés Stripe manquent** : `/tarifs` affiche les offres avec « Bientôt disponible », `/abonnement` dit que le paiement n'est pas ouvert, le webhook répond 503, et le quota IA reste `ASSISTANT_DAILY_QUOTA` pour tout le monde. Rien n'est restreint avant qu'on puisse payer pour en sortir.
+
+Pour l'ouvrir (commencez en mode test, clés `sk_test_…`) :
+
+1. **Produits et prix** : dans Stripe, créez un produit Premium et un produit Pro, chacun avec un prix mensuel récurrent **au même montant que `billing.plans`** (9,99 € et 19,99 € TTC), car la page Tarifs affiche les prix de la base. Notez les identifiants `price_…`.
+2. **Portail client** : dans *Paramètres → Billing → Portail client*, autorisez le changement de carte, la résiliation (en fin de période conseillé) et le passage d'une offre à l'autre entre ces deux prix.
+3. **Webhook** : ajoutez le point d'accès `https://<votre site>/api/v1/billing/webhook` avec les événements `checkout.session.completed`, `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`, `customer.subscription.paused`, `customer.subscription.resumed`, `invoice.finalized`, `invoice.paid`, `invoice.payment_failed`, `invoice.voided`. Notez le secret de signature `whsec_…`.
+4. **Secrets** : `STRIPE_SECRET_KEY` (une clé restreinte suffit : écriture sur Customers, Checkout Sessions et Customer portal) et `STRIPE_WEBHOOK_SECRET` dans `sysmaster-secrets` ; `billing.prices` (« `premium:price_…,pro:price_…` ») dans les valeurs Helm. En local : les mêmes variables dans `.env`, et `stripe listen --forward-to localhost:4000/api/v1/billing/webhook` pour recevoir les webhooks.
+5. **TVA** (facultatif) : activez Stripe Tax dans Stripe, puis `billing.automaticTax: true`. L'adresse de facturation est alors demandée au paiement.
+
+Comportement :
+
+- **Paiement** : chez Stripe (Checkout). SysMaster ne voit jamais la carte et n'envoie à Stripe ni nom ni e-mail, seulement l'identifiant interne de la personne. Stripe demande l'e-mail du reçu.
+- **Activation** : par le webhook, jamais par le retour du navigateur (qu'on peut falsifier). La signature est vérifiée, chaque événement n'est traité qu'une fois (`billing.stripe_webhook_events`), et un événement plus ancien que l'état connu est ignoré.
+- **Offre appliquée** : celle d'un abonnement `active`, `trialing` ou `past_due` (l'accès reste pendant les relances de Stripe), sinon l'offre gratuite. Elle fixe le quota IA (10, 100, puis 500 par jour pour « illimité ») ; les rôles d'auteur ou d'administrateur le multiplient comme avant.
+- **Un seul abonnement** : un second paiement est refusé (409). Changer d'offre, de carte ou résilier passe par le portail Stripe (bouton « Gérer mon abonnement »).
+- **Prix inconnu** : un abonnement dont le prix n'est pas dans `STRIPE_PRICES` répond 500 au webhook ; Stripe le renvoie pendant trois jours, le temps de corriger la variable. Le journal de l'API nomme le prix.
+
+Pas encore livré : paiement des examens avec la remise de l'offre, coupons propres à SysMaster (les codes promo Stripe fonctionnent déjà au paiement), licences par siège, affiliation, marketplace.
 
 ## 4. Événements (outbox)
 

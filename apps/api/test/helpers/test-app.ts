@@ -17,7 +17,7 @@ export async function createTestApp(customize: (b: TestingModuleBuilder) => Test
   const verifier = new JoseTokenVerifier(createLocalJWKSet({ keys: [jwk] }), { issuer: ISSUER, audience: 'sysmaster-api' });
   const builder = Test.createTestingModule({ imports: [AppModule] }).overrideProvider(TokenVerifier).useValue(verifier);
   const moduleRef = await customize(builder).compile();
-  const app: INestApplication = configureApp(moduleRef.createNestApplication());
+  const app: INestApplication = configureApp(moduleRef.createNestApplication({ rawBody: true }));
   await app.init();
 
   /** Jeton pour un nouvel utilisateur unique (ou celui passé en paramètre). */

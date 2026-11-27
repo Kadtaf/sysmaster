@@ -145,6 +145,8 @@ Organisation : progression des membres, compétences de l'équipe, rapports expo
 
 Coupons, codes promo, essai gratuit, facturation (TVA via Stripe Tax), affiliation (commission par défaut 20 %), marketplace (part auteur 70 % par défaut, versement via Stripe Connect).
 
+> **Livré (premier incrément)** : page `/tarifs` (offres de `billing.plans`, licences sur devis), souscription Premium ou Pro par Stripe Checkout (la carte n'est jamais saisie chez SysMaster), page `/abonnement` (offre, échéance, résiliation demandée, factures) et portail Stripe pour changer de carte ou d'offre et résilier. L'offre s'active par webhook signé, jamais par le retour du navigateur. Un abonnement en retard de paiement garde l'accès pendant les relances. L'offre fixe le quota IA quotidien (10, 100, « illimité » borné à 500). Les codes promo Stripe sont acceptés au paiement. Tant que les clés Stripe manquent, tout s'affiche mais rien ne se paie et aucun plafond n'est durci. Reste à faire : paiement des examens avec la remise de l'offre, plafonds de diagnostics et d'heures de labs, licences par siège, essai gratuit, affiliation, marketplace.
+
 ### 2.12 Applications — Phase 6
 
 Web (Phase 1), puis Android, iOS, iPadOS (React Native + Expo, logique partagée), macOS et Windows (Tauri, réutilise l'app web + agent de collecte intégré).

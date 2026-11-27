@@ -73,6 +73,11 @@ Préfixe `/api/v1`. Documentation OpenAPI générée sur `/api/docs`. Authentifi
 | GET | `/certificates/:serial` | Public : vérification (titulaire, certification, dates, `status` valid/expired/revoked, `signatureValid`) |
 | GET | `/certificates/public-key` | Public : clé Ed25519 (PEM) qui vérifie les signatures |
 | POST | `/certificates/:serial/revoke` | Administrateurs : `{ reason }` |
+| GET | `/billing/plans` | Public : offres, prix, quota IA, remise certifications ; `enabled` faux tant que Stripe n'est pas configuré |
+| GET | `/me/billing` | Offre appliquée, abonnement (statut, échéance, résiliation demandée), factures |
+| POST | `/me/billing/checkout` | `{ plan: premium \| pro }` → `{ url }` de Stripe Checkout ; 409 si un abonnement est déjà ouvert, 503 si le paiement est fermé |
+| POST | `/me/billing/portal` | `{ url }` du portail Stripe (carte, changement d'offre, résiliation, factures) |
+| POST | `/billing/webhook` | Stripe seulement : signature `Stripe-Signature` vérifiée sur le corps brut, idempotent |
 | GET | `/community/categories` | Public : catégories et nombre de sujets visibles |
 | GET | `/community/threads?category=&kind=&tag=&q=&sort=&page=` | Sujets (20 par page) ; `sort` : `recent`, `top`, `unanswered` ; `q` : recherche sans accents. Les sujets masqués n'apparaissent qu'à leur auteur et aux modérateurs |
 | GET | `/community/similar?q=` | Public : 5 sujets proches d'un texte, proposés avant de publier |

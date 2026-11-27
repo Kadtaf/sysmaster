@@ -107,7 +107,9 @@ export default async function AccountPage() {
       <Card>
         <CardTitle>Droits de l&apos;offre</CardTitle>
         {me.entitlements.length === 0 ? (
-          <CardDescription>Offre gratuite. Les offres Premium et Pro arriveront avec le module de paiement.</CardDescription>
+          <CardDescription>
+            Offre, factures et résiliation : <Link href="/abonnement" className="text-primary hover:underline">Mon abonnement</Link>.
+          </CardDescription>
         ) : (
           <ul className="mt-3 space-y-1 text-sm">
             {me.entitlements.map((e) => (

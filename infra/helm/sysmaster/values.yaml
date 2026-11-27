@@ -35,6 +35,12 @@ api:
     limits: { memory: 512Mi }
 
 # Assistant (services/ai). Appelé seulement par l'API cœur, jamais exposé.
+# Paiement (docs/08 §Paiement). Les clés vont dans le secret existant (STRIPE_SECRET_KEY,
+# STRIPE_WEBHOOK_SECRET) ; sans elles, le paiement reste fermé.
+billing:
+  prices: ""          # « premium:price_…,pro:price_… », identifiants des prix créés dans Stripe
+  automaticTax: false # true une fois Stripe Tax activé dans le tableau de bord Stripe
+
 ai:
   enabled: true
   replicas: 2

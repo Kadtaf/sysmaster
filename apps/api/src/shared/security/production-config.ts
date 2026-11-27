@@ -17,5 +17,9 @@ export function productionConfigProblems(env: NodeJS.ProcessEnv = process.env): 
     problems.push('CORS_ORIGINS doit lister les origines du site (jamais « * »).');
   }
   if (!env.OIDC_ISSUER) problems.push('OIDC_ISSUER est obligatoire.');
+  // L'un sans l'autre : le paiement resterait fermé sans que personne ne comprenne pourquoi.
+  if (Boolean(env.STRIPE_SECRET_KEY) !== Boolean(env.STRIPE_WEBHOOK_SECRET)) {
+    problems.push('STRIPE_SECRET_KEY et STRIPE_WEBHOOK_SECRET vont ensemble : renseignez les deux, ou aucun.');
+  }
   return problems;
 }

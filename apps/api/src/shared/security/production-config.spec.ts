@@ -16,6 +16,7 @@ describe('configuration de production', () => {
     [{ AI_SERVICE_TOKEN: 'court' }, 'AI_SERVICE_TOKEN'],
     [{ CORS_ORIGINS: '*' }, 'CORS_ORIGINS'],
     [{ OIDC_ISSUER: '' }, 'OIDC_ISSUER'],
+    [{ STRIPE_SECRET_KEY: 'sk_live_x' }, 'STRIPE_WEBHOOK_SECRET'],
   ])('refuse %p', (override, variable) => {
     const problems = productionConfigProblems({ ...ok, ...override });
     expect(problems).toHaveLength(1);

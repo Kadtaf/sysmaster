@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { BillingModule } from '../billing/billing.module';
 import { AssistantService } from './application/assistant.service';
 import { AiQuota } from './application/ai-quota';
 import { AiGateway, AiUsageRepository, ConversationRepository } from './application/ports';
@@ -9,6 +10,7 @@ import { AgentProfilesController } from './interface/agent-profiles.controller';
 import { AssistantController } from './interface/assistant.controller';
 
 @Module({
+  imports: [BillingModule],
   controllers: [AssistantController, AgentProfilesController],
   providers: [
     AssistantService,

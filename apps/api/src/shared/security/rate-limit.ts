@@ -34,6 +34,8 @@ export const LIMITS = {
   groupJoinCode: { bucket: 'group-join-code', limit: 10, windowS: 600 },
   /** Export RGPD : une trentaine de requêtes en base par export. */
   privacyExport: { bucket: 'privacy-export', limit: 5, windowS: 3600 },
+  /** Ouvrir une page de paiement ou le portail Stripe : chaque appel crée une session chez Stripe. */
+  billing: { bucket: 'billing', limit: 10, windowS: 600 },
   /** Démarrer un examen. */
   examStart: { bucket: 'exam-start', limit: 10, windowS: 3600 },
 } satisfies Record<string, RateLimitRule>;

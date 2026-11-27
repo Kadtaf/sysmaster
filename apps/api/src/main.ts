@@ -13,7 +13,8 @@ async function main() {
   }
   // LOG_FORMAT=json : une ligne JSON par message, lisible par Loki, CloudWatch ou Elasticsearch.
   const json = process.env.LOG_FORMAT === 'json';
-  const app = await NestFactory.create(AppModule, { logger: new ConsoleLogger({ json, colors: !json }) });
+  // rawBody : la signature des webhooks Stripe se vérifie sur le corps exact reçu.
+  const app = await NestFactory.create(AppModule, { logger: new ConsoleLogger({ json, colors: !json }), rawBody: true });
   app.enableShutdownHooks();
   configureApp(app);
   const port = Number(process.env.API_PORT ?? 4000);

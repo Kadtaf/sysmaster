@@ -11,6 +11,7 @@ const links = [
   { href: '/communaute', label: 'Communauté' },
   { href: '/assistant', label: 'Assistant' },
   { href: '/classement', label: 'Classement' },
+  { href: '/tarifs', label: 'Tarifs' },
 ];
 
 export function SiteHeader() {
