@@ -5,6 +5,7 @@ import { parse } from '../../editorial/application/editorial.service';
 import type { AuthenticatedUser } from '../../iam/domain/identity';
 import { CurrentUser } from '../../iam/interface/auth.decorators';
 import { AssistantService } from '../application/assistant.service';
+import { LIMITS, RateLimit } from '../../../shared/security/rate-limit';
 
 /** Ce que le contrôleur utilise de la réponse Express (sans dépendre de ses types). */
 interface SseResponse {
@@ -22,6 +23,7 @@ export class AssistantController {
   constructor(private readonly assistant: AssistantService) {}
 
   @Post('ask')
+  @RateLimit(LIMITS.ai)
   @HttpCode(200)
   @ApiOperation({ summary: 'Pose une question à l’assistant : réponse structurée (pourquoi, comment, risques), citée, avec garde-fous' })
   ask(@CurrentUser() user: AuthenticatedUser, @Body() body: unknown): Promise<AssistantReplyDto> {
@@ -29,6 +31,7 @@ export class AssistantController {
   }
 
   @Post('ask/stream')
+  @RateLimit(LIMITS.ai)
   @ApiOperation({
     summary: 'Même question, en flux (Server-Sent Events) : meta, delta (résumé et explication), puis reply ; les étapes et commandes n’arrivent qu’avec reply, après les garde-fous',
   })

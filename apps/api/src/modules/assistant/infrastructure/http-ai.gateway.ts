@@ -2,13 +2,14 @@ import { Injectable, Logger } from '@nestjs/common';
 import {
   AiAskRequest, AiAskResponse, AiExtractRequest, AiExtractResponse, AiGateway, AiLabRequest, AiLabResponse, AiQuizRequest, AiQuizResponse, AiStreamEvent, AiUnavailableError,
 } from '../application/ports';
+import { DEV_AI_TOKEN } from '../../../shared/security/production-config';
 
 /** Client HTTP du service IA. Le jeton partagé prouve au service que l'appel vient du cœur. */
 @Injectable()
 export class HttpAiGateway extends AiGateway {
   private readonly logger = new Logger(HttpAiGateway.name);
   private readonly baseUrl = (process.env.AI_SERVICE_URL ?? 'http://localhost:8000').replace(/\/$/, '');
-  private readonly token = process.env.AI_SERVICE_TOKEN ?? 'dev-only-ai-token';
+  private readonly token = process.env.AI_SERVICE_TOKEN ?? DEV_AI_TOKEN;
   private readonly timeoutMs = Number(process.env.AI_SERVICE_TIMEOUT_MS ?? 90_000);
   /** Un lab complet est long à rédiger (machine JSON, démarche, solution) : délai propre. */
   private readonly labTimeoutMs = Number(process.env.AI_LAB_TIMEOUT_MS ?? 240_000);

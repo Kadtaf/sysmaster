@@ -40,6 +40,8 @@ jobs:
             -v "$PWD/infra/keycloak:/opt/keycloak/data/import:ro" \
             quay.io/keycloak/keycloak:26.4 start-dev --import-realm
       - run: pnpm install --frozen-lockfile
+      - name: Aucune faille connue (élevée ou critique) dans les dépendances livrées
+        run: pnpm audit --prod --audit-level high
       - name: Le seed de contenu est à jour avec db/content
         run: |
           node infra/scripts/build-content-seed.mjs --check

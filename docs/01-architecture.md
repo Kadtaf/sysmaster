@@ -469,6 +469,8 @@ flowchart TB
 - Prompt injection : contenu utilisateur et documents RAG traités comme données, outils des agents en liste blanche, aucune exécution sur la machine de l'utilisateur par l'IA.
 - Accessibilité WCAG 2.2 AA.
 
+*Implémenté* : masquage des données personnelles et des secrets avant tout appel au modèle (`services/ai/app/guardrails/pii.py`, placé autour de l'adaptateur, donc sur chaque appel) ; limitation de débit par personne ou par IP, plus serrée sur l'IA, les examens, les codes de groupe et la vérification des certificats ; en-têtes de sécurité et politique de contenu sur l'API et le site ; documentation OpenAPI fermée en production ; refus de démarrer en production avec un jeton de service de développement ou un CORS ouvert ; audit des dépendances en CI. Réglages : [08 §1](08-guide-administrateur.md#réglages-de-sécurité).
+
 ---
 
 ## 16. Observabilité

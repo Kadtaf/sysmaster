@@ -8,6 +8,7 @@ import { parse } from '../../editorial/application/editorial.service';
 import type { AuthenticatedUser } from '../../iam/domain/identity';
 import { CurrentUser, OptionalAuth, Public, Roles } from '../../iam/interface/auth.decorators';
 import { CertificationService } from '../application/certification.service';
+import { LIMITS, RateLimit } from '../../../shared/security/rate-limit';
 
 @ApiTags('certifications')
 @Controller()
@@ -30,6 +31,7 @@ export class CertificationController {
 
   @ApiBearerAuth()
   @Post('certifications/:code/exam')
+  @RateLimit(LIMITS.examStart)
   @ApiOperation({
     summary: 'Ouvre l’examen (questions tirées au sort dans la banque relue, sans les réponses) ou reprend celui en cours. 403 avec les raisons si les conditions ne sont pas remplies',
   })
@@ -62,6 +64,7 @@ export class CertificationController {
 
   @Public()
   @Get('certificates/:serial')
+  @RateLimit(LIMITS.certificateLookup)
   @ApiOperation({ summary: 'Vérification publique d’un certificat : titulaire, certification, dates, statut (valide, expiré, révoqué), signature' })
   verify(@Param('serial') serial: string): Promise<CertificateDto> {
     return this.certs.verify(serial);

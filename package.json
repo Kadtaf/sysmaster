@@ -17,5 +17,10 @@
     "pg": "^8.13.1",
     "turbo": "^2.5.0",
     "typescript": "^5.8.3"
+  },
+  "pnpm": {
+    "overrides": {
+      "postcss": "^8.5.23"
+    }
   }
 }

@@ -8,6 +8,7 @@ import { parse } from '../../editorial/application/editorial.service';
 import type { AuthenticatedUser } from '../../iam/domain/identity';
 import { CurrentUser, OptionalAuth } from '../../iam/interface/auth.decorators';
 import { SocialService } from '../application/social.service';
+import { LIMITS, RateLimit } from '../../../shared/security/rate-limit';
 
 @ApiTags('communauté')
 @Controller('community')
@@ -32,6 +33,7 @@ export class SocialController {
 
   @ApiBearerAuth()
   @Post('groups/join')
+  @RateLimit(LIMITS.groupJoinCode)
   @HttpCode(200)
   @ApiOperation({ summary: 'Rejoint un groupe privé avec son code : { code }' })
   joinByCode(@CurrentUser() user: AuthenticatedUser, @Body() body: unknown): Promise<StudyGroupDetailDto> {

@@ -5,6 +5,7 @@ import type { AuthenticatedUser } from '../../iam/domain/identity';
 import { CurrentUser, Roles } from '../../iam/interface/auth.decorators';
 import { parse } from '../application/editorial.service';
 import { QuizDraftService } from '../application/quiz-draft.service';
+import { LIMITS, RateLimit } from '../../../shared/security/rate-limit';
 
 @ApiTags('editorial')
 @ApiBearerAuth()
@@ -14,6 +15,7 @@ export class QuizDraftController {
   constructor(private readonly drafts: QuizDraftService) {}
 
   @Post()
+  @RateLimit(LIMITS.aiAuthoring)
   @ApiOperation({
     summary: 'Brouillon de quiz rédigé par l’IA à partir d’une fiche publiée : { commandSlug, count?, level? } → révision à relire (compte dans le quota IA)',
   })
