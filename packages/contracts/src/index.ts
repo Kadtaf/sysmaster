@@ -1207,3 +1207,40 @@ export const AssistantFeedbackSchema = z.object({
   rating: z.union([z.literal(1), z.literal(-1)]),
   comment: z.string().trim().max(2000).optional(),
 });
+
+// ---------- RGPD : export et effacement des données ----------
+
+/** Délai pendant lequel une demande d'effacement peut être annulée (la loi impose au plus un mois). */
+export const ERASURE_GRACE_DAYS = 7;
+
+/**
+ * Durées de conservation, en jours, des données qui n'ont plus d'utilité au-delà ; appliquées
+ * chaque heure par l'API. Affichées telles quelles dans la politique de confidentialité.
+ */
+export const RETENTION_DAYS = {
+  /** Conversations avec l'assistant sans nouveau message. */
+  assistantConversations: 365,
+  /** Sessions de diagnostic (descriptions et journaux collés). */
+  diagnosticSessions: 730,
+  /** Journal d'audit (publications, révocations…). */
+  auditLog: 365,
+  /** Notifications lues. */
+  readNotifications: 180,
+  /** Signaux d'intégrité des examens (changements d'onglet, collages). */
+  examIntegrity: 365,
+  /** Commandes tapées dans les labs, après la fin du lab. */
+  labTranscripts: 365,
+} as const;
+
+export interface PrivacyStatusDto {
+  /** none : aucune demande ; scheduled : suppression prévue à `dueAt`, annulable jusque-là. */
+  erasure: { status: 'none' } | { status: 'scheduled'; requestedAt: string; dueAt: string; cancellable: boolean };
+  graceDays: number;
+  confirmation: string;
+  /** Durées de conservation appliquées automatiquement, en jours. */
+  retentionDays: Record<string, number>;
+}
+export const ErasureRequestSchema = z.object({
+  confirmation: z.string().max(40),
+});
+export type ErasureRequestInput = z.infer<typeof ErasureRequestSchema>;

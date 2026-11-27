@@ -56,6 +56,12 @@ spec:
             # Clé Ed25519 des certificats (facultative : sans elle, aucun examen n'est ouvert).
             - name: CERT_SIGNING_KEY
               valueFrom: { secretKeyRef: { name: {{ .Values.existingSecret }}, key: CERT_SIGNING_KEY, optional: true } }
+            # RGPD : client Keycloak d'administration pour supprimer le compte d'une personne effacée
+            # (facultatif : sans lui, l'administrateur le supprime à la main, docs/08 §RGPD).
+            - name: KEYCLOAK_ADMIN_CLIENT_ID
+              valueFrom: { secretKeyRef: { name: {{ .Values.existingSecret }}, key: KEYCLOAK_ADMIN_CLIENT_ID, optional: true } }
+            - name: KEYCLOAK_ADMIN_CLIENT_SECRET
+              valueFrom: { secretKeyRef: { name: {{ .Values.existingSecret }}, key: KEYCLOAK_ADMIN_CLIENT_SECRET, optional: true } }
             {{- range $k, $v := .Values.api.extraEnv }}
             - { name: {{ $k }}, value: {{ $v | quote }} }
             {{- end }}
