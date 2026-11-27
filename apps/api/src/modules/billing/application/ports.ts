@@ -58,6 +58,11 @@ export abstract class PaymentGateway {
   abstract createExamCheckout(o: {
     customerId: string; userId: string; purchaseId: string; name: string; amountCents: number; currency: string; successUrl: string; cancelUrl: string;
   }): Promise<{ url: string; sessionId: string }>;
+  /**
+   * Résilie l'abonnement tout de suite, sans attendre la fin de la période (effacement du compte).
+   * Sans effet sur un abonnement déjà résilié ou inconnu de Stripe.
+   */
+  abstract cancelSubscriptionNow(subscriptionId: string): Promise<void>;
   /** Vérifie la signature et traduit l'événement. Lève InvalidWebhookError si la signature est fausse. */
   abstract verifyWebhook(rawBody: Buffer, signature: string | undefined): VerifiedEvent;
 }
@@ -85,10 +90,10 @@ export abstract class BillingRepository {
   abstract linkCustomer(userId: string, customerId: string): Promise<string>;
   abstract subscriptions(userId: string): Promise<StoredSubscription[]>;
   abstract invoices(userId: string, limit: number): Promise<BillingInvoiceDto[]>;
-  /**
-   * Applique un événement une seule fois (idempotence par identifiant Stripe), dans une transaction.
-   * Renvoie false si l'événement avait déjà été traité.
-   */
+  /** Abonnements Stripe encore en cours (ni résiliés ni expirés), à résilier si le compte est effacé. */
+  abstract openSubscriptionIds(userId: string): Promise<string[]>;
+  /** Une suppression du compte est demandée : on ne fait plus payer. */
+  abstract erasureScheduled(userId: string): Promise<boolean>;
   abstract createExamPurchase(p: { userId: string; code: string; listPriceCents: number; discountPct: number; amountCents: number; currency: string }): Promise<string>;
   abstract attachCheckout(purchaseId: string, checkoutSessionId: string): Promise<void>;
   /** Achat payé et pas encore utilisé pour cette certification. */
@@ -99,5 +104,9 @@ export abstract class BillingRepository {
   abstract consumeExamPurchase(userId: string, code: string): Promise<string | null>;
   abstract releaseExamPurchase(purchaseId: string): Promise<void>;
   abstract linkExamSession(purchaseId: string, examSessionId: string): Promise<void>;
+  /**
+   * Applique un événement une seule fois (idempotence par identifiant Stripe), dans une transaction.
+   * Renvoie false si l'événement avait déjà été traité.
+   */
   abstract applyEvent(e: VerifiedEvent, planForPrice: (priceId: string) => string | null): Promise<boolean>;
 }

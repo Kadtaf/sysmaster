@@ -1237,6 +1237,8 @@ export const RETENTION_DAYS = {
   examIntegrity: 365,
   /** Commandes tapées dans les labs, après la fin du lab. */
   labTranscripts: 365,
+  /** Factures et achats d'examens : pièces comptables, gardées dix ans (Code de commerce, art. L123-22), même après effacement du compte. */
+  billingRecords: 3650,
 } as const;
 
 export interface PrivacyStatusDto {

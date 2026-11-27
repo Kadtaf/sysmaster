@@ -91,7 +91,7 @@ Les durées sont indicatives et supposent une équipe dédiée ; avec un dévelo
 - Multi-région, résidence des données UE, CDN, tests de charge (objectif 50 000 simultanés), Citus si nécessaire.
 - Internationalisation (en, es, de, ar avec RTL, pt), contenu traduit et relu.
 - Terraform pour toute l'infrastructure, scripts de déploiement production, plan de reprise d'activité.
-- Conformité : ✅ RGPD (export, effacement après 7 jours de grâce, durées de conservation appliquées, politique de confidentialité) ; accessibilité WCAG 2.2 AA, audit de sécurité externe, SOC 2 si clientèle entreprise.
+- Conformité : ✅ RGPD (export, effacement après 7 jours de grâce avec résiliation des abonnements, durées de conservation appliquées, pièces comptables gardées dix ans, politique de confidentialité) ; accessibilité WCAG 2.2 AA, audit de sécurité externe, SOC 2 si clientèle entreprise.
 
 ## Risques principaux
 

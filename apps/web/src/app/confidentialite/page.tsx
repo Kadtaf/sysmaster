@@ -19,6 +19,7 @@ const retention: [string, string][] = [
   ['Signaux d’intégrité des examens (changements d’onglet, collages)', `${years(RETENTION_DAYS.examIntegrity)} après l’examen`],
   ['Notifications lues', years(RETENTION_DAYS.readNotifications)],
   ['Journal d’audit (publications, révocations, actions d’administration)', years(RETENTION_DAYS.auditLog)],
+  ['Factures et achats d’examens (pièces comptables)', `${years(RETENTION_DAYS.billingRecords)}, même après la suppression du compte`],
 ];
 
 export default function PrivacyPage() {
@@ -43,6 +44,7 @@ export default function PrivacyPage() {
           <li><strong>Apprentissage</strong> (parcours, leçons, quiz, labs, examens, certificats) : suivre votre progression et délivrer des certificats vérifiables. Base légale : exécution du service.</li>
           <li><strong>Assistant et diagnostic</strong> (questions, descriptions, journaux collés) : vous répondre. Ne collez pas de mots de passe ni de données de tiers. Base légale : exécution du service.</li>
           <li><strong>Communauté</strong> (sujets, réponses, messages de groupe et de mentorat, signalements) : permettre l’entraide et la modérer. Base légale : exécution du service et intérêt légitime (modération).</li>
+          <li><strong>Paiement</strong> (offre souscrite, factures, examens achetés, montants) : encaisser et tenir la comptabilité. Base légale : exécution du contrat et obligation légale (conservation des pièces comptables).</li>
           <li><strong>Sécurité</strong> (journal d’audit, signaux d’intégrité des examens) : prévenir la fraude et les abus. Base légale : intérêt légitime.</li>
         </ul>
         <p className="mt-3 text-sm">
@@ -59,7 +61,11 @@ export default function PrivacyPage() {
             documentation utiles lui sont transmis, sans votre nom ni votre e-mail. Anthropic peut traiter ces données hors de
             l’Union européenne, dans le cadre de clauses contractuelles types.
           </li>
-          <li>Le paiement, quand il sera ouvert, passera par Stripe : SysMaster ne voit jamais votre numéro de carte.</li>
+          <li>
+            Le paiement passe par Stripe, qui recueille vos coordonnées de paiement : SysMaster ne voit jamais votre numéro de
+            carte et ne transmet à Stripe que l’identifiant interne de votre compte. Stripe peut traiter ces données hors de
+            l’Union européenne, dans le cadre de clauses contractuelles types, et conserve ses propres obligations comptables.
+          </li>
         </ul>
       </Card>
 
@@ -88,7 +94,8 @@ export default function PrivacyPage() {
           <li>
             <strong>Effacement</strong> : demandez la suppression depuis Mon compte. Elle est exécutée {ERASURE_GRACE_DAYS} jours plus
             tard, et vous pouvez l’annuler d’ici là. Vos sujets et réponses publics restent, signés « Compte supprimé », pour ne pas
-            casser les discussions ; écrivez-nous avant si vous voulez qu’ils soient retirés eux aussi.
+            casser les discussions ; écrivez-nous avant si vous voulez qu’ils soient retirés eux aussi. Un abonnement en cours est
+            résilié ce jour-là ; les factures sont gardées le temps imposé par la loi.
           </li>
           <li><strong>Rectification</strong> : votre nom et votre e-mail se modifient dans l’espace sécurité du compte.</li>
           <li><strong>Opposition, limitation, questions</strong> : écrivez à {contact}.</li>

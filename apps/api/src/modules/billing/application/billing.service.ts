@@ -72,6 +72,7 @@ export class BillingService {
     const priceId = this.gateway.priceFor(input.plan);
     const blocker = checkoutBlocker({ enabled: this.gateway.enabled, priceId, open: await this.repo.subscriptions(userId) });
     if (blocker) throw this.gateway.enabled ? new ConflictException(blocker) : new ServiceUnavailableException(blocker);
+    await this.refuseIfErasing(userId);
     const customerId = await this.customerFor(userId);
     const base = webUrl();
     const url = await this.gateway.createCheckout({
@@ -126,6 +127,7 @@ export class BillingService {
     if (!this.gateway.enabled) throw new ServiceUnavailableException('Le paiement en ligne n’est pas encore ouvert : l’examen est accessible sans paiement.');
     const offer = await this.examOffer(userId, exam.listPriceCents);
     if (!offer.required) throw new ConflictException('Cet examen est gratuit : aucun paiement nécessaire.');
+    await this.refuseIfErasing(userId);
     if (await this.repo.hasUnusedExamPurchase(userId, exam.code)) throw new ConflictException('Vous avez déjà payé une tentative pour cet examen : vous pouvez le commencer.');
     const customerId = await this.customerFor(userId);
     const purchaseId = await this.repo.createExamPurchase({
@@ -161,6 +163,36 @@ export class BillingService {
 
   linkExamSession(purchaseId: string, examSessionId: string) {
     return this.repo.linkExamSession(purchaseId, examSessionId);
+  }
+
+  /**
+   * Effacement du compte (RGPD) : résilie tout de suite ses abonnements Stripe. Renvoie ceux qui
+   * n'ont pas pu l'être (Stripe injoignable, paiement fermé), à reprendre avec `cancelSubscriptions`.
+   * Factures et achats restent : ce sont des pièces comptables (docs/08 §8).
+   */
+  async closeForErasure(userId: string): Promise<string[]> {
+    return this.cancelSubscriptions(await this.repo.openSubscriptionIds(userId));
+  }
+
+  async cancelSubscriptions(ids: string[]): Promise<string[]> {
+    if (!ids.length) return [];
+    if (!this.gateway.enabled) return ids;
+    const left: string[] = [];
+    for (const id of ids) {
+      try {
+        await this.gateway.cancelSubscriptionNow(id);
+      } catch (err) {
+        this.logger.error(`Résiliation de l'abonnement ${id} impossible : ${(err as Error).message}`);
+        left.push(id);
+      }
+    }
+    return left;
+  }
+
+  private async refuseIfErasing(userId: string) {
+    if (await this.repo.erasureScheduled(userId)) {
+      throw new ConflictException('La suppression de votre compte est demandée : annulez-la depuis Mon compte avant de payer.');
+    }
   }
 
   private async customerFor(userId: string): Promise<string> {

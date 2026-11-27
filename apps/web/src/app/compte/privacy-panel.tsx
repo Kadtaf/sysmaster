@@ -83,6 +83,11 @@ export function PrivacyPanel({ status }: { status: PrivacyStatusDto }) {
               restent pour ne pas casser les discussions, signés « Compte supprimé ». Téléchargez vos données avant si
               vous voulez les garder.
             </p>
+            <p className="text-muted-foreground">
+              Un abonnement en cours est résilié le jour de la suppression, sans remboursement de la période entamée, et une
+              tentative d&apos;examen payée mais pas utilisée est perdue. Vos factures sont gardées dix ans, comme la loi
+              l&apos;impose pour les pièces comptables.
+            </p>
             <label className="block">
               Pour confirmer, saisissez <code className="font-mono">{status.confirmation}</code>
               <input

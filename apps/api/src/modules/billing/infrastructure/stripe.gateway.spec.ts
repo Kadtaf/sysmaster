@@ -85,4 +85,31 @@ describe('StripeGateway', () => {
     // Remboursement partiel : l'achat reste valable.
     expect(run('charge.refunded', { id: 'ch_1', object: 'charge', payment_intent: 'pi_1', refunded: false })).toBeNull();
   });
+
+  describe('résiliation immédiate (effacement du compte)', () => {
+    const gateway = (sub: { status?: string; missing?: boolean }) => {
+      const g = new StripeGateway({ secretKey: 'sk_test_x', webhookSecret: secret, prices: 'premium:price_premium' });
+      const cancel = jest.fn().mockResolvedValue({});
+      const retrieve = jest.fn(async () => {
+        if (sub.missing) throw Object.assign(new Error('No such subscription'), { code: 'resource_missing' });
+        return { status: sub.status };
+      });
+      (g as unknown as { client: unknown }).client = { subscriptions: { retrieve, cancel } };
+      return { g, cancel };
+    };
+
+    it('résilie un abonnement en cours, avec une clé d’idempotence', async () => {
+      const { g, cancel } = gateway({ status: 'active' });
+      await g.cancelSubscriptionNow('sub_1');
+      expect(cancel).toHaveBeenCalledWith('sub_1', {}, { idempotencyKey: 'erasure-cancel-sub_1' });
+    });
+
+    it('sans effet sur un abonnement déjà résilié ou inconnu de Stripe', async () => {
+      for (const o of [{ status: 'canceled' }, { status: 'incomplete_expired' }, { missing: true }]) {
+        const { g, cancel } = gateway(o);
+        await expect(g.cancelSubscriptionNow('sub_1')).resolves.toBeUndefined();
+        expect(cancel).not.toHaveBeenCalled();
+      }
+    });
+  });
 });
