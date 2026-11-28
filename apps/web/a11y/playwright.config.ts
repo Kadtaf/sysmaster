@@ -9,7 +9,8 @@ export default defineConfig({
   testDir: '.',
   outputDir: './test-results',
   workers: 1,
-  retries: process.env.CI ? 1 : 0,
+  // Pas de nouvel essai : un échec intermittent a déjà révélé un vrai défaut (connexion simultanée).
+  retries: 0,
   timeout: 60_000,
   reporter: process.env.CI ? [['list'], ['github']] : 'list',
   use: {

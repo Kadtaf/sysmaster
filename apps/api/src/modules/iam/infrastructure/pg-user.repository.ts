@@ -9,7 +9,22 @@ export class PgUserRepository extends UserRepository {
     super();
   }
 
-  provision(c: TokenClaims): Promise<AuthenticatedUser> {
+  /**
+   * Plusieurs requêtes de la même personne peuvent arriver ensemble dès sa première connexion
+   * (une page qui appelle /me, /me/learning et /me/privacy en parallèle). La création se fait donc
+   * en « INSERT … ON CONFLICT DO NOTHING » : celle qui perd la course relit le compte créé par l'autre.
+   */
+  async provision(c: TokenClaims): Promise<AuthenticatedUser> {
+    for (let attempt = 0; ; attempt++) {
+      const user = await this.provisionOnce(c);
+      if (user || attempt >= 2) {
+        if (!user) throw new Error('Provisionnement du compte impossible après plusieurs essais');
+        return user;
+      }
+    }
+  }
+
+  private provisionOnce(c: TokenClaims): Promise<AuthenticatedUser | null> {
     return this.db.transaction(async (tx) => {
       let id: string | undefined = (
         await tx.query<{ id: string }>('SELECT id FROM iam.users WHERE idp_subject = $1 FOR UPDATE', [c.subject])
@@ -25,11 +40,12 @@ export class PgUserRepository extends UserRepository {
           )
         ).rows[0];
         if (existing) {
-          if (!c.emailVerified || existing.idp_subject) {
+          // Déjà relié à cette même identité par une requête concurrente : c'est le bon compte.
+          if (!c.emailVerified || (existing.idp_subject && existing.idp_subject !== c.subject)) {
             throw new ForbiddenException('Cet e-mail est déjà associé à un autre compte ou n\'est pas vérifié.');
           }
           id = existing.id;
-          await tx.query('UPDATE iam.users SET idp_subject = $2 WHERE id = $1', [id, c.subject]);
+          if (!existing.idp_subject) await tx.query('UPDATE iam.users SET idp_subject = $2 WHERE id = $1', [id, c.subject]);
         }
       }
 
@@ -43,10 +59,12 @@ export class PgUserRepository extends UserRepository {
         id = (
           await tx.query<{ id: string }>(
             `INSERT INTO iam.users (idp_subject, email, email_verified, display_name, locale, last_login_at)
-             VALUES ($1, $2, $3, $4, $5, now()) RETURNING id`,
+             VALUES ($1, $2, $3, $4, $5, now()) ON CONFLICT DO NOTHING RETURNING id`,
             [c.subject, c.email, c.emailVerified, c.displayName, c.locale ?? 'fr'],
           )
-        ).rows[0].id;
+        ).rows[0]?.id;
+        // Une requête concurrente vient de créer le compte : on recommence, il sera trouvé.
+        if (!id) return null;
         await tx.query(
           `INSERT INTO platform.outbox_events (aggregate, aggregate_id, type, payload)
            VALUES ('iam.user', $1, 'iam.user.registered.v1', $2)`,
