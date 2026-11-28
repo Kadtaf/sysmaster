@@ -10,7 +10,8 @@ for (const user of ['alice', 'mentor'] as const) {
     await page.fill('#username', `${user}@sysmaster.local`);
     await page.fill('#password', DEMO_PASSWORD);
     await page.click('#kc-login');
-    await page.waitForURL((u) => !u.pathname.includes('/realms/'));
+    // Attendre la page finale du site : le retour passe d'abord par /api/auth/callback, sans en-tête.
+    await page.waitForURL((u) => !u.pathname.includes('/realms/') && !u.pathname.startsWith('/api/auth/'));
     await expect(page.getByRole('navigation', { name: 'Navigation principale' })).toBeVisible();
     await page.context().storageState({ path: stateFile(user) });
   });
