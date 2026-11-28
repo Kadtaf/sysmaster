@@ -145,6 +145,28 @@ Comportement :
 
 Pas encore livré : coupons propres à SysMaster (les codes promo Stripe fonctionnent déjà au paiement), licences par siège, affiliation, marketplace.
 
+### E-mails de notification
+
+Les e-mails sont **fermés tant que l'envoi n'est pas configuré** : les notifications restent dans l'application, et aucun e-mail n'est préparé (rien ne partira d'un coup à l'ouverture).
+
+Pour les ouvrir :
+
+1. **Prestataire** : n'importe quel service SMTP convient (Brevo, Mailjet, Scaleway TEM, Postmark, serveur interne). Choisissez-en un hébergé dans l'Union européenne, ou couvert par des clauses contractuelles types, et déclarez-le comme sous-traitant.
+2. **Domaine d'envoi** : authentifiez-le chez le prestataire (SPF, DKIM, puis DMARC), sinon les messages finiront en indésirables.
+3. **Secrets** dans `sysmaster-secrets` :
+   - `SMTP_URL`, par exemple `smtps://utilisateur:mot-de-passe@smtp.exemple.com:465` ;
+   - `MAIL_LINK_SECRET`, qui signe les liens de désabonnement : `openssl rand -hex 32`. Le changer invalide les liens déjà envoyés.
+4. **Expéditeur** : `mail.from` dans les valeurs Helm, par exemple `SysMaster <notifications@votre-domaine>`.
+
+En production, l'API refuse de démarrer si une partie seulement de ces réglages est fournie. En local : `docker compose up -d mailpit`, `SMTP_URL=smtp://localhost:1025`, puis les e-mails s'affichent sur http://localhost:8025.
+
+Comportement :
+
+- **Envoi** : toutes les 30 s (`MAIL_INTERVAL_MS`), un e-mail par transaction, ce qui permet plusieurs instances de l'API.
+- **Échec** : un envoi raté est réessayé à 1 min, 5 min, 30 min et 2 h, puis abandonné. Ni l'adresse ni le message d'erreur ne sont gardés dans le journal ou en base. Les e-mails en échec : `SELECT count(*) FROM notification.notifications WHERE channel = 'email' AND sent_at IS NULL AND attempts >= 5`.
+- **Désabonnement** : lien signé dans chaque e-mail, plus les en-têtes `List-Unsubscribe` et `List-Unsubscribe-Post` pour le bouton des messageries. Seul ce type d'e-mail est coupé, pour cette personne.
+- **Compte supprimé entre-temps** : l'e-mail est abandonné. La trace des e-mails est effacée après 90 jours.
+
 ## 4. Événements (outbox)
 
 Chaque changement important écrit un événement dans `platform.outbox_events`, dans la même transaction que la donnée. Le relais intégré à l'API le distribue ensuite aux consommateurs, aujourd'hui la gamification. Le fonctionnement détaillé est dans [01 — Architecture](01-architecture.md).
@@ -275,7 +297,7 @@ Sans `STAGING_KUBECONFIG`, la CD publie les images et s'arrête là, avec une no
 - **Compte Keycloak** : supprimé automatiquement si `KEYCLOAK_ADMIN_CLIENT_ID` / `KEYCLOAK_ADMIN_CLIENT_SECRET` sont fournis. Créez dans le royaume un client confidentiel avec *Service accounts* activé, puis donnez à son compte de service le rôle `realm-management` → `manage-users`. Sans ce client, l'identifiant Keycloak reste dans `iam.erasure_log.idp_subject` (et seulement là) : la tâche horaire réessaie dès que le client est configuré, ou supprimez le compte à la main (console Keycloak → Utilisateurs → rechercher par identifiant) puis `UPDATE iam.erasure_log SET idp_deleted = true, idp_subject = NULL WHERE id = …`.
 - **Paiement** : à l'exécution de l'effacement, les abonnements Stripe en cours sont résiliés tout de suite (sans prorata) et les tentatives d'examen payées mais pas utilisées sont remboursées en totalité, ce que *Mon compte* annonce avant la demande. Factures, achats d'examens et lien vers le client Stripe restent, rattachés au compte anonymisé : ce sont des pièces comptables, gardées dix ans (Code de commerce, art. L123-22) puis purgées par la tâche horaire. Le client Stripe n'est pas supprimé, Stripe ayant ses propres obligations sur les factures. Si Stripe ne répond pas, ou si les clés ont été retirées, les identifiants restent dans `iam.erasure_log` (`stripe_subscriptions_pending` pour les abonnements, `stripe_refunds_pending` pour les paiements à rembourser) et la tâche horaire réessaie. Ne laissez pas ces colonnes non vides : la personne continuerait d'être prélevée ou ne serait pas remboursée. Au besoin, faites-le depuis le tableau de bord Stripe, puis `UPDATE iam.erasure_log SET stripe_subscriptions_pending = '{}', stripe_refunds_pending = '{}' WHERE id = …`. L'export comprend abonnements, factures et achats d'examens.
 - **Registre** : `iam.erasure_log` prouve qu'une demande a été traitée (date, nombre de lignes par table), sans aucune donnée personnelle.
-- **Conservation** : la même tâche purge chaque heure les données échues (assistant : 1 an sans message ; diagnostic : 2 ans ; journal d'audit : 1 an ; notifications lues : 6 mois ; signaux d'intégrité des examens et commandes des labs : 1 an ; factures et achats d'examens : 10 ans). Les durées sont dans `packages/contracts` (`RETENTION_DAYS`) et s'affichent telles quelles sur `/confidentialite`.
+- **Conservation** : la même tâche purge chaque heure les données échues (assistant : 1 an sans message ; diagnostic : 2 ans ; journal d'audit : 1 an ; notifications lues : 6 mois ; trace des e-mails de notification : 90 jours ; signaux d'intégrité des examens et commandes des labs : 1 an ; factures et achats d'examens : 10 ans). Les durées sont dans `packages/contracts` (`RETENTION_DAYS`) et s'affichent telles quelles sur `/confidentialite`.
 - **Politique de confidentialité** : `/confidentialite`. Renseignez `NEXT_PUBLIC_LEGAL_NAME` (raison sociale et adresse) et `NEXT_PUBLIC_PRIVACY_CONTACT` (adresse de contact) au déploiement : sans eux, la page affiche un texte à compléter.
 - **Cookies** : uniquement ceux de la connexion (session NextAuth, CSRF). Ajouter une mesure d'audience imposerait un bandeau de consentement.
 

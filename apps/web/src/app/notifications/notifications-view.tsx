@@ -96,19 +96,37 @@ export function NotificationsView({ list, preferences }: { list: NotificationLis
       <Card>
         <CardTitle>Ce que je reçois</CardTitle>
         <p className="mt-1 text-sm text-muted-foreground">
-          Notifications dans SysMaster uniquement : aucun e-mail n&apos;est envoyé pour l&apos;instant. Les notifications lues sont
-          effacées au bout de {Math.round(RETENTION_DAYS.readNotifications / 30)} mois.
+          {list.emailEnabled
+            ? 'Chaque e-mail contient un lien pour ne plus recevoir ce type d’e-mail.'
+            : 'Les e-mails ne sont pas encore ouverts sur SysMaster : vos choix s’appliqueront dès qu’ils le seront.'}{' '}
+          Les notifications lues sont effacées au bout de {Math.round(RETENTION_DAYS.readNotifications / 30)} mois.
         </p>
-        <ul className="mt-3 space-y-2 text-sm">
-          {prefs.map((p) => (
-            <li key={`${p.type}/${p.channel}`}>
-              <label className="flex items-center gap-2">
-                <input type="checkbox" checked={p.enabled} disabled={pending} onChange={() => toggle(p)} className="size-4" />
-                {TYPE_LABELS[p.type]}
-              </label>
-            </li>
-          ))}
-        </ul>
+        <table className="mt-3 w-full text-left text-sm">
+          <thead>
+            <tr className="text-muted-foreground">
+              <th scope="col" className="py-1 font-normal">Type</th>
+              <th scope="col" className="w-28 py-1 text-center font-normal">Dans SysMaster</th>
+              <th scope="col" className="w-28 py-1 text-center font-normal">Par e-mail</th>
+            </tr>
+          </thead>
+          <tbody>
+            {(Object.keys(TYPE_LABELS) as NotificationType[]).map((type) => (
+              <tr key={type} className="border-t">
+                <th scope="row" className="py-2 pr-4 font-normal">{TYPE_LABELS[type]}</th>
+                {(['in_app', 'email'] as const).map((channel) => {
+                  const p = prefs.find((x) => x.type === type && x.channel === channel);
+                  if (!p) return <td key={channel} />;
+                  return (
+                    <td key={channel} className="py-2 text-center">
+                      <input type="checkbox" checked={p.enabled} disabled={pending} onChange={() => toggle(p)} className="size-4"
+                        aria-label={`${TYPE_LABELS[type]} : ${channel === 'email' ? 'par e-mail' : 'dans SysMaster'}`} />
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </Card>
     </div>
   );

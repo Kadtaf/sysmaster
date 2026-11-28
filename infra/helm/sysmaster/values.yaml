@@ -34,13 +34,18 @@ api:
     requests: { cpu: 100m, memory: 256Mi }
     limits: { memory: 512Mi }
 
-# Assistant (services/ai). Appelé seulement par l'API cœur, jamais exposé.
+# E-mails de notification (docs/08 §3). SMTP_URL (smtps://utilisateur:mot-de-passe@hôte:465) et
+# MAIL_LINK_SECRET (openssl rand -hex 32) vont dans le secret existant ; sans eux, pas d'e-mail.
+mail:
+  from: ""   # ex. "SysMaster <notifications@sysmaster.example.com>"
+
 # Paiement (docs/08 §Paiement). Les clés vont dans le secret existant (STRIPE_SECRET_KEY,
 # STRIPE_WEBHOOK_SECRET) ; sans elles, le paiement reste fermé.
 billing:
   prices: ""          # « premium:price_…,pro:price_… », identifiants des prix créés dans Stripe
   automaticTax: false # true une fois Stripe Tax activé dans le tableau de bord Stripe
 
+# Assistant (services/ai). Appelé seulement par l'API cœur, jamais exposé.
 ai:
   enabled: true
   replicas: 2

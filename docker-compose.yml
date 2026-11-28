@@ -31,6 +31,12 @@ services:
       interval: 5s
       retries: 10
 
+  mailpit:
+    # Serveur d'e-mails de développement : rien ne sort, tout s'affiche sur http://localhost:8025.
+    # Pour s'en servir : SMTP_URL=smtp://localhost:1025 dans .env (voir .env.example).
+    image: axllent/mailpit:v1.27
+    ports: ["1025:1025", "8025:8025"]
+
   qdrant:
     # Base vectorielle du RAG : passages de documentation officielle (services/ai/sources.toml)
     image: qdrant/qdrant:v1.13.4

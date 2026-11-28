@@ -21,5 +21,10 @@ export function productionConfigProblems(env: NodeJS.ProcessEnv = process.env): 
   if (Boolean(env.STRIPE_SECRET_KEY) !== Boolean(env.STRIPE_WEBHOOK_SECRET)) {
     problems.push('STRIPE_SECRET_KEY et STRIPE_WEBHOOK_SECRET vont ensemble : renseignez les deux, ou aucun.');
   }
+  // E-mails : tout ou rien, et un vrai secret pour signer les liens de désabonnement.
+  const mail = [env.SMTP_URL, env.MAIL_FROM, env.MAIL_LINK_SECRET].filter(Boolean).length;
+  if (mail > 0 && (mail < 3 || (env.MAIL_LINK_SECRET ?? '').length < 32)) {
+    problems.push('SMTP_URL, MAIL_FROM et MAIL_LINK_SECRET (32 caractères au moins) vont ensemble : renseignez les trois, ou aucun.');
+  }
   return problems;
 }

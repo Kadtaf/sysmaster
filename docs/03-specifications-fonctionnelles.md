@@ -128,9 +128,10 @@ XP (leçons, labs, diagnostics clos, aide en communauté), niveaux (Curieux → 
 > - **Déclencheurs** : une réponse à un de mes sujets, ma réponse acceptée, une demande de mentorat (pour le mentor), puis son acceptation, son refus ou sa fin (pour l'autre personne), un certificat obtenu, la relecture d'une de mes contributions éditoriales (publiée, ou modifications demandées).
 > - **Jamais soi-même** : on n'est pas prévenu de sa propre action.
 > - **Contenu minimal** : une notification reprend un titre de sujet ou le sujet d'un mentorat, jamais le texte d'un message. Elle renvoie vers la page concernée, par un lien interne seulement.
-> - **Préférences** : chaque type se coupe dans `/notifications`. Toutes sont actives par défaut.
+> - **Préférences** : chaque type se règle dans `/notifications`, dans l'application et par e-mail. Dans l'application, tout est actif par défaut. Par e-mail, seuls le mentorat, les certificats et la relecture le sont : les réponses du forum, plus nombreuses, ne partent par e-mail que si on le demande.
+> - **E-mail** : il part par le serveur SMTP configuré (fermé sans lui), en texte et HTML, sans image ni pisteur. Il n'est préparé que si l'envoi est configuré : rien ne s'accumule avant. Chaque e-mail contient un lien signé pour ne plus recevoir ce type d'e-mail, sans connexion (un clic sur la page, ou le désabonnement en un clic des messageries, RFC 8058). Un envoi raté est réessayé quatre fois, de 1 min à 2 h d'écart, puis abandonné. La trace des e-mails est effacée après 90 jours.
 > - **Conservation** : les notifications lues sont effacées après 6 mois. Elles figurent dans l'export RGPD et disparaissent avec le compte.
-> - **Reste à faire** : l'e-mail, qui attend un serveur d'envoi, et le push.
+> - **Reste à faire** : le push (phase 6).
 
 Forum par catégorie, Q&R avec réponse acceptée, partage de labs et de scripts (P-5), mentorat (mise en relation mentor/apprenant), groupes d'étude, modération (signalements, rôles), suggestion IA de questions similaires avant publication.
 

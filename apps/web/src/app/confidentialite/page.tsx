@@ -18,6 +18,7 @@ const retention: [string, string][] = [
   ['Commandes tapées dans les labs', `${years(RETENTION_DAYS.labTranscripts)} après la fin du lab`],
   ['Signaux d’intégrité des examens (changements d’onglet, collages)', `${years(RETENTION_DAYS.examIntegrity)} après l’examen`],
   ['Notifications lues', years(RETENTION_DAYS.readNotifications)],
+  ['Trace des e-mails de notification envoyés', years(RETENTION_DAYS.notificationEmails)],
   ['Journal d’audit (publications, révocations, actions d’administration)', years(RETENTION_DAYS.auditLog)],
   ['Factures et achats d’examens (pièces comptables)', `${years(RETENTION_DAYS.billingRecords)}, même après la suppression du compte`],
 ];
@@ -56,6 +57,10 @@ export default function PrivacyPage() {
         <CardTitle>Destinataires et sous-traitants</CardTitle>
         <ul className="mt-2 list-disc space-y-2 pl-5 text-sm">
           <li>L’authentification est assurée par notre propre serveur Keycloak.</li>
+          <li>
+            Les e-mails de notification passent par notre prestataire d’envoi, qui reçoit votre adresse et le texte court de la
+            notification, rien d’autre. Chaque e-mail contient un lien pour ne plus recevoir ce type d’e-mail.
+          </li>
           <li>
             Quand l’assistant utilise un modèle d’IA externe (Anthropic, Claude), le texte de votre question et les extraits de
             documentation utiles lui sont transmis, sans votre nom ni votre e-mail. Anthropic peut traiter ces données hors de

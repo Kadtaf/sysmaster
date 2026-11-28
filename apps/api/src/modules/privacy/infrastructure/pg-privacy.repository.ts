@@ -279,6 +279,7 @@ export class PgPrivacyRepository extends PrivacyRepository {
     await run('diagnostic.sessions', `DELETE FROM diagnostic.sessions WHERE created_at < $1`, at(RETENTION_DAYS.diagnosticSessions));
     await run('platform.audit_log', `DELETE FROM platform.audit_log WHERE created_at < $1`, at(RETENTION_DAYS.auditLog));
     await run('notification.notifications', `DELETE FROM notification.notifications WHERE read_at IS NOT NULL AND read_at < $1`, at(RETENTION_DAYS.readNotifications));
+    await run('notification.notifications.email', `DELETE FROM notification.notifications WHERE channel = 'email' AND created_at < $1`, at(RETENTION_DAYS.notificationEmails));
     await run('assessment.exam_sessions.integrity', `UPDATE assessment.exam_sessions SET integrity = '{}'
                                                       WHERE started_at < $1 AND integrity <> '{}'`, at(RETENTION_DAYS.examIntegrity));
     await run('labs.instances.transcript', `UPDATE labs.instances SET transcript = '[]'
