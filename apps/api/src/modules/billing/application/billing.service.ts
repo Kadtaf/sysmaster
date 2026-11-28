@@ -1,13 +1,9 @@
 import { BadRequestException, ConflictException, HttpException, HttpStatus, Injectable, Logger, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import type { BillingCatalogDto, BillingStatusDto, CheckoutInput, RedirectDto } from '@sysmaster/contracts';
 import { aiDailyCap, aiQuestionsPerDay, certificationDiscountPct, checkoutBlocker, effectivePlan, examPaymentRequired, examPrice } from '../domain/billing';
+import { webUrl } from '../../../shared/web/web-url';
 import { BillingRepository, InvalidWebhookError, PaymentGateway } from './ports';
 
-/** Adresse du site, pour les retours de Stripe Checkout et du portail. */
-export function webUrl(env = process.env): string {
-  const base = env.PUBLIC_WEB_URL || (env.CORS_ORIGINS ?? 'http://localhost:3000').split(',')[0].trim();
-  return base.replace(/\/+$/, '');
-}
 
 /** Ce qui reste à faire chez Stripe pour un compte effacé. */
 export interface BillingClosure {

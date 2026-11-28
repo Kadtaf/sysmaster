@@ -71,6 +71,7 @@ Préfixe `/api/v1`. Documentation OpenAPI générée sur `/api/docs`. Authentifi
 | POST | `/exam-sessions/:id/submit` | `{ answers, integrity: { tabSwitches, pastes } }` → `{ score, passed, correctCount, total, passScore, late, certificate, nextAttemptAt }`. Seules les questions servies comptent ; après l'échéance (+60 s) les réponses sont ignorées. Réussite : certificat signé et événement `assessment.certificate.issued.v1`. **410** si déjà remis |
 | GET | `/certificates/mine` | Mes certificats |
 | GET | `/certificates/:serial` | Public : vérification (titulaire, certification, dates, `status` valid/expired/revoked, `signatureValid`) |
+| GET | `/certificates/:serial/pdf` | Public : certificat en PDF (A4 paysage, QR code vers `/verify/<numéro>`, `PUBLIC_WEB_URL`). **409** s'il est révoqué, expiré ou mal signé |
 | GET | `/certificates/public-key` | Public : clé Ed25519 (PEM) qui vérifie les signatures |
 | POST | `/certificates/:serial/revoke` | Administrateurs : `{ reason }` |
 | POST | `/certifications/:code/purchase` | Paiement d'une tentative d'examen (Stripe Checkout, remise de l'offre) → `{ url }` ; 403 si l'examen ne peut pas être passé maintenant, 409 si une tentative payée attend, 503 si le paiement est fermé. Paiement ouvert : `POST /certifications/:code/exam` répond 402 sans tentative payée |

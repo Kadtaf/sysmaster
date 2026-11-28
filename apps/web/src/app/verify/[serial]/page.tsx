@@ -2,9 +2,9 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import qrcode from 'qrcode-generator';
 import type { CertificateDto, CertificateStatus } from '@sysmaster/contracts';
-import { BadgeCheck, ShieldAlert } from 'lucide-react';
+import { BadgeCheck, FileDown, ShieldAlert } from 'lucide-react';
 import { ApiUnavailable } from '@/components/api-unavailable';
-import { apiGet, ApiUnavailableError } from '@/lib/api';
+import { apiGet, ApiUnavailableError, publicApiBase } from '@/lib/api';
 import { difficultyLabel } from '@/lib/labels';
 import { PrintButton } from './print-button';
 
@@ -85,6 +85,15 @@ export default async function VerifyPage({ params }: Props) {
       </section>
 
       <div className="flex flex-wrap justify-center gap-3 print:hidden">
+        {trusted && (
+          <a
+            className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-primary/90"
+            href={`${publicApiBase}/certificates/${encodeURIComponent(c.serial)}/pdf`}
+            download
+          >
+            <FileDown className="size-4" aria-hidden /> Télécharger le PDF
+          </a>
+        )}
         <PrintButton />
         {trusted && (
         <a
