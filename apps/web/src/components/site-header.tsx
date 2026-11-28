@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { Cpu } from 'lucide-react';
 import { AuthButton } from '@/components/auth-button';
+import { NavLinks } from '@/components/nav-links';
 
 const links = [
   { href: '/parcours', label: 'Parcours' },
@@ -22,15 +23,7 @@ export function SiteHeader() {
           <Cpu className="size-5 text-primary" aria-hidden />
           SysMaster
         </Link>
-        <ul className="flex flex-wrap gap-4 text-sm text-muted-foreground">
-          {links.map((l) => (
-            <li key={l.href}>
-              <Link href={l.href} className="hover:text-foreground">
-                {l.label}
-              </Link>
-            </li>
-          ))}
-        </ul>
+        <NavLinks links={links} />
         <div className="ml-auto">
           <AuthButton />
         </div>

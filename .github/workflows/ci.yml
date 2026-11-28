@@ -60,6 +60,17 @@ jobs:
         env:
           KEYCLOAK_E2E_URL: http://localhost:8080
       - run: pnpm build
+      # Audit WCAG 2.2 AA (axe, thèmes clair et sombre) et parcours clavier sur l'application construite,
+      # avec de vraies connexions Keycloak (comptes de démo du royaume). Voir docs/05, « Accessibilité ».
+      - name: Accessibilité (axe et clavier)
+        run: |
+          set -a; . ./.env.example; set +a
+          pnpm --filter @sysmaster/web exec playwright install --with-deps chromium
+          node apps/api/dist/main.js > api.log 2>&1 &
+          pnpm --filter @sysmaster/web start > web.log 2>&1 &
+          timeout 90 bash -c 'until curl -sf http://localhost:4000/api/v1/health >/dev/null && curl -sf http://localhost:3000/ >/dev/null; do sleep 2; done' \
+            || (tail -40 api.log web.log; exit 1)
+          pnpm --filter @sysmaster/web a11y || (tail -40 api.log web.log; exit 1)
 
   ai:
     name: Service IA (Python)

@@ -84,13 +84,13 @@ export default async function DashboardPage() {
         <ul className="mt-3 space-y-2">
           {data.recommendations.map((r) => (
             <li key={r.href}>
-              <Link href={r.href} className="inline-flex items-center gap-1 text-primary hover:underline">
+              <Link href={r.href} className="inline-flex items-center gap-1 link">
                 {r.text} <ArrowRight className="size-4" aria-hidden />
               </Link>
             </li>
           ))}
           {data.recommendations.length === 0 && (
-            <CardDescription>Tous vos parcours sont terminés. Bravo ! <Link href="/parcours" className="text-primary hover:underline">En choisir un autre</Link></CardDescription>
+            <CardDescription>Tous vos parcours sont terminés. Bravo ! <Link href="/parcours" className="link">En choisir un autre</Link></CardDescription>
           )}
         </ul>
       </Card>
@@ -136,7 +136,7 @@ export default async function DashboardPage() {
         </div>
         <ul className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {[...earned, ...locked].map((b) => (
-            <li key={b.code} className={cn('flex gap-3 rounded-lg border p-3', !b.earnedAt && 'opacity-50')}>
+            <li key={b.code} className={cn('flex gap-3 rounded-lg border p-3', !b.earnedAt && 'border-dashed bg-muted/40')}>
               <BadgeIcon name={b.icon} className={cn('size-8 shrink-0', b.earnedAt ? 'text-primary' : 'text-muted-foreground')} />
               <div>
                 <p className="font-medium">
@@ -180,7 +180,7 @@ export default async function DashboardPage() {
             <li>Parcours terminé : 200 XP.</li>
             <li>La vitesse ne rapporte rien : comprendre avant d&apos;exécuter.</li>
           </ul>
-          <Link href="/classement" className="mt-3 inline-block text-sm text-primary hover:underline">Voir le classement</Link>
+          <Link href="/classement" className="mt-3 inline-block text-sm link">Voir le classement</Link>
         </Card>
       </div>
     </div>

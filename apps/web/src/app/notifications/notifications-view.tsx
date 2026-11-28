@@ -63,7 +63,7 @@ export function NotificationsView({ list, preferences }: { list: NotificationLis
           </Button>
         )}
       </div>
-      {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
+      {error && <p role="alert" className="text-sm text-red-600 dark:text-red-400">{error}</p>}
 
       {list.items.length === 0 ? (
         <p className="text-muted-foreground">Aucune notification pour l&apos;instant.</p>

@@ -31,7 +31,7 @@ export default async function CommandsPage({ searchParams }: { searchParams: Pro
           name="q"
           defaultValue={q}
           placeholder="ex. journal, service, sfc…"
-          className="h-10 flex-1 rounded-md border bg-card px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+          className="h-10 min-w-0 flex-1 rounded-md border bg-card px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
         />
         <Button type="submit">Rechercher</Button>
       </form>

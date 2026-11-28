@@ -31,7 +31,7 @@ export function VisibilityToggle({ visible }: { visible: boolean }) {
       >
         {visible ? 'Me retirer du classement' : 'Apparaître dans le classement'}
       </Button>
-      {error && <p role="alert" className="mt-2 text-sm text-red-600">{error}</p>}
+      {error && <p role="alert" className="mt-2 text-sm text-red-600 dark:text-red-400">{error}</p>}
     </div>
   );
 }

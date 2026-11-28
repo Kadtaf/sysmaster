@@ -139,7 +139,7 @@ export function SimulationPanel({ revisionId, savedAt }: { revisionId: string; s
         ce brouillon (version enregistrée le {new Date(savedAt).toLocaleString('fr-FR')}). Une régression : la bonne cause était en tête et ne l’est plus.
       </CardDescription>
       <Button type="button" variant="outline" onClick={() => void run()} disabled={loading}>{loading ? 'Simulation…' : 'Lancer la simulation'}</Button>
-      {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
+      {error && <p role="alert" className="text-sm text-red-600 dark:text-red-400">{error}</p>}
       {sim && (
         <>
           <p className={cn('text-sm font-medium', sim.regressions ? 'text-red-700 dark:text-red-300' : 'text-emerald-700 dark:text-emerald-300')}>

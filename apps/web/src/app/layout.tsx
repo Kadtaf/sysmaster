@@ -13,9 +13,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="fr">
       <body className="min-h-screen font-sans antialiased">
+        <a
+          href="#contenu"
+          className="sr-only rounded-md bg-primary px-4 py-2 text-primary-foreground focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50"
+        >
+          Aller au contenu
+        </a>
         <Providers>
           <SiteHeader />
-          <main className="mx-auto max-w-6xl px-4 py-10">{children}</main>
+          <main id="contenu" tabIndex={-1} className="mx-auto max-w-6xl px-4 py-10 focus:outline-none">
+            {children}
+          </main>
           <footer className="mx-auto flex max-w-6xl flex-wrap justify-between gap-2 px-4 py-10 text-sm text-muted-foreground print:hidden">
             <span>SysMaster AI Platform. Comprendre avant d&apos;exécuter.</span>
             <Link href="/confidentialite" className="hover:underline">Confidentialité et données personnelles</Link>

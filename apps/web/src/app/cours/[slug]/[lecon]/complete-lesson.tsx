@@ -90,7 +90,7 @@ export function CompleteLesson(props: {
       >
         <CheckCircle2 className="size-4" aria-hidden /> J&apos;ai compris, valider la leçon
       </Button>
-      {error && !error.blockedBy && <p role="alert" className="text-sm text-red-600">{error.message}</p>}
+      {error && !error.blockedBy && <p role="alert" className="text-sm text-red-600 dark:text-red-400">{error.message}</p>}
     </Card>
   );
 }

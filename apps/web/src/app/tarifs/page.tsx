@@ -48,7 +48,7 @@ export default async function PricingPage({ searchParams }: { searchParams: Prom
         <h1 className="text-3xl font-bold">Tarifs</h1>
         <p className="text-muted-foreground">
           Apprendre, comprendre, diagnostiquer : l’offre gratuite suffit pour commencer. Les offres payées lèvent les plafonds
-          de l’IA et des labs. Sans engagement, résiliable à tout moment depuis <Link href="/abonnement" className="text-primary hover:underline">Mon abonnement</Link>.
+          de l’IA et des labs. Sans engagement, résiliable à tout moment depuis <Link href="/abonnement" className="link">Mon abonnement</Link>.
         </p>
       </div>
 

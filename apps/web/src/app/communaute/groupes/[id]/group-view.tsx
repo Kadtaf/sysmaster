@@ -67,7 +67,7 @@ export function GroupView({ initial }: { initial: StudyGroupDetailDto }) {
             <Button onClick={join} disabled={pending || !!g.joinBlocker}>Rejoindre le groupe</Button>
           </Card>
         )}
-        {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
+        {error && <p role="alert" className="text-sm text-red-600 dark:text-red-400">{error}</p>}
       </section>
 
       <aside className="space-y-4">

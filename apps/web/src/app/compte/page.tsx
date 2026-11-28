@@ -77,7 +77,7 @@ export default async function AccountPage() {
           </ul>
         ) : (
           <CardDescription>
-            Aucun parcours pour l&apos;instant. <Link href="/parcours" className="text-primary hover:underline">Choisir un parcours</Link>
+            Aucun parcours pour l&apos;instant. <Link href="/parcours" className="link">Choisir un parcours</Link>
           </CardDescription>
         )}
       </Card>
@@ -98,7 +98,7 @@ export default async function AccountPage() {
           <CardTitle>Mes données personnelles</CardTitle>
           <CardDescription>
             Vos droits RGPD : accès, portabilité et effacement. Les détails sont dans la{' '}
-            <Link href="/confidentialite" className="text-primary hover:underline">politique de confidentialité</Link>.
+            <Link href="/confidentialite" className="link">politique de confidentialité</Link>.
           </CardDescription>
           <PrivacyPanel status={privacy} />
         </Card>
@@ -108,7 +108,7 @@ export default async function AccountPage() {
         <CardTitle>Droits de l&apos;offre</CardTitle>
         {me.entitlements.length === 0 ? (
           <CardDescription>
-            Offre, factures et résiliation : <Link href="/abonnement" className="text-primary hover:underline">Mon abonnement</Link>.
+            Offre, factures et résiliation : <Link href="/abonnement" className="link">Mon abonnement</Link>.
           </CardDescription>
         ) : (
           <ul className="mt-3 space-y-1 text-sm">

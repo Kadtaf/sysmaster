@@ -130,7 +130,7 @@ export default async function CommandPage({ params }: Props) {
           <ul className="space-y-2">
             {quizzes.map((q) => (
               <li key={q.slug}>
-                <Link href={`/quiz/${q.slug}`} className="font-semibold text-primary hover:underline">{q.title}</Link>
+                <Link href={`/quiz/${q.slug}`} className="font-semibold link">{q.title}</Link>
                 <span className="text-muted-foreground"> · {q.questionCount} question{q.questionCount > 1 ? 's' : ''}</span>
               </li>
             ))}
@@ -143,7 +143,7 @@ export default async function CommandPage({ params }: Props) {
           <ul className="space-y-2">
             {cmd.alternatives.map((a) => (
               <li key={a.slug}>
-                <Link href={`/commandes/${a.slug}`} className="font-mono font-semibold text-primary hover:underline">{a.name}</Link>
+                <Link href={`/commandes/${a.slug}`} className="font-mono font-semibold link">{a.name}</Link>
                 {' — '}{a.note}
               </li>
             ))}
@@ -156,7 +156,7 @@ export default async function CommandPage({ params }: Props) {
           <ul className="list-disc pl-6">
             {cmd.sources.map((s) => (
               <li key={s.url}>
-                <a href={s.url} className="text-primary hover:underline" rel="noopener noreferrer" target="_blank">{s.title}</a>
+                <a href={s.url} className="link" rel="noopener noreferrer" target="_blank">{s.title}</a>
                 <span className="text-muted-foreground"> · {s.publisher}</span>
               </li>
             ))}

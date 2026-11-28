@@ -89,7 +89,7 @@ export default function PrivacyPage() {
         <ul className="mt-2 list-disc space-y-2 pl-5 text-sm">
           <li>
             <strong>Accès et portabilité</strong> : téléchargez toutes vos données en un fichier depuis{' '}
-            <Link href="/compte" className="text-primary hover:underline">Mon compte</Link>.
+            <Link href="/compte" className="link">Mon compte</Link>.
           </li>
           <li>
             <strong>Effacement</strong> : demandez la suppression depuis Mon compte. Elle est exécutée {ERASURE_GRACE_DAYS} jours plus
@@ -102,7 +102,7 @@ export default function PrivacyPage() {
           <li><strong>Opposition, limitation, questions</strong> : écrivez à {contact}.</li>
           <li>
             <strong>Réclamation</strong> : vous pouvez saisir la CNIL (
-            <a href="https://www.cnil.fr/fr/plaintes" className="text-primary hover:underline" rel="noopener noreferrer">cnil.fr/fr/plaintes</a>).
+            <a href="https://www.cnil.fr/fr/plaintes" className="link" rel="noopener noreferrer">cnil.fr/fr/plaintes</a>).
           </li>
         </ul>
       </Card>

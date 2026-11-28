@@ -49,3 +49,38 @@ body {
   color: var(--foreground);
 }
 * { border-color: var(--border); }
+
+/*
+ * Accessibilité (WCAG 2.2 AA, docs/05).
+ * Lien dans un texte : souligné, pour ne pas reposer sur la seule couleur (1.4.1).
+ */
+@utility link {
+  color: var(--primary);
+  text-decoration-line: underline;
+  text-underline-offset: 3px;
+  &:hover {
+    text-decoration-thickness: 2px;
+  }
+}
+
+@layer base {
+  /* Focus toujours visible au clavier, même sur les éléments sans style propre (2.4.7, 2.4.13). */
+  :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+  /* L'en-tête collant ne doit pas masquer l'élément qui reçoit le focus (2.4.11). */
+  html {
+    scroll-padding-top: 6rem;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
