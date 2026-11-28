@@ -3,7 +3,7 @@ import type { PoolClient } from 'pg';
 import type { BillingInvoiceDto, SubscriptionStatus } from '@sysmaster/contracts';
 import { Database } from '../../../shared/database.module';
 import { isStale } from '../domain/billing';
-import { BillingEvent, BillingRepository, PlanRow, StoredSubscription, VerifiedEvent } from '../application/ports';
+import { BillingEvent, BillingRepository, PlanRow, StoredSubscription, VerifiedEvent, SeatLicence } from '../application/ports';
 
 @Injectable()
 export class PgBillingRepository extends BillingRepository {
@@ -55,6 +55,21 @@ export class PgBillingRepository extends BillingRepository {
     return rows.map((r) => ({
       stripeSubscriptionId: r.stripe_subscription_id, plan: r.plan_code, status: r.status, currentPeriodEnd: r.current_period_end, cancelAtPeriodEnd: r.cancel_at_period_end,
     }));
+  }
+
+  async seatLicence(userId: string): Promise<SeatLicence | null> {
+    const { rows } = await this.db.query<{ seat_plan: string; name: string; licence_ends_at: Date | null }>(
+      `SELECT o.seat_plan, o.name, o.licence_ends_at
+         FROM iam.memberships m JOIN iam.organizations o ON o.id = m.organization_id
+        WHERE m.user_id = $1
+          AND (o.licence_starts_at IS NULL OR o.licence_starts_at <= now())
+          AND o.licence_ends_at > now()
+        ORDER BY (o.seat_plan = 'pro') DESC, o.licence_ends_at DESC
+        LIMIT 1`,
+      [userId],
+    );
+    const r = rows[0];
+    return r ? { plan: r.seat_plan, organization: r.name, endsAt: r.licence_ends_at } : null;
   }
 
   async invoices(userId: string, limit: number): Promise<BillingInvoiceDto[]> {

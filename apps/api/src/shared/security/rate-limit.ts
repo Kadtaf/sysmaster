@@ -36,6 +36,10 @@ export const LIMITS = {
   privacyExport: { bucket: 'privacy-export', limit: 5, windowS: 3600 },
   /** Ouvrir une page de paiement ou le portail Stripe : chaque appel crée une session chez Stripe. */
   billing: { bucket: 'billing', limit: 10, windowS: 600 },
+  /** Lire ou accepter une invitation d'organisation par son jeton : empêche d'essayer des jetons en masse. */
+  organizationInvitation: { bucket: 'org-invitation', limit: 20, windowS: 600 },
+  /** Envoyer des invitations (jusqu'à 200 adresses par appel) : limite l'envoi d'e-mails en masse. */
+  organizationInvite: { bucket: 'org-invite', limit: 30, windowS: 3600 },
   /** Désabonnement par lien d'e-mail, sans connexion : empêche d'essayer des jetons en masse. */
   emailUnsubscribe: { bucket: 'email-unsubscribe', limit: 20, windowS: 600 },
   /** Démarrer un examen. */

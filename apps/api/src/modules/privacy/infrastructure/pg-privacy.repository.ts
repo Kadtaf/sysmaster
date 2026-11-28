@@ -14,7 +14,11 @@ const EXPORT: [string, string][] = [
                      deletion_requested_at, deletion_due_at FROM iam.users WHERE id = $1`],
   ['roles', `SELECT role_code, source FROM iam.user_roles WHERE user_id = $1`],
   ['identitesExternes', `SELECT provider, created_at FROM iam.external_identities WHERE user_id = $1`],
-  ['organisations', `SELECT organization_id, role_code, joined_at FROM iam.memberships WHERE user_id = $1`],
+  ['organisations', `SELECT m.organization_id, o.name, m.role_code, m.joined_at FROM iam.memberships m
+                      JOIN iam.organizations o ON o.id = m.organization_id WHERE m.user_id = $1`],
+  ['invitationsOrganisations', `SELECT o.name, i.role_code, i.created_at, i.expires_at, i.accepted_at, i.revoked_at
+                                  FROM iam.organization_invitations i JOIN iam.organizations o ON o.id = i.organization_id
+                                 WHERE i.email = (SELECT email FROM iam.users WHERE id = $1)`],
   ['parcours', `SELECT p.slug, e.started_at, e.completed_at, e.progress_pct FROM learning.enrollments e
                   JOIN learning.learning_paths p ON p.id = e.path_id WHERE e.user_id = $1`],
   ['lecons', `SELECT l.slug, c.slug AS course, lp.status, lp.time_spent_s, lp.completed_at FROM learning.lesson_progress lp
@@ -251,6 +255,10 @@ export class PgPrivacyRepository extends PrivacyRepository {
     await run('notification.notifications', `DELETE FROM notification.notifications WHERE user_id = $1`);
     await run('notification.preferences', `DELETE FROM notification.preferences WHERE user_id = $1`);
 
+    // Invitations reçues (à l'adresse) ; celles envoyées ou acceptées par la personne perdent leur auteur.
+    await run('iam.organization_invitations', `DELETE FROM iam.organization_invitations WHERE email = (SELECT email FROM iam.users WHERE id = $1)`);
+    await tx.query(`UPDATE iam.organization_invitations SET invited_by = NULL WHERE invited_by = $1`, [id]);
+    await tx.query(`UPDATE iam.organization_invitations SET accepted_by = NULL WHERE accepted_by = $1`, [id]);
     for (const t of ['external_identities', 'mfa_factors', 'passkeys', 'sessions', 'user_roles', 'memberships', 'entitlements']) {
       await run(`iam.${t}`, `DELETE FROM iam.${t} WHERE user_id = $1`);
     }
@@ -279,6 +287,8 @@ export class PgPrivacyRepository extends PrivacyRepository {
     await run('diagnostic.sessions', `DELETE FROM diagnostic.sessions WHERE created_at < $1`, at(RETENTION_DAYS.diagnosticSessions));
     await run('platform.audit_log', `DELETE FROM platform.audit_log WHERE created_at < $1`, at(RETENTION_DAYS.auditLog));
     await run('notification.notifications', `DELETE FROM notification.notifications WHERE read_at IS NOT NULL AND read_at < $1`, at(RETENTION_DAYS.readNotifications));
+    await run('iam.organization_invitations', `DELETE FROM iam.organization_invitations
+                                                WHERE coalesce(accepted_at, revoked_at, expires_at) < $1`, at(RETENTION_DAYS.organizationInvitations));
     await run('notification.notifications.email', `DELETE FROM notification.notifications WHERE channel = 'email' AND created_at < $1`, at(RETENTION_DAYS.notificationEmails));
     await run('assessment.exam_sessions.integrity', `UPDATE assessment.exam_sessions SET integrity = '{}'
                                                       WHERE started_at < $1 AND integrity <> '{}'`, at(RETENTION_DAYS.examIntegrity));

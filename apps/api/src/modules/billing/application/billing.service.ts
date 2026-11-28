@@ -43,12 +43,21 @@ export class BillingService {
     };
   }
 
+  /** Offre qui s'applique, siège d'organisation compris. */
+  async planOf(userId: string): Promise<string> {
+    const [subs, seat] = await Promise.all([this.repo.subscriptions(userId), this.repo.seatLicence(userId)]);
+    return effectivePlan(subs, seat?.plan ?? null);
+  }
+
   async status(userId: string): Promise<BillingStatusDto> {
-    const [subs, customer, invoices] = await Promise.all([this.repo.subscriptions(userId), this.repo.customerId(userId), this.repo.invoices(userId, 24)]);
+    const [subs, customer, invoices, seat] = await Promise.all([
+      this.repo.subscriptions(userId), this.repo.customerId(userId), this.repo.invoices(userId, 24), this.repo.seatLicence(userId),
+    ]);
     const current = subs[0] ?? null;
     return {
       enabled: this.gateway.enabled,
-      plan: effectivePlan(subs),
+      plan: effectivePlan(subs, seat?.plan ?? null),
+      licence: seat && { organization: seat.organization, plan: seat.plan, endsAt: seat.endsAt?.toISOString() ?? null },
       subscription: current && {
         plan: current.plan,
         status: current.status,
@@ -66,8 +75,7 @@ export class BillingService {
    */
   async aiDailyCap(userId: string): Promise<number | null> {
     if (!this.gateway.enabled) return null;
-    const plan = effectivePlan(await this.repo.subscriptions(userId));
-    return aiDailyCap(await this.repo.features(plan));
+    return aiDailyCap(await this.repo.features(await this.planOf(userId)));
   }
 
   async checkout(userId: string, input: CheckoutInput): Promise<RedirectDto> {
@@ -113,7 +121,7 @@ export class BillingService {
 
   /** Prix d'un examen pour cette personne (remise de son offre) et s'il doit être payé avant de commencer. */
   async examOffer(userId: string | null, listPriceCents: number): Promise<{ required: boolean; discountPct: number; amountCents: number }> {
-    const discountPct = userId && this.gateway.enabled ? certificationDiscountPct(await this.repo.features(effectivePlan(await this.repo.subscriptions(userId)))) : 0;
+    const discountPct = userId && this.gateway.enabled ? certificationDiscountPct(await this.repo.features(await this.planOf(userId))) : 0;
     const amountCents = examPrice(listPriceCents, discountPct);
     return { required: examPaymentRequired(this.gateway.enabled, amountCents), discountPct, amountCents };
   }
@@ -121,8 +129,8 @@ export class BillingService {
   /** Ce qu'il faut pour afficher le prix des examens à une personne : paiement ouvert, remise, tentatives déjà payées. */
   async examContext(userId: string | null): Promise<{ enabled: boolean; discountPct: number; credits: Set<string> }> {
     if (!this.gateway.enabled || !userId) return { enabled: this.gateway.enabled, discountPct: 0, credits: new Set() };
-    const [subs, credits] = await Promise.all([this.repo.subscriptions(userId), this.repo.examCredits(userId)]);
-    return { enabled: true, discountPct: certificationDiscountPct(await this.repo.features(effectivePlan(subs))), credits };
+    const [plan, credits] = await Promise.all([this.planOf(userId), this.repo.examCredits(userId)]);
+    return { enabled: true, discountPct: certificationDiscountPct(await this.repo.features(plan)), credits };
   }
 
   async purchaseExam(userId: string, exam: { code: string; title: string; listPriceCents: number }): Promise<RedirectDto> {

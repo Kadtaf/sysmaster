@@ -167,6 +167,22 @@ Comportement :
 - **Désabonnement** : lien signé dans chaque e-mail, plus les en-têtes `List-Unsubscribe` et `List-Unsubscribe-Post` pour le bouton des messageries. Seul ce type d'e-mail est coupé, pour cette personne.
 - **Compte supprimé entre-temps** : l'e-mail est abandonné. La trace des e-mails est effacée après 90 jours.
 
+### Licences d'organisation
+
+Les licences (entreprise, centre de formation, école, université) se vendent **sur devis**. Une fois le devis signé :
+
+1. **Ouvrir** : `/admin/organisations` (rôle `admin`), saisir le nom, un identifiant court, le type, le nombre de sièges, la date de fin et l'e-mail du propriétaire (le gestionnaire principal chez le client). L'invitation du propriétaire part par e-mail si les e-mails sont configurés ; sinon le lien s'affiche une fois, à transmettre soi-même.
+2. **Le client gère** depuis `/organisation/<id>` : il invite par e-mail (un lien à usage unique, valable 14 jours, réservé à l'adresse invitée), nomme des gestionnaires ou des formateurs, retire des membres, suit la progression et l'exporte en CSV.
+3. **Ajuster** : sièges et date de fin se modifient sur la même page. Les sièges ne peuvent pas descendre sous les sièges pris (membres plus invitations en attente) : demandez d'abord au client d'en libérer.
+
+Règles :
+
+- **Ce qu'un siège donne** : l'offre `seat_plan` de l'organisation (Pro), tant que la licence est en cours. À la date de fin, les membres repassent à leur offre personnelle ; personne n'est retiré, et prolonger la licence rend l'accès aussitôt.
+- **Ce que voit l'organisation** : niveau, XP, leçons, labs résolus, parcours, certifications valides, dernière activité. Jamais les conversations avec l'assistant, les diagnostics ni les messages privés. Les adresses des membres ne sont visibles que des gestionnaires. La politique de confidentialité le dit, l'e-mail et la page d'invitation aussi.
+- **Propriétaire** : un gestionnaire ne peut ni retirer ni rétrograder un propriétaire, et le seul propriétaire ne peut pas partir. Pour changer de propriétaire (départ de la personne, compte supprimé), l'interface ne le permet pas encore : faites-le en base, sur un membre existant, `UPDATE iam.memberships SET role_code = 'org_owner' WHERE organization_id = … AND user_id = …;`.
+- **Journal** : ouverture, modifications, invitations (nombre et rôle, sans adresse), arrivées, départs et changements de rôle vont dans `platform.audit_log` (`target_type = 'organization'`).
+- **Facturation** : hors Stripe pour l'instant (devis, puis facture classique). L'achat en ligne des sièges viendra plus tard.
+
 ## 4. Événements (outbox)
 
 Chaque changement important écrit un événement dans `platform.outbox_events`, dans la même transaction que la donnée. Le relais intégré à l'API le distribue ensuite aux consommateurs, aujourd'hui la gamification. Le fonctionnement détaillé est dans [01 — Architecture](01-architecture.md).
@@ -293,11 +309,11 @@ Sans `STAGING_KUBECONFIG`, la CD publie les images et s'arrête là, avec une no
 ## 8. RGPD
 
 - **Export** : chaque personne télécharge ses données depuis *Mon compte* (`GET /api/v1/me/privacy/export`, JSON). L'export ne contient que ses propres données, jamais le nom ni les messages d'autres membres.
-- **Effacement** : demandé depuis *Mon compte* (saisir « SUPPRIMER »), exécuté 7 jours plus tard par la tâche horaire de l'API, annulable d'ici là. Sont supprimés : progression, labs, quiz, examens, certificats (ils ne se vérifient plus), diagnostics, conversations avec l'assistant, messages privés, votes, profil mentor, rôles, notifications. La ligne `iam.users` reste, anonymisée (« Compte supprimé », e-mail `supprime-<id>@invalid`) : sujets, réponses et contributions éditoriales publics y restent rattachés. Un groupe dont la personne était responsable passe au membre le plus ancien, ou est fermé s'il était seul.
+- **Effacement** : demandé depuis *Mon compte* (saisir « SUPPRIMER »), exécuté 7 jours plus tard par la tâche horaire de l'API, annulable d'ici là. Sont supprimés : progression, labs, quiz, examens, certificats (ils ne se vérifient plus), diagnostics, conversations avec l'assistant, messages privés, votes, profil mentor, rôles, notifications, appartenances aux organisations et invitations reçues. La ligne `iam.users` reste, anonymisée (« Compte supprimé », e-mail `supprime-<id>@invalid`) : sujets, réponses et contributions éditoriales publics y restent rattachés. Un groupe dont la personne était responsable passe au membre le plus ancien, ou est fermé s'il était seul.
 - **Compte Keycloak** : supprimé automatiquement si `KEYCLOAK_ADMIN_CLIENT_ID` / `KEYCLOAK_ADMIN_CLIENT_SECRET` sont fournis. Créez dans le royaume un client confidentiel avec *Service accounts* activé, puis donnez à son compte de service le rôle `realm-management` → `manage-users`. Sans ce client, l'identifiant Keycloak reste dans `iam.erasure_log.idp_subject` (et seulement là) : la tâche horaire réessaie dès que le client est configuré, ou supprimez le compte à la main (console Keycloak → Utilisateurs → rechercher par identifiant) puis `UPDATE iam.erasure_log SET idp_deleted = true, idp_subject = NULL WHERE id = …`.
 - **Paiement** : à l'exécution de l'effacement, les abonnements Stripe en cours sont résiliés tout de suite (sans prorata) et les tentatives d'examen payées mais pas utilisées sont remboursées en totalité, ce que *Mon compte* annonce avant la demande. Factures, achats d'examens et lien vers le client Stripe restent, rattachés au compte anonymisé : ce sont des pièces comptables, gardées dix ans (Code de commerce, art. L123-22) puis purgées par la tâche horaire. Le client Stripe n'est pas supprimé, Stripe ayant ses propres obligations sur les factures. Si Stripe ne répond pas, ou si les clés ont été retirées, les identifiants restent dans `iam.erasure_log` (`stripe_subscriptions_pending` pour les abonnements, `stripe_refunds_pending` pour les paiements à rembourser) et la tâche horaire réessaie. Ne laissez pas ces colonnes non vides : la personne continuerait d'être prélevée ou ne serait pas remboursée. Au besoin, faites-le depuis le tableau de bord Stripe, puis `UPDATE iam.erasure_log SET stripe_subscriptions_pending = '{}', stripe_refunds_pending = '{}' WHERE id = …`. L'export comprend abonnements, factures et achats d'examens.
 - **Registre** : `iam.erasure_log` prouve qu'une demande a été traitée (date, nombre de lignes par table), sans aucune donnée personnelle.
-- **Conservation** : la même tâche purge chaque heure les données échues (assistant : 1 an sans message ; diagnostic : 2 ans ; journal d'audit : 1 an ; notifications lues : 6 mois ; trace des e-mails de notification : 90 jours ; signaux d'intégrité des examens et commandes des labs : 1 an ; factures et achats d'examens : 10 ans). Les durées sont dans `packages/contracts` (`RETENTION_DAYS`) et s'affichent telles quelles sur `/confidentialite`.
+- **Conservation** : la même tâche purge chaque heure les données échues (assistant : 1 an sans message ; diagnostic : 2 ans ; journal d'audit : 1 an ; notifications lues : 6 mois ; trace des e-mails de notification : 90 jours ; invitations d'organisation closes : 90 jours ; signaux d'intégrité des examens et commandes des labs : 1 an ; factures et achats d'examens : 10 ans). Les durées sont dans `packages/contracts` (`RETENTION_DAYS`) et s'affichent telles quelles sur `/confidentialite`.
 - **Politique de confidentialité** : `/confidentialite`. Renseignez `NEXT_PUBLIC_LEGAL_NAME` (raison sociale et adresse) et `NEXT_PUBLIC_PRIVACY_CONTACT` (adresse de contact) au déploiement : sans eux, la page affiche un texte à compléter.
 - **Cookies** : uniquement ceux de la connexion (session NextAuth, CSRF). Ajouter une mesure d'audience imposerait un bandeau de consentement.
 
@@ -305,5 +321,5 @@ Sans `STAGING_KUBECONFIG`, la CD publie les images et s'arrête là, avec une no
 
 Ces sujets sont prévus dans la [feuille de route](05-feuille-de-route.md) :
 
-- tableau de bord d'organisation ;
+- achat en ligne des sièges de licence, invitation par domaine et SSO par organisation ;
 - production (promotion manuelle des images testées, déploiement progressif) et traces OpenTelemetry.

@@ -37,6 +37,8 @@ Règle qui s'applique à **toutes** les fonctionnalités affichant une commande,
 
 **Critères** : un utilisateur peut se connecter avec un passkey seul ; un admin d'organisation ne voit jamais les conversations IA privées de ses membres, seulement la progression.
 
+> **Livré (licences, Phase 5)** : organisations ouvertes sur devis par un administrateur SysMaster (sièges, période de licence, invitation du propriétaire), invitations par e-mail à l'adresse exacte (lien à usage unique, valable 14 jours, réservant un siège), rôles propriétaire, gestionnaire, formateur et membre, départ libre. Reste à faire : invitation par domaine, SSO SAML/OIDC par organisation.
+
 ### 2.2 Académie (Learning) — Phase 2
 
 > **Livré (PR académie)** : parcours, cours, leçons Markdown, inscription, validation **dans l'ordre** (une leçon verrouillée indique laquelle faire d'abord), progression par parcours, événement `learning.lesson.completed.v1`. Les leçons restent **lisibles sans compte** ; seule la validation exige une connexion. Reste à faire : test de positionnement, recommandations, prérequis entre cours (graphe de compétences).
@@ -137,7 +139,7 @@ Forum par catégorie, Q&R avec réponse acceptée, partage de labs et de scripts
 
 ### 2.10 Tableaux de bord — Phase 2
 
-> **Livré** : tableau de bord apprenant `/tableau-de-bord` (niveau, série, badges, parcours, carte des compétences, points forts / faibles, recommandations à base de règles). Reste à faire : radar, objectifs personnalisés, historique de diagnostics, tableau de bord d'organisation.
+> **Livré** : tableau de bord apprenant `/tableau-de-bord` (niveau, série, badges, parcours, carte des compétences, points forts / faibles, recommandations à base de règles). Tableau de bord d'organisation `/organisation/<id>` : sièges, membres, invitations, progression de chaque membre (niveau, XP, leçons, labs, parcours, certifications valides, dernière activité) et export CSV, pour les gestionnaires et formateurs ; jamais les conversations avec l'assistant, les diagnostics ni les messages privés. Reste à faire : radar, objectifs personnalisés, historique de diagnostics, compétences de l'équipe, cohortes.
 
 Apprenant : progression par parcours, carte des compétences (radar), points forts / faibles, recommandations IA, objectifs personnalisés, historique de diagnostics.
 Organisation : progression des membres, compétences de l'équipe, rapports exportables.
@@ -154,7 +156,9 @@ Organisation : progression des membres, compétences de l'équipe, rapports expo
 
 Coupons, codes promo, essai gratuit, facturation (TVA via Stripe Tax), affiliation (commission par défaut 20 %), marketplace (part auteur 70 % par défaut, versement via Stripe Connect).
 
-> **Livré (premier incrément)** : page `/tarifs` (offres de `billing.plans`, licences sur devis), souscription Premium ou Pro par Stripe Checkout (la carte n'est jamais saisie chez SysMaster), page `/abonnement` (offre, échéance, résiliation demandée, factures) et portail Stripe pour changer de carte ou d'offre et résilier. L'offre s'active par webhook signé, jamais par le retour du navigateur. Un abonnement en retard de paiement garde l'accès pendant les relances. L'offre fixe le quota IA quotidien (10, 100, « illimité » borné à 500). Les codes promo Stripe sont acceptés au paiement. Tant que les clés Stripe manquent, tout s'affiche mais rien ne se paie et aucun plafond n'est durci. Examens payants une fois le paiement ouvert : une tentative par paiement, remise de l'offre appliquée (−20 % Premium, −40 % Pro), paiement proposé seulement si l'examen peut être passé tout de suite. Reste à faire : plafonds de diagnostics et d'heures de labs, licences par siège, essai gratuit, affiliation, marketplace.
+> **Livré (premier incrément)** : page `/tarifs` (offres de `billing.plans`, licences sur devis), souscription Premium ou Pro par Stripe Checkout (la carte n'est jamais saisie chez SysMaster), page `/abonnement` (offre, échéance, résiliation demandée, factures) et portail Stripe pour changer de carte ou d'offre et résilier. L'offre s'active par webhook signé, jamais par le retour du navigateur. Un abonnement en retard de paiement garde l'accès pendant les relances. L'offre fixe le quota IA quotidien (10, 100, « illimité » borné à 500). Les codes promo Stripe sont acceptés au paiement. Tant que les clés Stripe manquent, tout s'affiche mais rien ne se paie et aucun plafond n'est durci. Examens payants une fois le paiement ouvert : une tentative par paiement, remise de l'offre appliquée (−20 % Premium, −40 % Pro), paiement proposé seulement si l'examen peut être passé tout de suite. Reste à faire : plafonds de diagnostics et d'heures de labs, essai gratuit, affiliation, marketplace.
+
+> **Livré (licences par siège)** : vendues sur devis, ouvertes par un administrateur (`/admin/organisations`) avec un nombre de sièges et une date de fin. Chaque membre occupe un siège, chaque invitation en attente en réserve un. Un siège donne l'offre Pro tant que la licence est en cours (la meilleure offre l'emporte si la personne a aussi un abonnement) ; à la fin de la licence, les membres repassent à leur offre personnelle. Reste à faire : achat en ligne des sièges, cohortes et parcours personnalisés, LTI.
 
 ### 2.12 Applications — Phase 6
 

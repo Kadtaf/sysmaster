@@ -4,6 +4,11 @@ const sub = (plan: string, status: Parameters<typeof effectivePlan>[0][number]['
 
 describe('facturation', () => {
   it('offre effective : abonnement en règle, sinon gratuite', () => {
+    // Siège d'organisation : la meilleure des deux offres.
+    expect(effectivePlan([], 'pro')).toBe('pro');
+    expect(effectivePlan([sub('premium', 'active')], 'pro')).toBe('pro');
+    expect(effectivePlan([sub('pro', 'active')], 'premium')).toBe('pro');
+    expect(effectivePlan([sub('premium', 'canceled')], null)).toBe('free');
     expect(effectivePlan([])).toBe('free');
     expect(effectivePlan([sub('pro', 'active')])).toBe('pro');
     expect(effectivePlan([sub('premium', 'trialing')])).toBe('premium');

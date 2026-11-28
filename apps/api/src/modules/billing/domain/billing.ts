@@ -20,10 +20,17 @@ export interface SubscriptionState {
   currentPeriodEnd: Date | null;
 }
 
-/** Offre qui s'applique : celle d'un abonnement en règle, sinon l'offre gratuite. */
-export function effectivePlan(subscriptions: readonly SubscriptionState[]): string {
-  const entitled = subscriptions.find((s) => ENTITLED_STATUSES.includes(s.status));
-  return entitled?.plan ?? FREE_PLAN;
+/** Rang des offres individuelles : un siège Pro l'emporte sur un abonnement Premium, pas l'inverse. */
+const PLAN_RANK: Record<string, number> = { free: 0, premium: 1, pro: 2 };
+const rank = (plan: string) => PLAN_RANK[plan] ?? 0;
+
+/**
+ * Offre qui s'applique : la meilleure entre l'abonnement en règle et le siège d'une licence
+ * d'organisation en cours (docs/03 §2.11), sinon l'offre gratuite.
+ */
+export function effectivePlan(subscriptions: readonly SubscriptionState[], seatPlan: string | null = null): string {
+  const entitled = subscriptions.find((s) => ENTITLED_STATUSES.includes(s.status))?.plan ?? FREE_PLAN;
+  return seatPlan && rank(seatPlan) > rank(entitled) ? seatPlan : entitled;
 }
 
 /** Plafond « illimité » d'usage raisonnable : protège le budget IA contre un script. */

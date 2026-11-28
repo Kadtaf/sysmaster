@@ -1233,6 +1233,8 @@ export const RETENTION_DAYS = {
   auditLog: 365,
   /** Notifications lues. */
   readNotifications: 180,
+  /** Invitations à une organisation acceptées, annulées ou expirées. */
+  organizationInvitations: 90,
   /** Signaux d'intégrité des examens (changements d'onglet, collages). */
   examIntegrity: 365,
   /** Commandes tapées dans les labs, après la fin du lab. */
@@ -1307,6 +1309,8 @@ export interface BillingStatusDto {
   /** Un compte de paiement existe : le portail Stripe (carte, factures, résiliation) est accessible. */
   canManage: boolean;
   invoices: BillingInvoiceDto[];
+  /** Siège d'une licence d'organisation en cours, qui donne `plan` sans abonnement personnel. */
+  licence: { organization: string; plan: string; endsAt: string | null } | null;
 }
 
 export const CheckoutSchema = z.object({ plan: z.enum(SELF_SERVE_PLANS) });
@@ -1394,4 +1398,148 @@ export interface CertificateIssuedV1 {
   certificationCode: string;
   userId: string;
   score: number;
+}
+
+// ---------------------------------------------------------------------------
+// Organisations et licences par siège (docs/03 §2.1, §2.10, §2.11)
+// ---------------------------------------------------------------------------
+
+export const ORGANIZATION_KINDS = ['company', 'training_center', 'school', 'university'] as const;
+export type OrganizationKind = (typeof ORGANIZATION_KINDS)[number];
+
+/**
+ * Rôles dans une organisation. owner et admin gèrent les membres ; instructor (formateur) voit la
+ * progression ; member apprend. Chaque membre, quel que soit son rôle, occupe un siège.
+ */
+export const ORGANIZATION_ROLES = ['org_owner', 'org_admin', 'instructor', 'member'] as const;
+export type OrganizationRole = (typeof ORGANIZATION_ROLES)[number];
+/** Rôles qu'un gestionnaire peut attribuer : seul un administrateur SysMaster nomme un propriétaire. */
+export const INVITABLE_ROLES = ['org_admin', 'instructor', 'member'] as const;
+
+export type LicenceState = 'active' | 'expired' | 'not_started';
+
+export interface OrganizationSummaryDto {
+  id: string;
+  name: string;
+  kind: OrganizationKind;
+  role: OrganizationRole;
+  licence: { state: LicenceState; endsAt: string | null };
+}
+
+export interface OrganizationMemberDto {
+  userId: string;
+  displayName: string;
+  email: string;
+  role: OrganizationRole;
+  joinedAt: string;
+}
+
+export interface OrganizationInvitationDto {
+  id: string;
+  email: string;
+  role: OrganizationRole;
+  createdAt: string;
+  expiresAt: string;
+  /** Présent une seule fois, à la création : le lien n'est pas conservé en clair. */
+  link?: string;
+  /** L'e-mail est parti (false : le lien est à transmettre soi-même). */
+  emailed?: boolean;
+}
+
+export interface OrganizationDetailDto {
+  id: string;
+  name: string;
+  slug: string;
+  kind: OrganizationKind;
+  role: OrganizationRole;
+  seats: number;
+  /** Membres plus invitations en attente : une invitation réserve un siège. */
+  seatsUsed: number;
+  licence: { state: LicenceState; startsAt: string | null; endsAt: string | null; seatPlan: string };
+  members: OrganizationMemberDto[];
+  invitations: OrganizationInvitationDto[];
+  canManage: boolean;
+}
+
+/**
+ * Progression d'un membre vue par les gestionnaires et formateurs. Jamais : conversations avec
+ * l'assistant, diagnostics, messages privés, réponses détaillées aux examens.
+ */
+export interface MemberProgressDto {
+  userId: string;
+  displayName: string;
+  role: OrganizationRole;
+  level: number;
+  totalXp: number;
+  lessonsCompleted: number;
+  labsSolved: number;
+  paths: { slug: string; title: string; progressPct: number; completedAt: string | null }[];
+  certificates: { code: string; title: string; issuedAt: string; expiresAt: string | null }[];
+  lastActivity: string | null;
+}
+
+export interface OrganizationProgressDto {
+  organizationId: string;
+  generatedAt: string;
+  members: MemberProgressDto[];
+}
+
+export interface InvitationPreviewDto {
+  organization: string;
+  kind: OrganizationKind;
+  role: OrganizationRole;
+  /** E-mail invité, masqué (a•••@exemple.fr) : la page est publique. */
+  emailHint: string;
+  expiresAt: string;
+  state: 'pending' | 'accepted' | 'revoked' | 'expired';
+}
+
+const emailField = z.string().trim().toLowerCase().email().max(254);
+
+export const InviteMembersSchema = z.object({
+  emails: z.array(emailField).min(1).max(200),
+  role: z.enum(INVITABLE_ROLES).default('member'),
+});
+export type InviteMembersInput = z.infer<typeof InviteMembersSchema>;
+
+export const ChangeMemberRoleSchema = z.object({ role: z.enum(INVITABLE_ROLES) });
+
+export const AcceptInvitationSchema = z.object({ token: z.string().min(20).max(200) });
+
+const licenceDate = z.iso.datetime({ offset: true });
+
+export const CreateOrganizationSchema = z
+  .object({
+    name: z.string().trim().min(2).max(120),
+    slug: z.string().trim().toLowerCase().regex(/^[a-z0-9](?:[a-z0-9-]{0,58}[a-z0-9])?$/),
+    kind: z.enum(ORGANIZATION_KINDS),
+    country: z.string().length(2).toUpperCase().optional(),
+    seats: z.number().int().min(1).max(100_000),
+    licenceStartsAt: licenceDate.optional(),
+    licenceEndsAt: licenceDate,
+    ownerEmail: emailField,
+  })
+  .refine((o) => !o.licenceStartsAt || Date.parse(o.licenceStartsAt) < Date.parse(o.licenceEndsAt), { message: 'La licence doit finir après son début', path: ['licenceEndsAt'] });
+export type CreateOrganizationInput = z.infer<typeof CreateOrganizationSchema>;
+
+export const UpdateOrganizationSchema = z
+  .object({
+    name: z.string().trim().min(2).max(120),
+    seats: z.number().int().min(1).max(100_000),
+    licenceEndsAt: licenceDate,
+  })
+  .partial()
+  .refine((o) => Object.keys(o).length > 0, { message: 'Rien à modifier' });
+export type UpdateOrganizationInput = z.infer<typeof UpdateOrganizationSchema>;
+
+export interface AdminOrganizationDto {
+  id: string;
+  name: string;
+  slug: string;
+  kind: OrganizationKind;
+  seats: number;
+  seatsUsed: number;
+  licence: { state: LicenceState; startsAt: string | null; endsAt: string | null };
+  owners: string[];
+  createdAt: string;
 }

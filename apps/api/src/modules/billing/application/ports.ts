@@ -84,6 +84,12 @@ export interface PlanRow {
   features: Record<string, unknown>;
 }
 
+export interface SeatLicence {
+  plan: string;
+  organization: string;
+  endsAt: Date | null;
+}
+
 export abstract class BillingRepository {
   abstract plans(): Promise<PlanRow[]>;
   abstract features(plan: string): Promise<Record<string, unknown>>;
@@ -91,6 +97,8 @@ export abstract class BillingRepository {
   /** Lie un client Stripe à la personne ; renvoie celui déjà lié si une requête concurrente a gagné. */
   abstract linkCustomer(userId: string, customerId: string): Promise<string>;
   abstract subscriptions(userId: string): Promise<StoredSubscription[]>;
+  /** Siège d'une licence d'organisation en cours (la plus favorable s'il y en a plusieurs), ou null. */
+  abstract seatLicence(userId: string): Promise<SeatLicence | null>;
   abstract invoices(userId: string, limit: number): Promise<BillingInvoiceDto[]>;
   /** Abonnements Stripe encore en cours (ni résiliés ni expirés), à résilier si le compte est effacé. */
   abstract openSubscriptionIds(userId: string): Promise<string[]>;

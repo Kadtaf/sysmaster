@@ -83,6 +83,20 @@ export default async function AccountPage() {
       </Card>
 
       <Card>
+        <CardTitle>Mes organisations</CardTitle>
+        <CardDescription>
+          Licences d’entreprise ou d’école dont vous êtes membre, et ce qu’elles voient de votre progression.{' '}
+          <Link href="/organisation" className="link">Voir mes organisations</Link>
+          {me.roles.includes('admin') && (
+            <>
+              {' · '}
+              <Link href="/admin/organisations" className="link">Administration des licences</Link>
+            </>
+          )}
+        </CardDescription>
+      </Card>
+
+      <Card>
         <CardTitle>Sécurité</CardTitle>
         <CardDescription>
           Mot de passe, double authentification (TOTP) et passkeys se gèrent dans l&apos;espace sécurité. Une passkey

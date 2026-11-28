@@ -115,3 +115,23 @@ export const threadKindLabel: Record<'discussion' | 'question' | 'script_share' 
 export const scriptLanguageLabel: Record<string, string> = {
   bash: 'Bash', powershell: 'PowerShell', python: 'Python', sql: 'SQL', yaml: 'YAML', other: 'Autre',
 };
+
+export const organizationKindLabel: Record<string, string> = {
+  company: 'Entreprise',
+  training_center: 'Centre de formation',
+  school: 'École',
+  university: 'Université',
+};
+
+export const organizationRoleLabel: Record<string, string> = {
+  org_owner: 'Propriétaire',
+  org_admin: 'Gestionnaire',
+  instructor: 'Formateur',
+  member: 'Membre',
+};
+
+export const licenceStateLabel: Record<string, string> = {
+  active: 'Licence en cours',
+  expired: 'Licence terminée',
+  not_started: 'Licence pas encore commencée',
+};

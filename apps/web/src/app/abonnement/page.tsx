@@ -56,7 +56,15 @@ export default async function SubscriptionPage({ searchParams }: { searchParams:
               : `Prochain renouvellement le ${day(sub.currentPeriodEnd)}.`}
           </CardDescription>
         )}
-        {!sub && <CardDescription className="mt-2">Vous utilisez l’offre gratuite.</CardDescription>}
+        {status.licence && (
+          <CardDescription className="mt-2">
+            Offre {planName(status.licence.plan)} donnée par la licence de {status.licence.organization}
+            {status.licence.endsAt && ` jusqu’au ${day(status.licence.endsAt)}`}.{' '}
+            <Link href="/organisation" className="link">Mes organisations</Link>
+            {sub && sub.status !== 'canceled' && ' Votre abonnement personnel reste facturé : résiliez-le si la licence vous suffit.'}
+          </CardDescription>
+        )}
+        {!sub && !status.licence && <CardDescription className="mt-2">Vous utilisez l’offre gratuite.</CardDescription>}
         <div className="mt-4 flex flex-wrap gap-3">
           {status.canManage && <ManageButton />}
           {status.plan === 'free' && (

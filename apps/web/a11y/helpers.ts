@@ -3,8 +3,10 @@ import AxeBuilder from '@axe-core/playwright';
 import { expect, type Page } from '@playwright/test';
 
 export const DEMO_PASSWORD = 'Demo-SysMaster-2026!';
+/** École de démonstration (db/seeds/001_demo.sql, licence dans 013) : Nadia propriétaire, Alice membre. */
+export const DEMO_ORGANIZATION = '00000000-0000-4000-8100-000000000001';
 export const apiUrl = process.env.A11Y_API_URL ?? 'http://localhost:4000/api/v1';
-export const stateFile = (user: 'alice' | 'mentor') => path.join(__dirname, '.auth', `${user}.json`);
+export const stateFile = (user: 'alice' | 'mentor' | 'admin') => path.join(__dirname, '.auth', `${user}.json`);
 
 /** Les critères visés : WCAG 2.0, 2.1 et 2.2, niveaux A et AA. */
 const TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];

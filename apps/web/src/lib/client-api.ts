@@ -37,7 +37,7 @@ export async function apiPut(path: string, accessToken: string | undefined, body
 }
 
 /** Requête JSON authentifiée depuis le navigateur ; lève ApiError avec le corps de la réponse. */
-export async function apiRequest<T>(method: 'GET' | 'POST' | 'PUT' | 'DELETE', path: string, accessToken: string | undefined, body?: unknown): Promise<T> {
+export async function apiRequest<T>(method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE', path: string, accessToken: string | undefined, body?: unknown): Promise<T> {
   const res = await fetch(`${publicApiBase}${path}`, {
     method,
     headers: {

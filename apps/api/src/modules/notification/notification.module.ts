@@ -12,5 +12,7 @@ import { EmailUnsubscribeController, NotificationController } from './interface/
 @Module({
   controllers: [NotificationController, EmailUnsubscribeController],
   providers: [PgNotificationRepository, NotificationConsumer, EmailSender, { provide: Mailer, useFactory: () => Mailer.fromEnv() }],
+  // Les invitations d'organisation partent par le même fournisseur.
+  exports: [Mailer],
 })
 export class NotificationModule {}

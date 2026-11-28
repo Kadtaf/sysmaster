@@ -32,20 +32,20 @@ export function AuthButton() {
     );
   }
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex flex-wrap items-center gap-2">
       {session.user?.roles?.some((r) => EDITORIAL_ROLES.includes(r)) && (
         <Link href="/editorial" className={buttonVariants({ variant: 'ghost', size: 'sm' })}>
-          <PenLine className="size-4" aria-hidden /> <span className="hidden sm:inline">Rédaction</span>
+          <PenLine className="size-4" aria-hidden /> <span className="sr-only sm:not-sr-only">Rédaction</span>
         </Link>
       )}
       {session.user?.roles?.some((r) => MODERATOR_ROLES.includes(r)) && (
         <Link href="/communaute/moderation" className={buttonVariants({ variant: 'ghost', size: 'sm' })}>
-          <ShieldCheck className="size-4" aria-hidden /> <span className="hidden sm:inline">Modération</span>
+          <ShieldCheck className="size-4" aria-hidden /> <span className="sr-only sm:not-sr-only">Modération</span>
         </Link>
       )}
       <NotificationBell />
       <Link href="/tableau-de-bord" className={buttonVariants({ variant: 'ghost', size: 'sm' })}>
-        <LayoutDashboard className="size-4" aria-hidden /> <span className="hidden sm:inline">Tableau de bord</span>
+        <LayoutDashboard className="size-4" aria-hidden /> <span className="sr-only sm:not-sr-only">Tableau de bord</span>
       </Link>
       <Link href="/compte" className={buttonVariants({ variant: 'ghost', size: 'sm' })}>
         <UserRound className="size-4" aria-hidden /> {session.user?.name ?? 'Mon compte'}
