@@ -1,8 +1,10 @@
 import { Body, Controller, Delete, Get, Header, HttpCode, Param, ParseUUIDPipe, Patch, Post } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import {
-  AcceptInvitationSchema, ChangeMemberRoleSchema, CreateOrganizationSchema, InviteMembersSchema, UpdateOrganizationSchema,
+  AcceptInvitationSchema, BuySeatsSchema, ChangeMemberRoleSchema, CreateOrganizationSchema, ExtendLicenceSchema, InviteMembersSchema, SeatPriceSchema,
+  UpdateOrganizationSchema,
 } from '@sysmaster/contracts';
+import type { LicenceOfferDto, RedirectDto } from '@sysmaster/contracts';
 import type { AdminOrganizationDto, InvitationPreviewDto, OrganizationDetailDto, OrganizationProgressDto, OrganizationSummaryDto } from '@sysmaster/contracts';
 import { parse } from '../../editorial/application/editorial.service';
 import type { AuthenticatedUser } from '../../iam/domain/identity';
@@ -20,6 +22,14 @@ export class OrganizationController {
   @ApiOperation({ summary: 'Mes organisations et mon rôle dans chacune' })
   mine(@CurrentUser() user: AuthenticatedUser): Promise<OrganizationSummaryDto[]> {
     return this.orgs.mine(user);
+  }
+
+  @Post('purchase')
+  @HttpCode(200)
+  @RateLimit(LIMITS.billing)
+  @ApiOperation({ summary: 'Acheter une licence en ligne (nouvelle organisation, 12 mois) ; 409 si ce type se vend sur devis, 503 si le paiement est fermé' })
+  buy(@CurrentUser() user: AuthenticatedUser, @Body() body: unknown): Promise<RedirectDto> {
+    return this.orgs.buySeats(user, parse(BuySeatsSchema, body ?? {}));
   }
 
   // Jeton dans le corps, jamais dans l'adresse : il ne doit pas finir dans les journaux.
@@ -74,6 +84,20 @@ export class OrganizationController {
     return this.orgs.removeMember(id, memberId, user);
   }
 
+  @Get(':id/licence-offer')
+  @ApiOperation({ summary: 'Renouvellement et ajout de sièges possibles, avec les prix (gestionnaires)' })
+  licenceOffer(@CurrentUser() user: AuthenticatedUser, @Param('id', ParseUUIDPipe) id: string): Promise<LicenceOfferDto> {
+    return this.orgs.licenceOffer(id, user);
+  }
+
+  @Post(':id/purchase')
+  @HttpCode(200)
+  @RateLimit(LIMITS.billing)
+  @ApiOperation({ summary: 'Renouveler la licence (12 mois) ou ajouter des sièges au prorata (gestionnaires)' })
+  extend(@CurrentUser() user: AuthenticatedUser, @Param('id', ParseUUIDPipe) id: string, @Body() body: unknown): Promise<RedirectDto> {
+    return this.orgs.extendLicence(id, user, parse(ExtendLicenceSchema, body ?? {}));
+  }
+
   @Get(':id/progress')
   @ApiOperation({ summary: 'Progression des membres (gestionnaires et formateurs) : jamais les conversations IA' })
   progress(@CurrentUser() user: AuthenticatedUser, @Param('id', ParseUUIDPipe) id: string): Promise<OrganizationProgressDto> {
@@ -107,6 +131,13 @@ export class AdminOrganizationController {
   @ApiOperation({ summary: 'Ouvrir une licence après devis : organisation, sièges, période, invitation du propriétaire (admin)' })
   create(@CurrentUser() user: AuthenticatedUser, @Body() body: unknown) {
     return this.orgs.create(parse(CreateOrganizationSchema, body ?? {}), user);
+  }
+
+  @Patch('seat-prices/:plan')
+  @HttpCode(204)
+  @ApiOperation({ summary: 'Prix en ligne d’un siège pour un an (centimes TTC), ou null pour revenir au devis seul (admin)' })
+  seatPrice(@CurrentUser() user: AuthenticatedUser, @Param('plan') plan: string, @Body() body: unknown): Promise<void> {
+    return this.orgs.setSeatPrice(plan, parse(SeatPriceSchema, body ?? {}).priceCents, user);
   }
 
   @Patch(':id')

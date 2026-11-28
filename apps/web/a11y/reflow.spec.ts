@@ -18,7 +18,7 @@ for (const url of ['/', '/parcours', '/labs', '/commandes', '/certifications', '
 
 test.describe('connecté', () => {
   test.use({ storageState: stateFile('alice') });
-  for (const url of ['/tableau-de-bord', '/compte', '/assistant', '/communaute/nouveau', '/notifications', '/abonnement', '/organisation']) {
+  for (const url of ['/tableau-de-bord', '/compte', '/assistant', '/communaute/nouveau', '/notifications', '/abonnement', '/organisation', '/organisation/acheter']) {
     test(`320 px : ${url}`, async ({ page }) => noHorizontalScroll(page, url));
   }
 });

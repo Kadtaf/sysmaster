@@ -1,8 +1,9 @@
 import { ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import type {
-  AdminOrganizationDto, CreateOrganizationInput, InvitationPreviewDto, InviteMembersInput, OrganizationDetailDto, OrganizationInvitationDto,
+  AdminOrganizationDto, BuySeatsInput, CreateOrganizationInput, ExtendLicenceInput, LicenceOfferDto, RedirectDto, InvitationPreviewDto, InviteMembersInput, OrganizationDetailDto, OrganizationInvitationDto,
   OrganizationProgressDto, OrganizationRole, OrganizationSummaryDto, UpdateOrganizationInput,
 } from '@sysmaster/contracts';
+import { BillingService } from '../../billing/application/billing.service';
 import type { AuthenticatedUser } from '../../iam/domain/identity';
 import { Mailer } from '../../notification/infrastructure/mailer';
 import { webUrl } from '../../../shared/web/web-url';
@@ -23,6 +24,7 @@ export class OrganizationService {
   constructor(
     private readonly repo: PgOrganizationRepository,
     private readonly mailer: Mailer,
+    private readonly billing: BillingService,
   ) {}
 
   mine(user: AuthenticatedUser): Promise<OrganizationSummaryDto[]> {
@@ -82,6 +84,26 @@ export class OrganizationService {
   async removeMember(orgId: string, memberId: string, user: AuthenticatedUser): Promise<void> {
     await this.require(orgId, user, memberId === user.id ? () => true : canManage);
     await this.repo.removeMember(orgId, memberId, user.id);
+  }
+
+  // --- Licences achetées en ligne (Stripe) ---------------------------------------------------
+
+  buySeats(user: AuthenticatedUser, input: BuySeatsInput): Promise<RedirectDto> {
+    return this.billing.buySeats(user.id, input);
+  }
+
+  async licenceOffer(orgId: string, user: AuthenticatedUser): Promise<LicenceOfferDto> {
+    await this.require(orgId, user, canManage);
+    return this.billing.licenceOffer(orgId);
+  }
+
+  async extendLicence(orgId: string, user: AuthenticatedUser, input: ExtendLicenceInput): Promise<RedirectDto> {
+    await this.require(orgId, user, canManage);
+    return this.billing.extendLicence(user.id, orgId, input);
+  }
+
+  setSeatPrice(plan: string, priceCents: number | null, admin: AuthenticatedUser): Promise<void> {
+    return this.billing.setSeatPrice(plan, priceCents, admin.id);
   }
 
   async progress(orgId: string, user: AuthenticatedUser): Promise<OrganizationProgressDto> {

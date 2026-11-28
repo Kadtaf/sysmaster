@@ -12,6 +12,7 @@ const contact = process.env.NEXT_PUBLIC_PRIVACY_CONTACT ?? '[adresse de contact 
 const years = (days: number) => (days % 365 === 0 ? `${days / 365} an${days >= 730 ? 's' : ''}` : `${Math.round(days / 30)} mois`);
 
 const retention: [string, string][] = [
+  ['Commandes de licence jamais payées', `${Math.round(RETENTION_DAYS.unpaidSeatOrders / 30)} mois`],
   ['Compte, progression, labs, examens, certificats', 'Tant que le compte existe, puis effacement sur demande'],
   ['Conversations avec l’assistant', `${years(RETENTION_DAYS.assistantConversations)} sans nouveau message`],
   ['Sessions de diagnostic (descriptions, journaux collés)', years(RETENTION_DAYS.diagnosticSessions)],
@@ -21,7 +22,7 @@ const retention: [string, string][] = [
   ['Invitations à une organisation (acceptées, annulées ou expirées)', years(RETENTION_DAYS.organizationInvitations)],
   ['Trace des e-mails de notification envoyés', years(RETENTION_DAYS.notificationEmails)],
   ['Journal d’audit (publications, révocations, actions d’administration)', years(RETENTION_DAYS.auditLog)],
-  ['Factures et achats d’examens (pièces comptables)', `${years(RETENTION_DAYS.billingRecords)}, même après la suppression du compte`],
+  ['Factures, achats d’examens et commandes de licence (pièces comptables)', `${years(RETENTION_DAYS.billingRecords)}, même après la suppression du compte`],
 ];
 
 export default function PrivacyPage() {
@@ -54,6 +55,8 @@ export default function PrivacyPage() {
             progression : niveau, XP, leçons, labs résolus, parcours et certifications valides. Ils ne voient jamais vos conversations
             avec l’assistant, vos diagnostics ni vos messages privés. Vous pouvez quitter l’organisation à tout moment. Base légale :
             exécution du contrat passé avec votre organisation et intérêt légitime de celle-ci à suivre la formation qu’elle finance.
+            Si vous achetez une licence en ligne, la commande (organisation, nombre de sièges, montant, dates) est gardée dix ans
+            comme pièce comptable ; une commande jamais payée est effacée après 90 jours.
           </li>
         </ul>
         <p className="mt-3 text-sm">

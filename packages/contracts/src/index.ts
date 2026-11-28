@@ -1241,6 +1241,8 @@ export const RETENTION_DAYS = {
   labTranscripts: 365,
   /** Trace des e-mails de notification (envoyés ou abandonnés). */
   notificationEmails: 90,
+  /** Commandes de licence en ligne jamais payées (abandonnées ou expirées). */
+  unpaidSeatOrders: 90,
   /** Factures et achats d'examens : pièces comptables, gardées dix ans (Code de commerce, art. L123-22), même après effacement du compte. */
   billingRecords: 3650,
 } as const;
@@ -1284,7 +1286,61 @@ export interface BillingCatalogDto {
   /** Faux tant que les clés Stripe ne sont pas configurées : rien ne peut être payé. */
   enabled: boolean;
   plans: BillingPlanDto[];
+  /** Licences d'organisation achetables en ligne, par type d'organisation (vide si aucun prix n'est fixé). */
+  seatOffers: SeatOfferDto[];
+  /** Au-delà, ou pour une facturation sur bon de commande : devis. */
+  onlineSeatMax: number;
 }
+
+// --- Licences achetées en ligne (docs/03 §2.11) ---
+
+/** Nombre de sièges qu'une seule commande en ligne peut acheter ; au-delà, devis. */
+export const ONLINE_SEAT_MAX = 50;
+/** Offre (billing.plans) qui donne le prix du siège pour chaque type d'organisation. */
+export const SEAT_PLAN_BY_KIND = {
+  company: 'enterprise',
+  training_center: 'training_center',
+  school: 'school',
+  university: 'university',
+} as const;
+
+export interface SeatOfferDto {
+  kind: 'company' | 'training_center' | 'school' | 'university';
+  plan: string;
+  name: string;
+  /** Prix d'un siège pour un an, TTC, en centimes. */
+  unitPriceCents: number;
+  currency: string;
+}
+
+export const BuySeatsSchema = z.object({
+  kind: z.enum(['company', 'training_center', 'school', 'university']),
+  name: z.string().trim().min(2).max(120),
+  seats: z.number().int().min(1).max(ONLINE_SEAT_MAX),
+});
+export type BuySeatsInput = z.infer<typeof BuySeatsSchema>;
+
+export const LICENCE_ACTIONS = ['renew', 'add_seats'] as const;
+export const ExtendLicenceSchema = z.object({
+  action: z.enum(LICENCE_ACTIONS),
+  seats: z.number().int().min(1).max(ONLINE_SEAT_MAX),
+});
+export type ExtendLicenceInput = z.infer<typeof ExtendLicenceSchema>;
+
+/** Ce qu'un gestionnaire peut acheter pour son organisation, et à quel prix. */
+export interface LicenceOfferDto {
+  /** Faux si le paiement est fermé ou si aucun prix n'est fixé pour ce type d'organisation : devis. */
+  purchasable: boolean;
+  unitPriceCents: number | null;
+  currency: string;
+  maxSeats: number;
+  /** Renouvellement : 12 mois de plus, à partir de la fin actuelle (ou d'aujourd'hui si elle est passée). */
+  renew: { newEndsAt: string; minSeats: number };
+  /** Ajout de sièges jusqu'à la fin de la licence en cours, au prorata ; null si la licence n'est pas en cours. */
+  addSeats: { remainingDays: number; pricePerSeatCents: number } | null;
+}
+
+export const SeatPriceSchema = z.object({ priceCents: z.number().int().min(100).max(1_000_000).nullable() });
 
 export type SubscriptionStatus = 'trialing' | 'active' | 'past_due' | 'canceled' | 'incomplete' | 'incomplete_expired' | 'unpaid' | 'paused';
 

@@ -1,8 +1,13 @@
 import { BadRequestException, ConflictException, HttpException, HttpStatus, Injectable, Logger, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
-import type { BillingCatalogDto, BillingStatusDto, CheckoutInput, RedirectDto } from '@sysmaster/contracts';
+import {
+  ONLINE_SEAT_MAX, SEAT_PLAN_BY_KIND,
+  type BillingCatalogDto, type BillingStatusDto, type BuySeatsInput, type CheckoutInput, type ExtendLicenceInput, type LicenceOfferDto,
+  type RedirectDto, type SeatOfferDto,
+} from '@sysmaster/contracts';
 import { aiDailyCap, aiQuestionsPerDay, certificationDiscountPct, checkoutBlocker, effectivePlan, examPaymentRequired, examPrice } from '../domain/billing';
 import { webUrl } from '../../../shared/web/web-url';
-import { BillingRepository, InvalidWebhookError, PaymentGateway } from './ports';
+import { proratedSeatPrice, remainingDays, renewedEnd, seatAmount, seatPurchaseBlocker, type SeatAction } from '../domain/seats';
+import { BillingRepository, InvalidWebhookError, PaymentGateway, type PlanRow } from './ports';
 
 
 /** Ce qui reste à faire chez Stripe pour un compte effacé. */
@@ -28,6 +33,8 @@ export class BillingService {
     const plans = await this.repo.plans();
     return {
       enabled: this.gateway.enabled,
+      seatOffers: this.gateway.enabled ? this.seatOffers(plans) : [],
+      onlineSeatMax: ONLINE_SEAT_MAX,
       plans: plans.map((p) => ({
         code: p.code,
         name: p.name,
@@ -38,9 +45,85 @@ export class BillingService {
         aiQuestionsPerDay: aiQuestionsPerDay(p.features),
         certificationDiscountPct: certificationDiscountPct(p.features),
         features: p.features,
-        purchasable: this.gateway.enabled && this.gateway.priceFor(p.code) !== null,
+        purchasable: this.gateway.enabled && (p.perSeat ? p.priceCents !== null : this.gateway.priceFor(p.code) !== null),
       })),
     };
+  }
+
+  private seatOffers(plans: PlanRow[]): SeatOfferDto[] {
+    return Object.entries(SEAT_PLAN_BY_KIND).flatMap(([kind, code]) => {
+      const p = plans.find((x) => x.code === code && x.perSeat && x.priceCents !== null);
+      return p ? [{ kind: kind as SeatOfferDto['kind'], plan: p.code, name: p.name, unitPriceCents: p.priceCents!, currency: p.currency }] : [];
+    });
+  }
+
+  /** Prix en ligne d'un siège pour ce type d'organisation ; null : devis seulement. */
+  private async seatOffer(kind: SeatOfferDto['kind']): Promise<SeatOfferDto | null> {
+    if (!this.gateway.enabled) return null;
+    return this.seatOffers(await this.repo.plans()).find((o) => o.kind === kind) ?? null;
+  }
+
+  /** Ce qu'un gestionnaire peut acheter pour son organisation (droits vérifiés par l'appelant). */
+  async licenceOffer(orgId: string, now = new Date()): Promise<LicenceOfferDto> {
+    const lic = await this.repo.licence(orgId);
+    if (!lic) throw new NotFoundException();
+    const offer = await this.seatOffer(lic.kind);
+    const active = Boolean(lic.endsAt && lic.endsAt > now && (!lic.startsAt || lic.startsAt <= now));
+    const days = remainingDays(lic.endsAt, now);
+    return {
+      purchasable: offer !== null,
+      unitPriceCents: offer?.unitPriceCents ?? null,
+      currency: offer?.currency ?? 'EUR',
+      maxSeats: ONLINE_SEAT_MAX,
+      renew: { newEndsAt: renewedEnd(lic.endsAt, now).toISOString(), minSeats: Math.max(1, lic.used) },
+      addSeats: offer && active ? { remainingDays: days, pricePerSeatCents: proratedSeatPrice(offer.unitPriceCents, days) } : null,
+    };
+  }
+
+  /** Nouvelle organisation achetée en ligne : l'acheteur en sera propriétaire une fois le paiement confirmé. */
+  buySeats(userId: string, input: BuySeatsInput): Promise<RedirectDto> {
+    return this.seatCheckout(userId, { action: 'new', kind: input.kind, name: input.name, seats: input.seats, orgId: null, used: 0, endsAt: null, active: false });
+  }
+
+  /** Renouvellement ou ajout de sièges pour une organisation existante (droits vérifiés par l'appelant). */
+  async extendLicence(userId: string, orgId: string, input: ExtendLicenceInput, now = new Date()): Promise<RedirectDto> {
+    const lic = await this.repo.licence(orgId);
+    if (!lic) throw new NotFoundException();
+    const active = Boolean(lic.endsAt && lic.endsAt > now && (!lic.startsAt || lic.startsAt <= now));
+    return this.seatCheckout(userId, { action: input.action, kind: lic.kind, name: lic.name, seats: input.seats, orgId, used: lic.used, endsAt: lic.endsAt, active }, now);
+  }
+
+  private async seatCheckout(userId: string, o: {
+    action: SeatAction; kind: SeatOfferDto['kind']; name: string; seats: number; orgId: string | null; used: number; endsAt: Date | null; active: boolean;
+  }, now = new Date()): Promise<RedirectDto> {
+    if (!this.gateway.enabled) throw new ServiceUnavailableException('Le paiement en ligne n’est pas encore ouvert : demandez un devis.');
+    const offer = await this.seatOffer(o.kind);
+    if (!offer) throw new ConflictException('Ce type de licence se vend sur devis : contactez-nous.');
+    const blocker = seatPurchaseBlocker({ action: o.action, seats: o.seats, used: o.used, licenceActive: o.active, maxSeats: ONLINE_SEAT_MAX });
+    if (blocker) throw new ConflictException(blocker);
+    await this.refuseIfErasing(userId);
+    const unit = o.action === 'add_seats' ? proratedSeatPrice(offer.unitPriceCents, remainingDays(o.endsAt, now)) : offer.unitPriceCents;
+    const amountCents = seatAmount({ action: o.action, seats: o.seats, unitPriceCents: offer.unitPriceCents, endsAt: o.endsAt, now });
+    const customerId = await this.customerFor(userId);
+    const purchaseId = await this.repo.createSeatPurchase({
+      buyerId: userId, organizationId: o.orgId, action: o.action, kind: o.kind, name: o.name, plan: offer.plan,
+      seats: o.seats, unitPriceCents: unit, amountCents, currency: offer.currency,
+    });
+    const base = webUrl();
+    const page = o.orgId ? `${base}/organisation/${o.orgId}` : `${base}/organisation`;
+    const label = o.action === 'add_seats'
+      ? `${offer.name} : siège supplémentaire jusqu’au ${o.endsAt!.toLocaleDateString('fr-FR')}`
+      : `${offer.name} : siège pour 12 mois`;
+    const { url, sessionId } = await this.gateway.createSeatCheckout({
+      customerId, userId, purchaseId, name: `${label} (${o.name})`, quantity: o.seats, unitAmountCents: unit, currency: offer.currency,
+      successUrl: `${page}?paiement=ok`, cancelUrl: o.orgId ? `${page}?paiement=annule` : `${base}/organisation/acheter?paiement=annule`,
+    });
+    await this.repo.attachSeatCheckout(purchaseId, sessionId);
+    return { url };
+  }
+
+  async setSeatPrice(plan: string, priceCents: number | null, adminId: string): Promise<void> {
+    if (!(await this.repo.setSeatPrice(plan, priceCents, adminId))) throw new NotFoundException('Offre par siège inconnue.');
   }
 
   /** Offre qui s'applique, siège d'organisation compris. */

@@ -111,21 +111,36 @@ export class StripeGateway extends PaymentGateway {
     }
   }
 
-  async createExamCheckout(o: {
+  createExamCheckout(o: {
     customerId: string; userId: string; purchaseId: string; name: string; amountCents: number; currency: string; successUrl: string; cancelUrl: string;
   }): Promise<{ url: string; sessionId: string }> {
+    return this.paymentCheckout({ ...o, kind: 'exam', quantity: 1, unitAmountCents: o.amountCents });
+  }
+
+  createSeatCheckout(o: {
+    customerId: string; userId: string; purchaseId: string; name: string; quantity: number; unitAmountCents: number; currency: string;
+    successUrl: string; cancelUrl: string;
+  }): Promise<{ url: string; sessionId: string }> {
+    return this.paymentCheckout({ ...o, kind: 'seats' });
+  }
+
+  /** Paiement unique (examen, commande de sièges) : montant calculé par la plateforme, facture émise. */
+  private async paymentCheckout(o: {
+    kind: 'exam' | 'seats'; customerId: string; userId: string; purchaseId: string; name: string; quantity: number; unitAmountCents: number;
+    currency: string; successUrl: string; cancelUrl: string;
+  }): Promise<{ url: string; sessionId: string }> {
     const tax = this.settings.automaticTax;
-    const metadata = { kind: 'exam', purchase_id: o.purchaseId, user_id: o.userId };
+    const metadata = { kind: o.kind, purchase_id: o.purchaseId, user_id: o.userId };
     const s = await this.api().checkout.sessions.create(
       {
         mode: 'payment',
         customer: o.customerId,
         client_reference_id: o.userId,
         line_items: [{
-          quantity: 1,
+          quantity: o.quantity,
           price_data: {
             currency: o.currency.toLowerCase(),
-            unit_amount: o.amountCents,
+            unit_amount: o.unitAmountCents,
             // Prix affichés TTC : la TVA calculée par Stripe Tax est comprise dans le montant.
             ...(tax ? { tax_behavior: 'inclusive' as const } : {}),
             product_data: { name: o.name },
@@ -133,14 +148,19 @@ export class StripeGateway extends PaymentGateway {
         }],
         metadata,
         payment_intent_data: { metadata },
-        // Une facture pour chaque examen payé, comme pour les abonnements.
+        // Une facture pour chaque paiement, comme pour les abonnements.
         invoice_creation: { enabled: true, invoice_data: { metadata } },
+        // Une organisation achète souvent avec son numéro de TVA intracommunautaire.
+        ...(o.kind === 'seats' ? { tax_id_collection: { enabled: true } } : {}),
         success_url: o.successUrl,
         cancel_url: o.cancelUrl,
-        ...(tax ? { automatic_tax: { enabled: true }, customer_update: { address: 'auto' as const }, billing_address_collection: 'required' as const } : {}),
+        ...(tax || o.kind === 'seats'
+          ? { customer_update: { address: 'auto' as const, name: 'auto' as const }, billing_address_collection: 'required' as const }
+          : {}),
+        ...(tax ? { automatic_tax: { enabled: true } } : {}),
       },
       // Un double clic ne crée qu'une session pour le même achat.
-      { idempotencyKey: `exam-${o.purchaseId}` },
+      { idempotencyKey: `${o.kind}-${o.purchaseId}` },
     );
     if (!s.url) throw new ServiceUnavailableException('Stripe n’a pas renvoyé de page de paiement.');
     return { url: s.url, sessionId: s.id };
@@ -168,13 +188,14 @@ export function translate(e: Stripe.Event): BillingEvent | null {
     case 'checkout.session.async_payment_failed':
     case 'checkout.session.expired': {
       const s = e.data.object;
-      if (s.mode === 'payment' && s.metadata?.kind === 'exam' && s.metadata.purchase_id) {
+      const paymentKind = s.metadata?.kind === 'exam' ? 'exam_payment' : s.metadata?.kind === 'seats' ? 'seat_payment' : null;
+      if (s.mode === 'payment' && paymentKind && s.metadata?.purchase_id) {
         const outcome =
           e.type === 'checkout.session.expired' ? 'expired'
           : e.type === 'checkout.session.async_payment_failed' ? 'failed'
           : s.payment_status === 'paid' || s.payment_status === 'no_payment_required' ? 'paid'
           : 'pending'; // prélèvement SEPA : la confirmation arrive plus tard (async_payment_succeeded)
-        return { kind: 'exam_payment', purchaseId: s.metadata.purchase_id, checkoutSessionId: s.id, paymentIntentId: idOf(s.payment_intent), outcome };
+        return { kind: paymentKind, purchaseId: s.metadata.purchase_id, checkoutSessionId: s.id, paymentIntentId: idOf(s.payment_intent), outcome };
       }
       const customerId = idOf(s.customer);
       return e.type === 'checkout.session.completed' && s.mode === 'subscription' && customerId

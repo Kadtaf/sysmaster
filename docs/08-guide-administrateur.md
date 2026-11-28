@@ -180,7 +180,7 @@ Comportement :
 
 ### Licences d'organisation
 
-Les licences (entreprise, centre de formation, école, université) se vendent **sur devis**. Une fois le devis signé :
+Les licences (entreprise, centre de formation, école, université) se vendent **sur devis** ou **en ligne** (voir « Achat en ligne » plus bas). Une fois le devis signé :
 
 1. **Ouvrir** : `/admin/organisations` (rôle `admin`), saisir le nom, un identifiant court, le type, le nombre de sièges, la date de fin et l'e-mail du propriétaire (le gestionnaire principal chez le client). L'invitation du propriétaire part par e-mail si les e-mails sont configurés ; sinon le lien s'affiche une fois, à transmettre soi-même.
 2. **Le client gère** depuis `/organisation/<id>` : il invite par e-mail (un lien à usage unique, valable 14 jours, réservé à l'adresse invitée), nomme des gestionnaires ou des formateurs, retire des membres, suit la progression et l'exporte en CSV.
@@ -192,7 +192,15 @@ Règles :
 - **Ce que voit l'organisation** : niveau, XP, leçons, labs résolus, parcours, certifications valides, dernière activité. Jamais les conversations avec l'assistant, les diagnostics ni les messages privés. Les adresses des membres ne sont visibles que des gestionnaires. La politique de confidentialité le dit, l'e-mail et la page d'invitation aussi.
 - **Propriétaire** : un gestionnaire ne peut ni retirer ni rétrograder un propriétaire, et le seul propriétaire ne peut pas partir. Pour changer de propriétaire (départ de la personne, compte supprimé), l'interface ne le permet pas encore : faites-le en base, sur un membre existant, `UPDATE iam.memberships SET role_code = 'org_owner' WHERE organization_id = … AND user_id = …;`.
 - **Journal** : ouverture, modifications, invitations (nombre et rôle, sans adresse), arrivées, départs et changements de rôle vont dans `platform.audit_log` (`target_type = 'organization'`).
-- **Facturation** : hors Stripe pour l'instant (devis, puis facture classique). L'achat en ligne des sièges viendra plus tard.
+- **Facturation** : sur devis, hors Stripe (facture classique) ; en ligne, par Stripe (facture émise par Stripe).
+
+#### Achat en ligne
+
+- **Ouvrir** : dans `/admin/organisations`, fixez le prix TTC d'un siège pour 12 mois pour chaque type (entreprise, centre de formation, école, université). Vide : ce type reste sur devis. Il faut aussi que Stripe soit configuré (§ Paiement). Chaque changement de prix est journalisé (`billing.seat_price`).
+- **Contact commercial** : `NEXT_PUBLIC_SALES_CONTACT` (adresse e-mail), affiché sur `/tarifs`, sur la page d'achat et sur la page d'une organisation. Sans lui, un texte à compléter s'affiche.
+- **Ce que fait une commande** (`billing.seat_purchases`) : nouvelle organisation (1 à 50 sièges, 12 mois, l'acheteur en devient propriétaire), ajout de sièges au prorata des jours restants (arrondi au centime supérieur), ou renouvellement de 12 mois à partir de la fin en cours, avec au moins les sièges déjà pris. Rien ne change tant que Stripe n'a pas confirmé le paiement par webhook ; un événement rejoué ne s'applique qu'une fois. Une session expirée clôt la commande sans rien ouvrir.
+- **Remboursement** (depuis le tableau de bord Stripe) : la commande passe à `refunded`, mais la licence n'est pas retirée automatiquement : ajustez les sièges ou la date de fin sur `/admin/organisations` selon ce qui a été convenu avec le client.
+- **Données** : la commande est une pièce comptable, gardée dix ans (même après l'effacement de l'acheteur) et incluse dans son export RGPD ; une commande jamais payée est effacée après 90 jours.
 
 ## 4. Événements (outbox)
 
@@ -332,6 +340,6 @@ Sans `STAGING_KUBECONFIG`, la CD publie les images et s'arrête là, avec une no
 
 Ces sujets sont prévus dans la [feuille de route](05-feuille-de-route.md) :
 
-- achat en ligne des sièges de licence, invitation par domaine et SSO par organisation ;
+- invitation par domaine et SSO par organisation ;
 - application mobile : diagnostic et assistant, notifications push, binaires signés et publication sur les stores ;
 - production (promotion manuelle des images testées, déploiement progressif) et traces OpenTelemetry.

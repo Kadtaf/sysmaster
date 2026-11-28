@@ -1,9 +1,23 @@
+import { randomBytes } from 'node:crypto';
 import { Injectable, Logger } from '@nestjs/common';
 import type { PoolClient } from 'pg';
 import type { BillingInvoiceDto, SubscriptionStatus } from '@sysmaster/contracts';
 import { Database } from '../../../shared/database.module';
 import { isStale } from '../domain/billing';
-import { BillingEvent, BillingRepository, PlanRow, StoredSubscription, VerifiedEvent, SeatLicence } from '../application/ports';
+import { LICENCE_MONTHS } from '../domain/seats';
+import {
+  BillingEvent, BillingRepository, LicenceSnapshot, NewSeatPurchase, PlanRow, SeatLicence, StoredSubscription, VerifiedEvent,
+} from '../application/ports';
+
+const SEATS_USED = `(SELECT count(*) FROM iam.memberships m WHERE m.organization_id = o.id)
+  + (SELECT count(*) FROM iam.organization_invitations i
+      WHERE i.organization_id = o.id AND i.accepted_at IS NULL AND i.revoked_at IS NULL AND i.expires_at > now())`;
+
+/** Identifiant lisible et unique d'une organisation créée par un achat en ligne. */
+export function slugFor(name: string, suffix: string): string {
+  const base = name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 50).replace(/-+$/, '');
+  return `${base || 'organisation'}-${suffix}`;
+}
 
 @Injectable()
 export class PgBillingRepository extends BillingRepository {
@@ -21,6 +35,47 @@ export class PgBillingRepository extends BillingRepository {
         WHERE is_public ORDER BY price_cents IS NULL, price_cents, code`,
     );
     return rows.map((r) => ({ code: r.code, name: r.name, priceCents: r.price_cents, currency: r.currency, interval: r.interval, perSeat: r.per_seat, features: r.features }));
+  }
+
+  async licence(orgId: string): Promise<LicenceSnapshot | null> {
+    const { rows } = await this.db.query<{
+      id: string; name: string; kind: LicenceSnapshot['kind']; seats: number; used: string; licence_starts_at: Date | null; licence_ends_at: Date | null;
+    }>(
+      `SELECT o.id, o.name, o.kind, o.seats, ${SEATS_USED} AS used, o.licence_starts_at, o.licence_ends_at
+         FROM iam.organizations o WHERE o.id = $1`,
+      [orgId],
+    );
+    const o = rows[0];
+    return o ? { id: o.id, name: o.name, kind: o.kind, seats: o.seats, used: Number(o.used), startsAt: o.licence_starts_at, endsAt: o.licence_ends_at } : null;
+  }
+
+  async createSeatPurchase(p: NewSeatPurchase): Promise<string> {
+    const { rows } = await this.db.query<{ id: string }>(
+      `INSERT INTO billing.seat_purchases
+         (buyer_id, organization_id, action, organization_kind, organization_name, plan_code, seats, unit_price_cents, amount_cents, currency)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id`,
+      [p.buyerId, p.organizationId, p.action, p.kind, p.name, p.plan, p.seats, p.unitPriceCents, p.amountCents, p.currency],
+    );
+    return rows[0]!.id;
+  }
+
+  async attachSeatCheckout(purchaseId: string, checkoutSessionId: string): Promise<void> {
+    await this.db.query(`UPDATE billing.seat_purchases SET stripe_checkout_session_id = $2 WHERE id = $1`, [purchaseId, checkoutSessionId]);
+  }
+
+  async setSeatPrice(plan: string, priceCents: number | null, adminId: string): Promise<boolean> {
+    return this.db.transaction(async (tx) => {
+      const { rows } = await tx.query<{ price_cents: number | null }>(
+        `SELECT price_cents FROM billing.plans WHERE code = $1 AND per_seat FOR UPDATE`, [plan],
+      );
+      if (!rows[0]) return false;
+      await tx.query(`UPDATE billing.plans SET price_cents = $2, currency = 'EUR', interval = 'year' WHERE code = $1`, [plan, priceCents]);
+      await tx.query(
+        `INSERT INTO platform.audit_log (actor_id, action, target_type, target_id, metadata) VALUES ($1, 'billing.seat_price', 'plan', $2, $3)`,
+        [adminId, plan, JSON.stringify({ before: rows[0].price_cents, after: priceCents })],
+      );
+      return true;
+    });
   }
 
   async features(plan: string): Promise<Record<string, unknown>> {
@@ -251,9 +306,13 @@ export class PgBillingRepository extends BillingRepository {
         }
         return;
       }
+      case 'seat_payment':
+        return this.applySeatPayment(tx, ev);
       case 'refund': {
         // Remboursé avant d'avoir servi : la tentative n'est plus disponible. Déjà utilisé : l'historique reste.
         await tx.query(`UPDATE billing.exam_purchases SET status = 'refunded' WHERE stripe_payment_intent_id = $1 AND status = 'paid'`, [ev.paymentIntentId]);
+        // Licence remboursée : la commande est marquée ; l'administrateur décide de la suite (docs/08).
+        await tx.query(`UPDATE billing.seat_purchases SET status = 'refunded' WHERE stripe_payment_intent_id = $1 AND status = 'paid'`, [ev.paymentIntentId]);
         return;
       }
       case 'invoice': {
@@ -271,6 +330,81 @@ export class PgBillingRepository extends BillingRepository {
         );
         return;
       }
+    }
+  }
+
+  /**
+   * Commande de sièges payée : la licence prend effet dans la même transaction que l'événement.
+   * Nouvelle organisation : l'acheteur en devient propriétaire. Renouvellement : 12 mois de plus.
+   * Ajout : sièges supplémentaires jusqu'à la fin de la licence en cours.
+   */
+  private async applySeatPayment(tx: PoolClient, ev: Extract<BillingEvent, { kind: 'seat_payment' }>) {
+    if (!/^[0-9a-f-]{36}$/i.test(ev.purchaseId)) return;
+    const { rows } = await tx.query<{
+      status: string; stripe_checkout_session_id: string | null; action: 'new' | 'renew' | 'add_seats'; buyer_id: string;
+      organization_id: string | null; organization_kind: string; organization_name: string; seats: number;
+    }>(
+      `SELECT status, stripe_checkout_session_id, action, buyer_id, organization_id, organization_kind, organization_name, seats
+         FROM billing.seat_purchases WHERE id = $1 FOR UPDATE`,
+      [ev.purchaseId],
+    );
+    const p = rows[0];
+    // La commande doit correspondre à la session qui l'a payée : une métadonnée recopiée ailleurs ne suffit pas.
+    if (!p || p.stripe_checkout_session_id !== ev.checkoutSessionId) {
+      this.logger.warn(`Paiement de licence ${ev.checkoutSessionId} : commande ${ev.purchaseId} introuvable ou d'une autre session, ignoré.`);
+      return;
+    }
+    if (ev.outcome === 'pending') {
+      await tx.query(`UPDATE billing.seat_purchases SET stripe_payment_intent_id = COALESCE($2, stripe_payment_intent_id) WHERE id = $1`, [ev.purchaseId, ev.paymentIntentId]);
+      return;
+    }
+    if (ev.outcome !== 'paid') {
+      if (p.status === 'pending') await tx.query(`UPDATE billing.seat_purchases SET status = 'expired' WHERE id = $1`, [ev.purchaseId]);
+      return;
+    }
+    if (p.status !== 'pending' && p.status !== 'expired') return; // déjà appliquée
+
+    let orgId = p.organization_id;
+    const months = `${LICENCE_MONTHS} months`;
+    if (p.action === 'new') {
+      for (let attempt = 0; !orgId && attempt < 5; attempt++) {
+        const created = await tx.query<{ id: string }>(
+          `INSERT INTO iam.organizations (name, slug, kind, seats, licence_starts_at, licence_ends_at, seat_plan, created_by)
+           VALUES ($1, $2, $3, $4, now(), now() + $5::interval, 'pro', $6) ON CONFLICT (slug) DO NOTHING RETURNING id`,
+          [p.organization_name, slugFor(p.organization_name, randomBytes(3).toString('hex')), p.organization_kind, p.seats, months, p.buyer_id],
+        );
+        orgId = created.rows[0]?.id ?? null;
+      }
+      if (!orgId) throw new Error(`Commande ${ev.purchaseId} : identifiant d'organisation introuvable, Stripe renverra l'événement.`);
+      // L'acheteur occupe le premier siège, comme propriétaire.
+      await tx.query(
+        `INSERT INTO iam.memberships (organization_id, user_id, role_code) VALUES ($1, $2, 'org_owner')
+         ON CONFLICT (organization_id, user_id) DO UPDATE SET role_code = 'org_owner'`,
+        [orgId, p.buyer_id],
+      );
+    } else if (!orgId) {
+      this.logger.warn(`Paiement de licence ${ev.purchaseId} : l'organisation n'existe plus, à rembourser par l'administrateur.`);
+    } else if (p.action === 'renew') {
+      await tx.query(
+        `UPDATE iam.organizations SET seats = $2,
+                licence_starts_at = CASE WHEN licence_ends_at IS NULL OR licence_ends_at <= now() THEN now() ELSE licence_starts_at END,
+                licence_ends_at = greatest(coalesce(licence_ends_at, now()), now()) + $3::interval, updated_at = now()
+          WHERE id = $1`,
+        [orgId, p.seats, months],
+      );
+    } else {
+      await tx.query(`UPDATE iam.organizations SET seats = seats + $2, updated_at = now() WHERE id = $1`, [orgId, p.seats]);
+    }
+    await tx.query(
+      `UPDATE billing.seat_purchases SET status = 'paid', paid_at = now(), organization_id = coalesce($2, organization_id),
+              stripe_payment_intent_id = COALESCE($3, stripe_payment_intent_id) WHERE id = $1`,
+      [ev.purchaseId, orgId, ev.paymentIntentId],
+    );
+    if (orgId) {
+      await tx.query(
+        `INSERT INTO platform.audit_log (actor_id, action, target_type, target_id, metadata) VALUES ($1, 'organization.licence_purchased', 'organization', $2, $3)`,
+        [p.buyer_id, orgId, JSON.stringify({ action: p.action, seats: p.seats, purchaseId: ev.purchaseId })],
+      );
     }
   }
 }

@@ -65,6 +65,17 @@ describe('StripeGateway', () => {
     expect(g.verifyWebhook(Buffer.from(payload), sign(payload)).event).toBeNull();
   });
 
+  it('traduit le paiement d’une commande de sièges, sans la confondre avec un examen', () => {
+    const g = new StripeGateway({ secretKey: 'sk_test_x', webhookSecret: secret });
+    const run = (kind: string) => {
+      const object = { id: 'cs_2', object: 'checkout.session', mode: 'payment', payment_status: 'paid', payment_intent: 'pi_2', customer: 'cus_1', metadata: { kind, purchase_id: 's-1' } };
+      const payload = JSON.stringify({ id: 'evt_y', object: 'event', type: 'checkout.session.completed', created: 1, data: { object } });
+      return g.verifyWebhook(Buffer.from(payload), sign(payload)).event;
+    };
+    expect(run('seats')).toEqual({ kind: 'seat_payment', purchaseId: 's-1', checkoutSessionId: 'cs_2', paymentIntentId: 'pi_2', outcome: 'paid' });
+    expect(run('autre')).toBeNull();
+  });
+
   it('traduit le paiement d’un examen : payé, en attente (prélèvement), expiré, remboursé', () => {
     const g = new StripeGateway({ secretKey: 'sk_test_x', webhookSecret: secret });
     const session = (payment_status: string) => ({

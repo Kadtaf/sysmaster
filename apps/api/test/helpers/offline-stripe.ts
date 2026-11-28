@@ -25,6 +25,10 @@ export class OfflineStripe extends StripeGateway {
     this.calls.push({ method: 'createExamCheckout', args: o });
     return { url: `https://checkout.stripe.test/c/pay/cs_exam_${o.purchaseId}`, sessionId: `cs_exam_${o.purchaseId}` };
   }
+  override async createSeatCheckout(o: Parameters<StripeGateway['createSeatCheckout']>[0]) {
+    this.calls.push({ method: 'createSeatCheckout', args: o });
+    return { url: `https://checkout.stripe.test/c/pay/cs_seats_${o.purchaseId}`, sessionId: `cs_seats_${o.purchaseId}` };
+  }
   override async cancelSubscriptionNow(subscriptionId: string) {
     this.calls.push({ method: 'cancelSubscriptionNow', args: subscriptionId });
     if (this.failing) throw new Error('Stripe injoignable (simulé)');
