@@ -38,6 +38,7 @@ const PUBLIC = [
   '/tarifs',
   '/confidentialite',
   '/connexion',
+  '/notifications/desabonnement?token=jeton-de-test',
 ];
 
 test.describe('visiteur', () => {
