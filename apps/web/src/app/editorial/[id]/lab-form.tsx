@@ -135,7 +135,7 @@ function MachineEditor({ value, onChange, ro, issue }: { value: LabContent['mach
         }}
         className={cn(inputClass, 'font-mono text-xs')}
       />
-      {error && <span role="alert" className="mt-1 block text-xs text-red-600">JSON invalide, non repris : {error}</span>}
+      {error && <span role="alert" className="mt-1 block text-xs text-red-600 dark:text-red-400">JSON invalide, non repris : {error}</span>}
     </Field>
   );
 }

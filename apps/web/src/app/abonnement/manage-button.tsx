@@ -28,7 +28,7 @@ export function ManageButton() {
       <Button variant="outline" onClick={go} disabled={pending || !session?.accessToken}>
         {pending ? 'Ouverture…' : 'Gérer mon abonnement'} <ExternalLink className="size-4" aria-hidden />
       </Button>
-      {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
+      {error && <p role="alert" className="text-sm text-red-600 dark:text-red-400">{error}</p>}
     </div>
   );
 }

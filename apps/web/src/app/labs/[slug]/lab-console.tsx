@@ -63,7 +63,7 @@ export function LabConsole({ slug, signedIn }: { slug: string; signedIn: boolean
           Rien ne s&apos;exécute réellement : chaque commande transforme une machine simulée. Tapez <code>help</code> pour la liste des commandes.
         </p>
         <Button disabled={busy} onClick={() => start()}>Démarrer le lab</Button>
-        {error && <p role="alert" className="w-full text-sm text-red-600">{error}</p>}
+        {error && <p role="alert" className="w-full text-sm text-red-600 dark:text-red-400">{error}</p>}
       </Card>
     );
   }
@@ -117,16 +117,19 @@ export function LabConsole({ slug, signedIn }: { slug: string; signedIn: boolean
         className="h-96 overflow-y-auto rounded-lg bg-slate-950 p-4 font-mono text-sm text-slate-100"
         onClick={() => input.current?.focus()}
       >
-        <p className="text-slate-400">Machine simulée prête. Tapez help pour commencer.</p>
-        {current.transcript.map((t, i) => (
-          <div key={i} className="mt-2">
-            <p><span className="text-emerald-400">$</span> {t.command}</p>
-            {t.output && <pre className={`whitespace-pre-wrap ${t.exitCode === 0 ? 'text-slate-200' : 'text-red-300'}`}>{t.output}</pre>}
-            {t.warning && <p className="mt-1 rounded bg-amber-900/50 p-2 text-amber-100">⚠ {t.warning}</p>}
-          </div>
-        ))}
+        {/* Journal : chaque nouvelle sortie est lue par le lecteur d'écran sans déplacer le focus (4.1.3). */}
+        <div role="log" aria-label="Sortie du terminal">
+          <p className="text-slate-400">Machine simulée prête. Tapez help pour commencer.</p>
+          {current.transcript.map((t, i) => (
+            <div key={i} className="mt-2">
+              <p><span className="text-emerald-400">$</span> {t.command}</p>
+              {t.output && <pre className={`whitespace-pre-wrap ${t.exitCode === 0 ? 'text-slate-200' : 'text-red-300'}`}>{t.output}</pre>}
+              {t.warning && <p className="mt-1 rounded bg-amber-900/50 p-2 text-amber-100">⚠ {t.warning}</p>}
+            </div>
+          ))}
+        </div>
         {running && (
-          <form onSubmit={submit} className="mt-2 flex items-center gap-2">
+          <form onSubmit={submit} className="mt-2 flex items-center gap-2 rounded px-1 -mx-1 focus-within:ring-1 focus-within:ring-emerald-400">
             <label htmlFor="lab-command" className="shrink-0 text-emerald-400">{current.prompt}</label>
             <input
               id="lab-command"
@@ -144,7 +147,7 @@ export function LabConsole({ slug, signedIn }: { slug: string; signedIn: boolean
           </form>
         )}
       </div>
-      {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
+      {error && <p role="alert" className="text-sm text-red-600 dark:text-red-400">{error}</p>}
 
       <div className="flex flex-wrap gap-3">
         {running && (
@@ -175,7 +178,7 @@ export function LabConsole({ slug, signedIn }: { slug: string; signedIn: boolean
           <ul className="mt-2 space-y-1 text-sm">
             {checks.map((c) => (
               <li key={c.description} className="flex items-center gap-2">
-                {c.passed ? <CheckCircle2 className="size-4 text-emerald-600" aria-hidden /> : <XCircle className="size-4 text-red-600" aria-hidden />}
+                {c.passed ? <CheckCircle2 className="size-4 text-emerald-600" aria-hidden /> : <XCircle className="size-4 text-red-600 dark:text-red-400" aria-hidden />}
                 <span>{c.description}</span>
                 <span className="sr-only">{c.passed ? 'vérifié' : 'pas encore'}</span>
               </li>

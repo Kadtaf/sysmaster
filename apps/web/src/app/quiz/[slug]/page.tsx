@@ -32,7 +32,7 @@ export default async function QuizPage({ params }: Props) {
         <p className="text-sm text-muted-foreground">
           Entraînement : autant d’essais que vous voulez. Chaque réponse est expliquée après correction.
           {quiz.commandSlug && (
-            <> Fiche liée : <Link href={`/commandes/${quiz.commandSlug}`} className="text-primary hover:underline">{quiz.commandSlug}</Link>.</>
+            <> Fiche liée : <Link href={`/commandes/${quiz.commandSlug}`} className="link">{quiz.commandSlug}</Link>.</>
           )}
         </p>
       </header>

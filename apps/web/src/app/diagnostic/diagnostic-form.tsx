@@ -80,7 +80,7 @@ export function DiagnosticForm() {
             placeholder={EXAMPLE}
             className="mt-1 w-full rounded-md border bg-card p-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
           />
-          <button type="button" className="mt-1 text-xs text-primary hover:underline" onClick={() => setDescription(EXAMPLE)}>
+          <button type="button" className="mt-1 text-xs link" onClick={() => setDescription(EXAMPLE)}>
             Utiliser l&apos;exemple « Mon PC redémarre seul »
           </button>
         </div>
@@ -92,7 +92,7 @@ export function DiagnosticForm() {
               {symptoms.map((s) => (
                 <label
                   key={s.code}
-                  className={`cursor-pointer rounded-full border px-3 py-1 text-xs ${selected.includes(s.code) ? 'border-primary bg-primary text-primary-foreground' : ''}`}
+                  className={`cursor-pointer rounded-full border px-3 py-1 text-xs has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-ring ${selected.includes(s.code) ? 'border-primary bg-primary text-primary-foreground' : ''}`}
                 >
                   <input type="checkbox" className="sr-only" checked={selected.includes(s.code)} onChange={() => toggle(s.code)} />
                   {s.label}
@@ -136,7 +136,7 @@ export function DiagnosticForm() {
         <Button type="submit" disabled={loading}>
           {loading && <Loader2 className="size-4 animate-spin" aria-hidden />} Analyser
         </Button>
-        {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
+        {error && <p role="alert" className="text-sm text-red-600 dark:text-red-400">{error}</p>}
       </form>
 
       <div aria-live="polite">

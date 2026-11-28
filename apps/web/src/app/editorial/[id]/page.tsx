@@ -24,7 +24,7 @@ export default async function RevisionPage({ params }: { params: Promise<{ id: s
   if (!revision) notFound();
   return (
     <div className="space-y-4">
-      <Link href="/editorial" className="text-sm text-primary hover:underline">← Rédaction</Link>
+      <Link href="/editorial" className="text-sm link">← Rédaction</Link>
       <RevisionEditor initial={revision} />
     </div>
   );

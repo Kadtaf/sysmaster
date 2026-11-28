@@ -231,6 +231,14 @@ Règles dans `apps/api/src/modules/gamification/domain/rules.ts`, testées unita
 - Le domaine ne dépend d'aucun framework : il est testé sans base de données.
 - CI : lint → typecheck → tests → build → image Docker (sur `main`).
 
+### Accessibilité (WCAG 2.2 AA)
+
+- **Audit automatique** (`apps/web/a11y`, `pnpm --filter @sysmaster/web a11y`) : axe-core sur l'application construite et lancée, avec les critères WCAG 2.0, 2.1 et 2.2 niveaux A et AA, chaque page en thème clair puis sombre. Il couvre les pages publiques, les pages de contenu (parcours, cours, leçon, lab, commande, certification, sujet du forum, prises dans les données de démo), les pages d'un apprenant connecté, celles d'un mentor-auteur-relecteur et un quiz après correction. Les connexions passent par le vrai Keycloak avec les comptes de démo du royaume. La CI le lance après le build.
+- **Redistribution** : à 320 px de large (zoom 400 %), aucune page testée ne défile horizontalement.
+- **Clavier** : le lien « Aller au contenu » est le premier arrêt et donne le focus à `<main>` ; chaque élément atteint à la touche Tab doit changer d'aspect au focus (contour ou anneau, vérifié en comparant avec et sans focus) ; un quiz se fait entièrement au clavier.
+- **Règles de l'interface** : les liens dans un texte sont soulignés (classe `link`, pas seulement la couleur) ; un contour de focus est posé sur tout élément interactif qui n'en a pas ; l'en-tête collant laisse la place à l'élément qui reçoit le focus (`scroll-padding-top`) ; animations coupées si `prefers-reduced-motion` ; la rubrique courante est annoncée (`aria-current`) ; erreurs en `role="alert"`, résultats en `role="status"`, sortie du terminal des labs en `role="log"` ; un état « pas encore obtenu » est marqué par la bordure, pas par une opacité qui ferait tomber le contraste ; textes d'erreur éclaircis en thème sombre.
+- **Hors automatisation**, à refaire à chaque grande évolution : lecture avec NVDA ou VoiceOver des parcours clés (inscription à un parcours, leçon, lab, examen, paiement), zoom du texte seul à 200 %, sous-titres des futures vidéos.
+
 ## 8. Environnements
 
 | Environnement | Usage | Déploiement |

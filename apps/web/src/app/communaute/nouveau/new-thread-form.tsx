@@ -97,7 +97,7 @@ export function NewThreadForm({ categories, initialCategory, initialKind, labs }
         Titre
         <input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={160} className={field}
           placeholder="Ex. : nginx refuse de démarrer après un changement de configuration" aria-invalid={!!issue('title')} />
-        {issue('title') && <span className="mt-1 block text-xs text-red-600">{issue('title')}</span>}
+        {issue('title') && <span className="mt-1 block text-xs text-red-600 dark:text-red-400">{issue('title')}</span>}
       </label>
 
       {similar.length > 0 && (
@@ -124,7 +124,7 @@ export function NewThreadForm({ categories, initialCategory, initialKind, labs }
           <span className="mt-1 block text-xs font-normal text-muted-foreground">
             Vous ne pouvez partager que la démarche d’un lab que vous avez résolu. Elle ne sera visible que de ceux qui l’ont résolu aussi.
           </span>
-          {issue('labSlug') && <span className="mt-1 block text-xs text-red-600">{issue('labSlug')}</span>}
+          {issue('labSlug') && <span className="mt-1 block text-xs text-red-600 dark:text-red-400">{issue('labSlug')}</span>}
         </label>
       )}
 
@@ -132,7 +132,7 @@ export function NewThreadForm({ categories, initialCategory, initialKind, labs }
         {kind === 'script_share' ? 'Contexte' : kind === 'lab_share' ? 'Votre démarche' : 'Détails'}
         <textarea rows={10} value={bodyMd} onChange={(e) => setBody(e.target.value)} className={`${field} font-mono`} aria-invalid={!!issue('bodyMd')}
           placeholder={'Système et version, ce qui se passe, ce que vous avez déjà essayé, le message d’erreur exact (dans un bloc ```).'} />
-        {issue('bodyMd') && <span className="mt-1 block text-xs text-red-600">{issue('bodyMd')}</span>}
+        {issue('bodyMd') && <span className="mt-1 block text-xs text-red-600 dark:text-red-400">{issue('bodyMd')}</span>}
       </label>
 
       {kind === 'script_share' && (
@@ -161,7 +161,7 @@ export function NewThreadForm({ categories, initialCategory, initialKind, labs }
             Explication <span className="font-normal text-muted-foreground">(obligatoire : ce qu’il fait, quand l’utiliser, ses limites)</span>
             <textarea rows={5} value={script.explanation} onChange={(e) => setScript({ ...script, explanation: e.target.value })}
               className={field} aria-invalid={!!issue('script.explanation')} />
-            {issue('script.explanation') && <span className="mt-1 block text-xs text-red-600">{issue('script.explanation')}</span>}
+            {issue('script.explanation') && <span className="mt-1 block text-xs text-red-600 dark:text-red-400">{issue('script.explanation')}</span>}
           </label>
           <p className="text-xs text-muted-foreground">
             Si le code contient une commande plus risquée que le niveau choisi (suppression récursive, formatage, script téléchargé puis exécuté…),
@@ -175,7 +175,7 @@ export function NewThreadForm({ categories, initialCategory, initialKind, labs }
         <input value={tags} onChange={(e) => setTags(e.target.value)} className={field} placeholder="nginx, systemd" />
       </label>
 
-      {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
+      {error && <p role="alert" className="text-sm text-red-600 dark:text-red-400">{error}</p>}
       <Button type="submit" disabled={pending}>Publier</Button>
     </form>
   );

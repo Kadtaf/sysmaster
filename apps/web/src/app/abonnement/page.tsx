@@ -77,7 +77,7 @@ export default async function SubscriptionPage({ searchParams }: { searchParams:
                   <td className="py-2 pr-4">{formatPrice(i.amountCents, i.currency)}</td>
                   <td className="py-2 pr-4 text-muted-foreground">{invoiceStatusLabels[i.status] ?? i.status}</td>
                   <td className="py-2">
-                    {i.url && <a href={i.url} className="text-primary hover:underline" target="_blank" rel="noopener noreferrer">Voir</a>}
+                    {i.url && <a href={i.url} className="link" target="_blank" rel="noopener noreferrer">Voir</a>}
                   </td>
                 </tr>
               ))}

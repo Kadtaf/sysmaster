@@ -66,7 +66,7 @@ export function RevisionEditor({ initial }: { initial: RevisionDto }) {
         <h1 className="text-3xl font-bold">{rev.title || `${contentKindMeta[rev.kind].newLabel}`}</h1>
         <span className={cn('rounded px-2 py-0.5 text-xs font-medium', status?.className)}>{status?.label ?? rev.status}</span>
         <span className="text-sm text-muted-foreground">
-          {contentKindMeta[rev.kind].label} · {rev.isNew ? 'création' : <>modification de <Link className="text-primary hover:underline" href={contentKindMeta[rev.kind].href(rev.key)}>{contentKindMeta[rev.kind].href(rev.key)}</Link></>} · par {rev.author}
+          {contentKindMeta[rev.kind].label} · {rev.isNew ? 'création' : <>modification de <Link className="link" href={contentKindMeta[rev.kind].href(rev.key)}>{contentKindMeta[rev.kind].href(rev.key)}</Link></>} · par {rev.author}
         </span>
       </div>
 
@@ -176,7 +176,7 @@ export function RevisionEditor({ initial }: { initial: RevisionDto }) {
 
       {rev.status === 'published' && (
         <p className="text-sm">
-          <Link href={contentKindMeta[rev.kind].href(rev.key)} className="text-primary hover:underline">Voir en ligne</Link>
+          <Link href={contentKindMeta[rev.kind].href(rev.key)} className="link">Voir en ligne</Link>
         </p>
       )}
 

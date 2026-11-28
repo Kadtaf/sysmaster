@@ -72,7 +72,7 @@ export function QuizForm({ c, set, ro, flagged, isNew }: FormProps<QuizContent>)
                 ))}
               </ul>
               {!ro && q.choices.length < 6 && (
-                <button type="button" className="text-xs text-primary hover:underline" onClick={() => upd({ ...q, choices: [...q.choices, { id: LETTERS[q.choices.length], text: '' }] })}>
+                <button type="button" className="text-xs link" onClick={() => upd({ ...q, choices: [...q.choices, { id: LETTERS[q.choices.length], text: '' }] })}>
                   Ajouter un choix
                 </button>
               )}

@@ -172,7 +172,7 @@ export function AssistantChat({ conversations: initial }: { conversations: Assis
           <p className="text-xs text-muted-foreground">
             Ne collez pas de mots de passe, de clés ni de données personnelles. L&apos;assistant ne lance aucune commande : c&apos;est vous qui décidez.
           </p>
-          {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
+          {error && <p role="alert" className="text-sm text-red-600 dark:text-red-400">{error}</p>}
         </form>
       </div>
     </div>
@@ -281,13 +281,13 @@ function AnswerView({ answer, agent, messageId, token }: { answer: AssistantAnsw
                 {s.kind === 'official_doc' ? (
                   <>
                     <Badge className="mr-1 bg-sky-100 text-sky-900">Doc officielle</Badge>
-                    <a href={s.url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">{s.title}</a>
+                    <a href={s.url} target="_blank" rel="noopener noreferrer" className="link">{s.title}</a>
                     {s.attribution && <span className="block pl-6 text-xs text-muted-foreground">{s.attribution}</span>}
                   </>
                 ) : (
                   <>
                     <Badge className="mr-1">Fiche SysMaster</Badge>
-                    <a href={s.url} className="text-primary hover:underline">{s.title}</a>
+                    <a href={s.url} className="link">{s.title}</a>
                   </>
                 )}
               </li>

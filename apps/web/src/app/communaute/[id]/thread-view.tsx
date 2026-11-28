@@ -29,7 +29,7 @@ function Votes({ score, myVote, onVote, disabled, label }: { score: number; myVo
       </button>
       <span className="font-semibold" aria-live="polite">{score}</span>
       <button type="button" disabled={disabled} onClick={() => onVote(myVote === -1 ? 0 : -1)} aria-pressed={myVote === -1} aria-label="Pas utile"
-        className={cn('rounded p-1 hover:bg-muted disabled:opacity-40', myVote === -1 && 'text-red-600')}>
+        className={cn('rounded p-1 hover:bg-muted disabled:opacity-40', myVote === -1 && 'text-red-600 dark:text-red-400')}>
         <ArrowBigDown className="size-6" aria-hidden fill={myVote === -1 ? 'currentColor' : 'none'} />
       </button>
     </div>
@@ -203,7 +203,7 @@ export function ThreadView({ initial }: { initial: ThreadDto }) {
         <ul className="space-y-3">{t.posts.map(postCard)}</ul>
       </section>
 
-      {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
+      {error && <p role="alert" className="text-sm text-red-600 dark:text-red-400">{error}</p>}
 
       <section aria-label="Répondre">
         {!session ? (

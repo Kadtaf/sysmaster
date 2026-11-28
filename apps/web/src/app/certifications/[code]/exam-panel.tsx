@@ -28,7 +28,7 @@ function Countdown({ deadline, onExpire }: { deadline: string; onExpire: () => v
   }, [deadline, onExpire]);
   const s = Math.max(0, Math.floor(left / 1000));
   return (
-    <span className={s < 120 ? 'font-semibold text-red-600' : 'font-semibold'} aria-live="off">
+    <span className={s < 120 ? 'font-semibold text-red-600 dark:text-red-400' : 'font-semibold'} aria-live="off">
       {String(Math.floor(s / 60)).padStart(2, '0')}:{String(s % 60).padStart(2, '0')}
     </span>
   );
@@ -172,7 +172,7 @@ export function ExamPanel({ certification: c }: { certification: CertificationDt
             </li>
           ))}
         </ol>
-        {error && <p role="alert" className="text-sm text-red-600">{error.message}</p>}
+        {error && <p role="alert" className="text-sm text-red-600 dark:text-red-400">{error.message}</p>}
       </section>
     );
   }
@@ -217,7 +217,7 @@ export function ExamPanel({ certification: c }: { certification: CertificationDt
       )}
       {!me.openSession && me.paid && <p className="text-xs text-muted-foreground">Tentative payée : elle sera utilisée quand vous commencerez.</p>}
       {error && (
-        <div role="alert" className="text-sm text-red-600">
+        <div role="alert" className="text-sm text-red-600 dark:text-red-400">
           <p>{error.message}</p>
           {error.reasons.length > 0 && <ul className="mt-1 list-disc pl-5">{error.reasons.map((r) => <li key={r}>{r}</li>)}</ul>}
         </div>

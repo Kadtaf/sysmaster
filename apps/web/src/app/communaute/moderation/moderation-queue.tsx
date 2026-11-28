@@ -34,7 +34,7 @@ export function ModerationQueue({ initial }: { initial: ModerationItemDto[] }) {
 
   return (
     <ul className="space-y-4">
-      {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
+      {error && <p role="alert" className="text-sm text-red-600 dark:text-red-400">{error}</p>}
       {items.map((item) => (
         <li key={item.targetId}>
           <Card className="space-y-3">

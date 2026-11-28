@@ -26,7 +26,7 @@ export function Unsubscribe({ token }: { token: string }) {
         <p role="status">C&apos;est fait : vous ne recevrez plus d&apos;e-mails sur {LABELS[done]}.</p>
         <p className="text-sm text-muted-foreground">
           Les notifications restent visibles dans SysMaster. Tout se règle sur la page{' '}
-          <Link href="/notifications" className="text-primary hover:underline">Notifications</Link>.
+          <Link href="/notifications" className="link">Notifications</Link>.
         </p>
       </div>
     );
@@ -34,7 +34,7 @@ export function Unsubscribe({ token }: { token: string }) {
   return (
     <div className="space-y-3">
       <p className="text-muted-foreground">Vous ne recevrez plus ce type d&apos;e-mail. Les autres notifications ne changent pas.</p>
-      {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
+      {error && <p role="alert" className="text-sm text-red-600 dark:text-red-400">{error}</p>}
       <Button disabled={pending}
         onClick={() => start(async () => {
           try {

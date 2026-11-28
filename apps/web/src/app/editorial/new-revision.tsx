@@ -85,7 +85,7 @@ export function NewRevision() {
           soumettez à la relecture ; rien n’est publié sans un second regard. Compte dans votre quota IA quotidien.
         </CardDescription>
       )}
-      {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
+      {error && <p role="alert" className="text-sm text-red-600 dark:text-red-400">{error}</p>}
       {kind === 'lab' && <LabDraftForm />}
     </Card>
   );
@@ -159,7 +159,7 @@ function LabDraftForm() {
         personne le relit : rien n’est publié sans un second regard. Compte dans votre quota IA quotidien et peut prendre une à deux minutes.
       </CardDescription>
       {error && (
-        <div role="alert" className="text-sm text-red-600">
+        <div role="alert" className="text-sm text-red-600 dark:text-red-400">
           <p>{error.message}</p>
           {error.issues.length > 0 && <ul className="mt-1 list-disc pl-5">{error.issues.slice(0, 8).map((i) => <li key={i}>{i}</li>)}</ul>}
         </div>

@@ -73,7 +73,7 @@ export function MentorCard({ mentor: m, signedIn, self, busy }: { mentor: Mentor
           </div>
         </form>
       )}
-      {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
+      {error && <p role="alert" className="text-sm text-red-600 dark:text-red-400">{error}</p>}
     </Card>
   );
 }
@@ -131,7 +131,7 @@ export function MyMentorships({ items }: { items: MentorshipDto[] }) {
           </li>
         ))}
       </ul>
-      {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
+      {error && <p role="alert" className="text-sm text-red-600 dark:text-red-400">{error}</p>}
     </section>
   );
 }
@@ -195,7 +195,7 @@ export function MentorProfileForm({ current }: { current: MentorDto | null }) {
           </div>
         </form>
       )}
-      {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
+      {error && <p role="alert" className="text-sm text-red-600 dark:text-red-400">{error}</p>}
     </Card>
   );
 }

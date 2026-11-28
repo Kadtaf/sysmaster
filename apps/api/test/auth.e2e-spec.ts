@@ -101,6 +101,28 @@ describeDb('Authentification et autorisation (e2e)', () => {
     expect(res.body.id).toBe(rows[0].id);
   });
 
+  // Une page qui appelle plusieurs routes en parallèle dès la première connexion (ex. /compte) :
+  // chaque requête provisionne le compte, aucune ne doit échouer ni créer un doublon.
+  it('premières requêtes simultanées : un seul compte, aucune erreur (création et rattachement)', async () => {
+    const fresh = newIdentity();
+    const jwt = await token(fresh);
+    const created = await Promise.all(Array.from({ length: 6 }, () => http().get('/api/v1/me').auth(jwt, { type: 'bearer' })));
+    expect(created.map((r) => r.status)).toEqual(Array(6).fill(200));
+    expect(new Set(created.map((r) => r.body.id)).size).toBe(1);
+    const events = await pool.query(
+      `SELECT 1 FROM platform.outbox_events WHERE type = 'iam.user.registered.v1' AND aggregate_id = $1`,
+      [created[0].body.id],
+    );
+    expect(events.rowCount).toBe(1);
+
+    const imported = newIdentity();
+    const { rows } = await pool.query(`INSERT INTO iam.users (email, display_name) VALUES ($1, 'Importé') RETURNING id`, [imported.email]);
+    const jwt2 = await token(imported);
+    const linked = await Promise.all(Array.from({ length: 6 }, () => http().get('/api/v1/me').auth(jwt2, { type: 'bearer' })));
+    expect(linked.map((r) => r.status)).toEqual(Array(6).fill(200));
+    expect(linked.every((r) => r.body.id === rows[0].id)).toBe(true);
+  });
+
   it('synchronise les rôles depuis Keycloak et applique @Roles', async () => {
     const id = newIdentity();
     await http().get('/api/v1/admin/users').auth(await token(id), { type: 'bearer' }).expect(403);

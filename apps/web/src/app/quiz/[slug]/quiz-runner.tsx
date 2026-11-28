@@ -59,7 +59,7 @@ export function QuizRunner({ quiz }: { quiz: PracticeQuizDto }) {
             <li key={q.id}>
               <Card className="space-y-3">
                 <p className="flex items-start gap-2 font-medium">
-                  {r && (r.correct ? <CheckCircle2 className="mt-0.5 size-5 shrink-0 text-emerald-600" aria-label="Juste" /> : <XCircle className="mt-0.5 size-5 shrink-0 text-red-600" aria-label="Faux" />)}
+                  {r && (r.correct ? <CheckCircle2 className="mt-0.5 size-5 shrink-0 text-emerald-600" aria-label="Juste" /> : <XCircle className="mt-0.5 size-5 shrink-0 text-red-600 dark:text-red-400" aria-label="Faux" />)}
                   <span>{i + 1}. {q.promptMd}</span>
                 </p>
                 {q.type === 'multiple' && <p className="text-xs text-muted-foreground">Plusieurs réponses possibles.</p>}
@@ -83,7 +83,7 @@ export function QuizRunner({ quiz }: { quiz: PracticeQuizDto }) {
           );
         })}
       </ol>
-      {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
+      {error && <p role="alert" className="text-sm text-red-600 dark:text-red-400">{error}</p>}
       {result ? (
         <Button variant="outline" onClick={() => { setResult(null); setAnswers({}); }}>Recommencer</Button>
       ) : (
