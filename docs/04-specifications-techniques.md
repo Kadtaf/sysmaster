@@ -126,6 +126,16 @@ Préfixe `/api/v1`. Documentation OpenAPI générée sur `/api/docs`. Authentifi
 | POST | `/me/notifications/:id/read`, `/me/notifications/read-all` | Marque comme lu (seulement les miennes) → `{ marked }` |
 | GET, PUT | `/me/notifications/preferences` | `[{ type, channel: in_app \| email, enabled }]` ; PUT `{ preferences: [...] }` ne change que les lignes envoyées |
 | POST | `/notifications/unsubscribe` | Public : `{ token }` (ou `?token=` pour le un clic RFC 8058) du lien de l'e-mail → `{ type }` ; **400** si le jeton est faux |
+| GET | `/organizations/mine` | Mes organisations `[{ id, name, kind, role, licence: { state, endsAt } }]` |
+| GET | `/organizations/:id` | Sièges, licence, membres ; e-mails des membres et invitations en attente pour les gestionnaires seulement. **404** pour qui n'est pas membre |
+| POST | `/organizations/:id/invitations` | Gestionnaires : `{ emails[≤200], role: org_admin \| instructor \| member }` → `{ invitations: [{ id, email, link, emailed }], skipped }`. Le lien n'est rendu qu'ici (seul le condensé SHA-256 du jeton est gardé). **409** si les sièges libres ne suffisent pas ou si la licence n'est pas en cours |
+| DELETE | `/organizations/:id/invitations/:invitationId` | Annule une invitation en attente (libère le siège) |
+| PATCH, DELETE | `/organizations/:id/members/:userId` | Gestionnaires : changer le rôle `{ role }`, retirer. DELETE sur soi-même : quitter (**409** pour le seul propriétaire) |
+| GET | `/organizations/:id/progress`, `/organizations/:id/progress.csv` | Gestionnaires et formateurs : progression d'apprentissage des membres (jamais conversations IA, diagnostics, messages privés) ; CSV « ; » protégé contre les formules |
+| POST | `/organizations/invitations/preview` | Public, jeton dans le corps : `{ organization, kind, role, emailHint, expiresAt, state }` |
+| POST | `/organizations/invitations/accept` | `{ token }` : réservé au compte dont l'e-mail **vérifié** est l'adresse invitée (**409** sinon, ou si l'invitation est utilisée, annulée, expirée) |
+| GET, POST | `/admin/organizations` | Administrateurs : liste ; ouverture `{ name, slug, kind, country?, seats, licenceStartsAt?, licenceEndsAt, ownerEmail }` → organisation et invitation du propriétaire |
+| PATCH | `/admin/organizations/:id` | Administrateurs : `{ name?, seats?, licenceEndsAt? }` ; **409** si les sièges descendent sous les sièges pris |
 | GET | `/me/privacy` | Demande de suppression en cours et durées de conservation |
 | GET | `/me/privacy/export` | Toutes mes données (JSON en pièce jointe) : droit d’accès et portabilité |
 | POST, DELETE | `/me/privacy/erasure` | `{ confirmation: "SUPPRIMER" }` : suppression du compte 7 jours plus tard (**400** sans confirmation, **409** si déjà demandée) ; DELETE l’annule pendant le délai |

@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { apiGet, auditPage, expectNoViolations, stateFile } from './helpers';
+import { apiGet, auditPage, DEMO_ORGANIZATION, expectNoViolations, stateFile } from './helpers';
 
 type Slug = { slug: string };
 
@@ -39,6 +39,7 @@ const PUBLIC = [
   '/confidentialite',
   '/connexion',
   '/notifications/desabonnement?token=jeton-de-test',
+  '/organisation/invitation?token=jeton-de-test-inconnu-0000000000',
 ];
 
 test.describe('visiteur', () => {
@@ -64,6 +65,8 @@ test.describe('apprenant connecté', () => {
     '/communaute/nouveau',
     '/communaute/groupes',
     '/communaute/mentorat',
+    '/organisation',
+    `/organisation/${DEMO_ORGANIZATION}`,
   ]) {
     test(url, async ({ page }) => auditPage(page, url));
   }
@@ -90,7 +93,12 @@ test.describe('apprenant connecté', () => {
 test.describe('mentor, auteur et relecteur', () => {
   test.use({ storageState: stateFile('mentor') });
 
-  for (const url of ['/editorial', '/communaute/moderation', '/communaute/mentorat']) {
+  for (const url of ['/editorial', '/communaute/moderation', '/communaute/mentorat', `/organisation/${DEMO_ORGANIZATION}`]) {
     test(url, async ({ page }) => auditPage(page, url));
   }
+});
+
+test.describe('administrateur', () => {
+  test.use({ storageState: stateFile('admin') });
+  test('/admin/organisations', async ({ page }) => auditPage(page, '/admin/organisations'));
 });

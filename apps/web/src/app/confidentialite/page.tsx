@@ -18,6 +18,7 @@ const retention: [string, string][] = [
   ['Commandes tapées dans les labs', `${years(RETENTION_DAYS.labTranscripts)} après la fin du lab`],
   ['Signaux d’intégrité des examens (changements d’onglet, collages)', `${years(RETENTION_DAYS.examIntegrity)} après l’examen`],
   ['Notifications lues', years(RETENTION_DAYS.readNotifications)],
+  ['Invitations à une organisation (acceptées, annulées ou expirées)', years(RETENTION_DAYS.organizationInvitations)],
   ['Trace des e-mails de notification envoyés', years(RETENTION_DAYS.notificationEmails)],
   ['Journal d’audit (publications, révocations, actions d’administration)', years(RETENTION_DAYS.auditLog)],
   ['Factures et achats d’examens (pièces comptables)', `${years(RETENTION_DAYS.billingRecords)}, même après la suppression du compte`],
@@ -47,6 +48,13 @@ export default function PrivacyPage() {
           <li><strong>Communauté</strong> (sujets, réponses, messages de groupe et de mentorat, signalements) : permettre l’entraide et la modérer. Base légale : exécution du service et intérêt légitime (modération).</li>
           <li><strong>Paiement</strong> (offre souscrite, factures, examens achetés, montants) : encaisser et tenir la comptabilité. Base légale : exécution du contrat et obligation légale (conservation des pièces comptables).</li>
           <li><strong>Sécurité</strong> (journal d’audit, signaux d’intégrité des examens) : prévenir la fraude et les abus. Base légale : intérêt légitime.</li>
+          <li>
+            <strong>Organisations</strong> (licence d’entreprise, d’école ou de centre de formation) : quand vous acceptez une invitation,
+            les gestionnaires et formateurs de l’organisation voient votre nom, votre adresse e-mail (gestionnaires seulement) et votre
+            progression : niveau, XP, leçons, labs résolus, parcours et certifications valides. Ils ne voient jamais vos conversations
+            avec l’assistant, vos diagnostics ni vos messages privés. Vous pouvez quitter l’organisation à tout moment. Base légale :
+            exécution du contrat passé avec votre organisation et intérêt légitime de celle-ci à suivre la formation qu’elle finance.
+          </li>
         </ul>
         <p className="mt-3 text-sm">
           Vos données ne sont ni vendues ni utilisées pour entraîner un modèle d’intelligence artificielle.

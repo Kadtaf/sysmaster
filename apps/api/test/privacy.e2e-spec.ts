@@ -57,6 +57,15 @@ describeDb('RGPD : export, effacement, conservation (e2e)', () => {
     await other.as(http().post(`/api/v1/community/groups/${groupId}/join`)).expect(200);
     await me.as(http().post(`/api/v1/community/groups/${groupId}/messages`).send({ bodyMd: 'Message privé à effacer.' })).expect(201);
     const thread = (await me.as(http().post('/api/v1/community/threads').send({ categorySlug: 'linux', title: 'Question qui doit rester lisible', bodyMd: 'Le contenu public reste, sans mon nom.', tags: [] })).expect(201)).body;
+    // Organisation : membre d'une école, et invité dans une autre (l'invitation porte l'adresse).
+    const org = (await pool.query(`INSERT INTO iam.organizations (name, slug, kind, seats, licence_ends_at)
+                                    VALUES ('École RGPD', 'rgpd-' || substr(md5(random()::text), 1, 8), 'school', 5, now() + interval '1 year') RETURNING id`)).rows[0].id;
+    await pool.query(`INSERT INTO iam.memberships (organization_id, user_id, role_code) VALUES ($1, $2, 'member')`, [org, me.id]);
+    await pool.query(`INSERT INTO iam.organization_invitations (organization_id, email, role_code, token_hash, invited_by, expires_at)
+                      VALUES ($1, $2, 'member', decode(md5(random()::text), 'hex'), $3, now() + interval '14 days')`, [org, me.identity.email, other.id]);
+    const exported = (await me.as(http().get(`/api/v1/me/privacy/export`)).expect(200)).body.data;
+    expect(JSON.stringify(exported.organisations)).toContain('École RGPD');
+    expect(exported.invitationsOrganisations).toHaveLength(1);
 
     await me.as(http().post('/api/v1/me/privacy/erasure').send({ confirmation: 'oui' })).expect(400);
     const scheduled = (await me.as(http().post('/api/v1/me/privacy/erasure').send({ confirmation: 'SUPPRIMER' })).expect(200)).body;
@@ -79,6 +88,8 @@ describeDb('RGPD : export, effacement, conservation (e2e)', () => {
     expect(u).toEqual({ email: `supprime-${me.id}@invalid`, display_name: 'Compte supprimé', idp_subject: null, status: 'deleted' });
     expect((await pool.query(`SELECT count(*)::int AS n FROM community.messages WHERE author_id = $1`, [me.id])).rows[0].n).toBe(0);
     expect((await pool.query(`SELECT owner_id FROM community.study_groups WHERE id = $1`, [groupId])).rows[0].owner_id).toBe(other.id);
+    expect((await pool.query(`SELECT count(*)::int AS n FROM iam.memberships WHERE user_id = $1`, [me.id])).rows[0].n).toBe(0);
+    expect((await pool.query(`SELECT count(*)::int AS n FROM iam.organization_invitations WHERE organization_id = $1`, [org])).rows[0].n).toBe(0);
     const log = (await pool.query(`SELECT idp_deleted, idp_subject, counts FROM iam.erasure_log WHERE user_id = $1`, [me.id])).rows[0];
     // Pas de client d'administration Keycloak en test : le registre garde l'identifiant Keycloak, et lui seul, pour finir le travail.
     expect(log).toMatchObject({ idp_deleted: false, idp_subject: me.identity.sub });
