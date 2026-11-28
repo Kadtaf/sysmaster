@@ -36,6 +36,8 @@ export const LIMITS = {
   privacyExport: { bucket: 'privacy-export', limit: 5, windowS: 3600 },
   /** Ouvrir une page de paiement ou le portail Stripe : chaque appel crée une session chez Stripe. */
   billing: { bucket: 'billing', limit: 10, windowS: 600 },
+  /** Désabonnement par lien d'e-mail, sans connexion : empêche d'essayer des jetons en masse. */
+  emailUnsubscribe: { bucket: 'email-unsubscribe', limit: 20, windowS: 600 },
   /** Démarrer un examen. */
   examStart: { bucket: 'exam-start', limit: 10, windowS: 3600 },
 } satisfies Record<string, RateLimitRule>;

@@ -1237,6 +1237,8 @@ export const RETENTION_DAYS = {
   examIntegrity: 365,
   /** Commandes tapées dans les labs, après la fin du lab. */
   labTranscripts: 365,
+  /** Trace des e-mails de notification (envoyés ou abandonnés). */
+  notificationEmails: 90,
   /** Factures et achats d'examens : pièces comptables, gardées dix ans (Code de commerce, art. L123-22), même après effacement du compte. */
   billingRecords: 3650,
 } as const;
@@ -1319,8 +1321,8 @@ export interface RedirectDto {
 /** Ce qui peut déclencher une notification ; chacun se coupe dans Mon compte → Notifications. */
 export const NOTIFICATION_TYPES = ['community_reply', 'answer_accepted', 'mentorship', 'certificate_issued', 'editorial_review'] as const;
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
-/** Canaux livrés. L'e-mail viendra quand un serveur d'envoi sera configuré. */
-export const NOTIFICATION_CHANNELS = ['in_app'] as const;
+/** Canaux livrés. L'e-mail ne part que si un serveur d'envoi est configuré (docs/08 §3). */
+export const NOTIFICATION_CHANNELS = ['in_app', 'email'] as const;
 export type NotificationChannel = (typeof NOTIFICATION_CHANNELS)[number];
 
 export interface NotificationDto {
@@ -1337,6 +1339,8 @@ export interface NotificationDto {
 export interface NotificationListDto {
   items: NotificationDto[];
   unread: number;
+  /** L'envoi par e-mail est configuré sur cette plateforme. */
+  emailEnabled: boolean;
 }
 
 export interface NotificationPreferenceDto {
@@ -1351,6 +1355,9 @@ export const NotificationPreferencesSchema = z.object({
     .max(NOTIFICATION_TYPES.length * NOTIFICATION_CHANNELS.length),
 });
 export type NotificationPreferencesInput = z.infer<typeof NotificationPreferencesSchema>;
+
+/** Désabonnement d'un type d'e-mail depuis le lien du message, sans connexion. */
+export const EmailUnsubscribeSchema = z.object({ token: z.string().min(20).max(300) });
 
 /** Une réponse est publiée dans un sujet. */
 export interface CommunityReplyPostedV1 {

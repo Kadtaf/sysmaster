@@ -1,10 +1,13 @@
-import { Body, Controller, Get, HttpCode, Param, ParseUUIDPipe, Post, Put } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, HttpCode, Param, ParseUUIDPipe, Post, Put, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { NotificationPreferencesSchema } from '@sysmaster/contracts';
+import { EmailUnsubscribeSchema, NotificationPreferencesSchema } from '@sysmaster/contracts';
 import type { NotificationListDto, NotificationPreferenceDto } from '@sysmaster/contracts';
 import { parse } from '../../editorial/application/editorial.service';
 import type { AuthenticatedUser } from '../../iam/domain/identity';
-import { CurrentUser } from '../../iam/interface/auth.decorators';
+import { CurrentUser, Public } from '../../iam/interface/auth.decorators';
+import { LIMITS, RateLimit } from '../../../shared/security/rate-limit';
+import { readUnsubscribeToken } from '../domain/email';
+import { Mailer } from '../infrastructure/mailer';
 import { PgNotificationRepository } from '../infrastructure/pg-notification.repository';
 
 const PAGE = 50;
@@ -13,12 +16,15 @@ const PAGE = 50;
 @ApiBearerAuth()
 @Controller('me/notifications')
 export class NotificationController {
-  constructor(private readonly repo: PgNotificationRepository) {}
+  constructor(
+    private readonly repo: PgNotificationRepository,
+    private readonly mailer: Mailer,
+  ) {}
 
   @Get()
   @ApiOperation({ summary: 'Mes 50 dernières notifications et le nombre de non lues' })
-  list(@CurrentUser() user: AuthenticatedUser): Promise<NotificationListDto> {
-    return this.repo.list(user.id, PAGE);
+  async list(@CurrentUser() user: AuthenticatedUser): Promise<NotificationListDto> {
+    return { ...(await this.repo.list(user.id, PAGE)), emailEnabled: this.mailer.enabled };
   }
 
   @Get('unread')
@@ -52,5 +58,32 @@ export class NotificationController {
   async setPreferences(@CurrentUser() user: AuthenticatedUser, @Body() body: unknown): Promise<NotificationPreferenceDto[]> {
     await this.repo.setPreferences(user.id, parse(NotificationPreferencesSchema, body ?? {}).preferences);
     return this.repo.preferences(user.id);
+  }
+}
+
+/**
+ * Désabonnement depuis un e-mail, sans connexion : le jeton signé dit qui et quel type. Accepte
+ * aussi le « un clic » des messageries (RFC 8058 : POST avec le jeton dans l'adresse).
+ */
+@ApiTags('notifications')
+@Controller('notifications')
+export class EmailUnsubscribeController {
+  constructor(
+    private readonly repo: PgNotificationRepository,
+    private readonly mailer: Mailer,
+  ) {}
+
+  @Public()
+  @Post('unsubscribe')
+  @HttpCode(200)
+  @RateLimit(LIMITS.emailUnsubscribe)
+  @ApiOperation({ summary: 'Ne plus recevoir un type d’e-mail (jeton du lien de l’e-mail, dans le corps ou l’adresse)' })
+  async unsubscribe(@Query('token') queryToken: string | undefined, @Body() body: unknown): Promise<{ type: string }> {
+    const raw = typeof (body as { token?: unknown })?.token === 'string' ? body : { token: queryToken ?? '' };
+    const { token } = parse(EmailUnsubscribeSchema, raw);
+    const who = this.mailer.linkSecret.length >= 32 ? readUnsubscribeToken(token, this.mailer.linkSecret) : null;
+    if (!who) throw new BadRequestException('Lien de désabonnement invalide.');
+    await this.repo.setPreferences(who.userId, [{ type: who.type, channel: 'email', enabled: false }]);
+    return { type: who.type };
   }
 }
