@@ -72,6 +72,13 @@ spec:
               valueFrom: { secretKeyRef: { name: {{ .Values.existingSecret }}, key: STRIPE_SECRET_KEY, optional: true } }
             - name: STRIPE_WEBHOOK_SECRET
               valueFrom: { secretKeyRef: { name: {{ .Values.existingSecret }}, key: STRIPE_WEBHOOK_SECRET, optional: true } }
+            # E-mails de notification (facultatif : sans SMTP_URL et MAIL_LINK_SECRET, seules les notifications
+            # dans l'application existent, docs/08 §3 « E-mails »).
+            - { name: MAIL_FROM, value: {{ .Values.mail.from | default "" | quote }} }
+            - name: SMTP_URL
+              valueFrom: { secretKeyRef: { name: {{ .Values.existingSecret }}, key: SMTP_URL, optional: true } }
+            - name: MAIL_LINK_SECRET
+              valueFrom: { secretKeyRef: { name: {{ .Values.existingSecret }}, key: MAIL_LINK_SECRET, optional: true } }
             {{- range $k, $v := .Values.api.extraEnv }}
             - { name: {{ $k }}, value: {{ $v | quote }} }
             {{- end }}

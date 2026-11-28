@@ -17,6 +17,8 @@ describe('configuration de production', () => {
     [{ CORS_ORIGINS: '*' }, 'CORS_ORIGINS'],
     [{ OIDC_ISSUER: '' }, 'OIDC_ISSUER'],
     [{ STRIPE_SECRET_KEY: 'sk_live_x' }, 'STRIPE_WEBHOOK_SECRET'],
+    [{ SMTP_URL: 'smtps://u:p@smtp.example:465' }, 'MAIL_LINK_SECRET'],
+    [{ SMTP_URL: 'smtps://u:p@smtp.example:465', MAIL_FROM: 'SysMaster <no-reply@example.test>', MAIL_LINK_SECRET: 'court' }, 'MAIL_LINK_SECRET'],
   ])('refuse %p', (override, variable) => {
     const problems = productionConfigProblems({ ...ok, ...override });
     expect(problems).toHaveLength(1);

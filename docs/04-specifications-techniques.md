@@ -124,7 +124,8 @@ Préfixe `/api/v1`. Documentation OpenAPI générée sur `/api/docs`. Authentifi
 | GET | `/me/notifications` | Mes 50 dernières notifications `{ items: [{ id, type, title, body, href, read, createdAt }], unread }` |
 | GET | `/me/notifications/unread` | `{ unread }`, pour la pastille de l'en-tête |
 | POST | `/me/notifications/:id/read`, `/me/notifications/read-all` | Marque comme lu (seulement les miennes) → `{ marked }` |
-| GET, PUT | `/me/notifications/preferences` | `[{ type, channel, enabled }]` ; PUT `{ preferences: [...] }` ne change que les lignes envoyées |
+| GET, PUT | `/me/notifications/preferences` | `[{ type, channel: in_app \| email, enabled }]` ; PUT `{ preferences: [...] }` ne change que les lignes envoyées |
+| POST | `/notifications/unsubscribe` | Public : `{ token }` (ou `?token=` pour le un clic RFC 8058) du lien de l'e-mail → `{ type }` ; **400** si le jeton est faux |
 | GET | `/me/privacy` | Demande de suppression en cours et durées de conservation |
 | GET | `/me/privacy/export` | Toutes mes données (JSON en pièce jointe) : droit d’accès et portabilité |
 | POST, DELETE | `/me/privacy/erasure` | `{ confirmation: "SUPPRIMER" }` : suppression du compte 7 jours plus tard (**400** sans confirmation, **409** si déjà demandée) ; DELETE l’annule pendant le délai |
