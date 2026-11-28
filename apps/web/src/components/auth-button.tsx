@@ -6,6 +6,7 @@ import { useEffect } from 'react';
 import { LayoutDashboard, LogIn, LogOut, PenLine, ShieldCheck, UserRound } from 'lucide-react';
 import { EDITORIAL_ROLES, MODERATOR_ROLES } from '@/lib/labels';
 import { Button, buttonVariants } from '@/components/ui/button';
+import { NotificationBell } from '@/components/notification-bell';
 
 export async function federatedSignOut() {
   const res = await fetch('/api/auth/federated-logout');
@@ -42,6 +43,7 @@ export function AuthButton() {
           <ShieldCheck className="size-4" aria-hidden /> <span className="hidden sm:inline">Modération</span>
         </Link>
       )}
+      <NotificationBell />
       <Link href="/tableau-de-bord" className={buttonVariants({ variant: 'ghost', size: 'sm' })}>
         <LayoutDashboard className="size-4" aria-hidden /> <span className="hidden sm:inline">Tableau de bord</span>
       </Link>

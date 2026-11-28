@@ -62,7 +62,7 @@ export abstract class SocialRepository {
   abstract mentorships(userId: string): Promise<MentorshipRow[]>;
   abstract mentorship(id: string): Promise<MentorshipRow | null>;
   /** Change le statut si le statut courant est toujours `from` ; false sinon. */
-  abstract setMentorshipStatus(id: string, from: MentorshipStatus, to: MentorshipStatus): Promise<boolean>;
+  abstract setMentorshipStatus(id: string, from: MentorshipStatus, to: MentorshipStatus, actorId: string): Promise<boolean>;
 
   // Messages
   abstract messages(channel: Channel, channelId: string, limit: number): Promise<StoredMessage[]>;

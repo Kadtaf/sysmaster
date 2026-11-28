@@ -110,7 +110,7 @@ export class SocialService {
     const profile = await this.repo.mentor(m.mentorId);
     const t = transition(m.status, action, actor, { activeMentees: profile?.activeMentees ?? 0, maxMentees: profile?.maxMentees ?? 0 });
     if ('error' in t) throw new ConflictException(t.error);
-    if (!(await this.repo.setMentorshipStatus(m.id, m.status, t.next))) throw new ConflictException('Ce mentorat vient de changer : rechargez la page.');
+    if (!(await this.repo.setMentorshipStatus(m.id, m.status, t.next, user.id))) throw new ConflictException('Ce mentorat vient de changer : rechargez la page.');
     return this.mentorshipDto((await this.repo.mentorship(m.id))!, user.id);
   }
 

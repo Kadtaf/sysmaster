@@ -120,6 +120,10 @@ Préfixe `/api/v1`. Documentation OpenAPI générée sur `/api/docs`. Authentifi
 | GET | `/me/dashboard` | Tableau de bord : XP, niveau, série, badges, parcours, compétences, points forts et faibles, recommandations |
 | GET | `/gamification/leaderboard?limit=` | Classement (noms abrégés) ; si connecté, `me` donne votre rang |
 | PUT | `/me/leaderboard-visibility` | `{ visible: boolean }` : apparaître ou non dans le classement (204) |
+| GET | `/me/notifications` | Mes 50 dernières notifications `{ items: [{ id, type, title, body, href, read, createdAt }], unread }` |
+| GET | `/me/notifications/unread` | `{ unread }`, pour la pastille de l'en-tête |
+| POST | `/me/notifications/:id/read`, `/me/notifications/read-all` | Marque comme lu (seulement les miennes) → `{ marked }` |
+| GET, PUT | `/me/notifications/preferences` | `[{ type, channel, enabled }]` ; PUT `{ preferences: [...] }` ne change que les lignes envoyées |
 | GET | `/me/privacy` | Demande de suppression en cours et durées de conservation |
 | GET | `/me/privacy/export` | Toutes mes données (JSON en pièce jointe) : droit d’accès et portabilité |
 | POST, DELETE | `/me/privacy/erasure` | `{ confirmation: "SUPPRIMER" }` : suppression du compte 7 jours plus tard (**400** sans confirmation, **409** si déjà demandée) ; DELETE l’annule pendant le délai |

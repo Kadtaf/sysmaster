@@ -17,8 +17,9 @@ import { CommunityModule } from './modules/community/community.module';
 import { SecurityModule } from './shared/security/security.module';
 import { PrivacyModule } from './modules/privacy/privacy.module';
 import { BillingModule } from './modules/billing/billing.module';
+import { NotificationModule } from './modules/notification/notification.module';
 
 @Module({
-  imports: [DatabaseModule, EventsModule, ObservabilityModule, IamModule, SecurityModule, HealthModule, LearningModule, KnowledgeModule, DiagnosticModule, GamificationModule, DashboardModule, EditorialModule, AssistantModule, AssessmentModule, LabsModule, CommunityModule, PrivacyModule, BillingModule],
+  imports: [DatabaseModule, EventsModule, ObservabilityModule, IamModule, SecurityModule, HealthModule, LearningModule, KnowledgeModule, DiagnosticModule, GamificationModule, DashboardModule, EditorialModule, AssistantModule, AssessmentModule, LabsModule, CommunityModule, PrivacyModule, BillingModule, NotificationModule],
 })
 export class AppModule {}

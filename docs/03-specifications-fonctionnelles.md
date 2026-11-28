@@ -124,6 +124,14 @@ XP (leçons, labs, diagnostics clos, aide en communauté), niveaux (Curieux → 
 > - **Groupes d'étude** (`/communaute/groupes`) : un groupe est public ou privé, sur code d'invitation, et a un objectif et un nombre de places. Si le responsable part, le membre le plus ancien reprend le groupe. Une personne anime au plus 5 groupes.
 > - **Échanges privés** : un groupe ou un binôme a ses propres messages, lus par ses seuls membres. Un non-membre reçoit une erreur 404. Un message se masque, sans être effacé, par son auteur, le responsable du groupe ou un modérateur. Au plus 60 messages par heure.
 
+> **Livré (notifications dans l'application)** : une cloche dans l'en-tête affiche le nombre de notifications non lues, et la page `/notifications` les liste et règle ce qu'on reçoit.
+> - **Déclencheurs** : une réponse à un de mes sujets, ma réponse acceptée, une demande de mentorat (pour le mentor), puis son acceptation, son refus ou sa fin (pour l'autre personne), un certificat obtenu, la relecture d'une de mes contributions éditoriales (publiée, ou modifications demandées).
+> - **Jamais soi-même** : on n'est pas prévenu de sa propre action.
+> - **Contenu minimal** : une notification reprend un titre de sujet ou le sujet d'un mentorat, jamais le texte d'un message. Elle renvoie vers la page concernée, par un lien interne seulement.
+> - **Préférences** : chaque type se coupe dans `/notifications`. Toutes sont actives par défaut.
+> - **Conservation** : les notifications lues sont effacées après 6 mois. Elles figurent dans l'export RGPD et disparaissent avec le compte.
+> - **Reste à faire** : l'e-mail, qui attend un serveur d'envoi, et le push.
+
 Forum par catégorie, Q&R avec réponse acceptée, partage de labs et de scripts (P-5), mentorat (mise en relation mentor/apprenant), groupes d'étude, modération (signalements, rôles), suggestion IA de questions similaires avant publication.
 
 ### 2.10 Tableaux de bord — Phase 2
