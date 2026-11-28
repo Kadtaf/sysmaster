@@ -9,6 +9,7 @@ Ce guide couvre l'exploitation de ce qui est livré : installation, comptes et r
 | Tout lancer d'un coup | `cp .env.example .env && docker compose up --build` | Le service `migrate` applique le schéma et les données de démo avant l'API |
 | Développer | `docker compose up -d postgres redis qdrant keycloak`, puis `pnpm install`, `pnpm db:migrate && pnpm db:seed` et `pnpm dev` | API sur :4000, web sur :3000 |
 | Vérifier que l'API répond | `curl localhost:4000/api/v1/health` | `database: up` confirme la connexion à PostgreSQL |
+| Application mobile | voir [« Application mobile »](#application-mobile) | Build de développement Expo sur émulateur ou téléphone |
 
 Les variables d'environnement sont décrites dans [`.env.example`](../.env.example) et dans [04 §9](04-specifications-techniques.md#9-variables-denvironnement). En production, **aucun** des secrets par défaut ne doit rester en place : la liste est dans [06, « Production : à changer impérativement »](06-authentification.md#production--à-changer-impérativement).
 
@@ -21,6 +22,16 @@ Les variables d'environnement sont décrites dans [`.env.example`](../.env.examp
 - **En-têtes** : l'API envoie ceux de helmet avec une politique de contenu `default-src 'none'` (elle ne sert que du JSON). Le site interdit les ressources tierces, l'intégration dans un cadre et les formulaires vers d'autres sites (`apps/web/next.config.ts`). Si vous ajoutez un outil externe (mesure d'audience, police distante), il faut l'y déclarer, et la page de confidentialité doit le dire.
 - **Données envoyées au modèle** : avant chaque appel, le service IA masque e-mails, mots de passe (`password=…`, chaînes de connexion), jetons et clés d'API, clés privées, numéros de carte, IBAN et téléphones. Les adresses IP, noms d'hôtes et chemins restent, car le diagnostic en a besoin. Le journal du service ne garde que le nombre d'éléments masqués, jamais le texte.
 - **Dépendances** : la CI échoue si `pnpm audit --prod` trouve une faille élevée ou critique. Mettez la dépendance à jour, ou, si elle ne sert qu'à la construction, forcez une version corrigée dans `pnpm.overrides` (c'est le cas de `postcss`, tiré par Next.js).
+- **Âge des versions** : pnpm refuse toute version publiée depuis moins de 14 jours (`minimumReleaseAge` dans `pnpm-workspace.yaml`) : une version piégée est le plus souvent retirée du registre dans ce délai. La liste `minimumReleaseAgeExclude` ne contient que des versions déjà verrouillées avant la règle ; elle se vide au fil des mises à jour et ne doit pas recevoir de nouvelle entrée sans raison écrite (correctif de sécurité urgent).
+
+### Application mobile
+
+- **Développer** : `pnpm --filter @sysmaster/mobile exec expo run:android` (ou `run:ios` sur un Mac) construit un build de développement et le lance sur l'émulateur ou le téléphone branché. Expo Go ne convient pas : la connexion revient par le schéma `sysmaster://`, propre à l'application.
+- **Adresses** (`EXPO_PUBLIC_API_URL`, `EXPO_PUBLIC_OIDC_ISSUER`, `EXPO_PUBLIC_WEB_URL`, et `EXPO_PUBLIC_OIDC_CLIENT_ID`, `sysmaster-mobile` par défaut) : figées dans l'application au moment du build. Ce ne sont pas des secrets, l'application n'en contient aucun. Sur émulateur Android, `localhost` désigne l'émulateur : utilisez `http://10.0.2.2:4000/api/v1` et `http://10.0.2.2:8080/realms/sysmaster`, et pour Keycloak `KC_HOSTNAME` cohérent avec l'émetteur que l'API attend.
+- **Version publiée** : les trois adresses doivent être en HTTPS, sinon l'application s'arrête au démarrage avec un message qui nomme l'adresse fautive. Les binaires signés se produisent avec EAS Build (comptes Apple Developer et Google Play à créer) ; ils ne sont pas construits par la CI.
+- **Keycloak** : le client `sysmaster-mobile` est public et n'accepte que `sysmaster://auth`. N'y ajoutez pas de redirection générique (`exp://*`, `*`) : n'importe quelle application pourrait alors recevoir les codes de connexion.
+- **Session** : elle suit celle du royaume (30 minutes d'inactivité, 10 heures au plus, `ssoSessionIdleTimeout` et `ssoSessionMaxLifespan`), comme sur le site. Pour garder les apprenants connectés plus longtemps sur mobile, préférez une durée propre au client plutôt que d'allonger celle de tout le royaume.
+- **Données sur le téléphone** : jeton de rafraîchissement dans le trousseau, contenus pédagogiques consultés dans le dossier privé de l'application, sauvegarde Android désactivée (`allowBackup: false`). Rien de personnel n'est mis en cache ; la déconnexion efface tout.
 
 ## 2. Rôles
 
@@ -322,4 +333,5 @@ Sans `STAGING_KUBECONFIG`, la CD publie les images et s'arrête là, avec une no
 Ces sujets sont prévus dans la [feuille de route](05-feuille-de-route.md) :
 
 - achat en ligne des sièges de licence, invitation par domaine et SSO par organisation ;
+- application mobile : diagnostic et assistant, notifications push, binaires signés et publication sur les stores ;
 - production (promotion manuelle des images testées, déploiement progressif) et traces OpenTelemetry.

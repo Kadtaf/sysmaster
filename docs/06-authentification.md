@@ -33,6 +33,7 @@ sequenceDiagram
 |---|---|---|
 | Keycloak | Comptes, mots de passe, 2FA, passkeys, fournisseurs sociaux, rôles | `infra/keycloak/sysmaster-realm.json` |
 | Web | Connexion OIDC (code + PKCE), rafraîchissement du jeton, déconnexion fédérée | `apps/web/src/lib/auth.ts` |
+| Mobile | Client public `sysmaster-mobile` : code + PKCE S256 dans le navigateur du système, jeton de rafraîchissement dans le trousseau | `apps/mobile/src/lib/auth/` |
 | API | Vérification de chaque jeton, garde globale « fermé par défaut », rôles | `apps/api/src/modules/iam/` |
 | Base | Profil applicatif (`iam.users.idp_subject`), rôles synchronisés (`iam.user_roles.source = 'idp'`) | `db/migrations/002_iam_oidc.sql` |
 
@@ -79,9 +80,23 @@ Les fournisseurs sont déclarés **désactivés** dans le royaume. Pour chacun :
 - **TOTP** : chaque utilisateur peut l'activer dans *Mon compte → Gérer la sécurité du compte*. Pour l'**imposer** (ex. administrateurs, licences entreprise) : *Authentication → Required actions → Configure OTP* (par utilisateur), ou un flux d'authentification conditionnel par rôle.
 - **Passkeys** : activées dans le royaume (`webAuthnPolicyPasswordlessPasskeysEnabled`). L'utilisateur enregistre une passkey dans l'espace sécurité ; elle remplace alors le mot de passe. Exige HTTPS en production (le navigateur refuse WebAuthn sur un domaine non sécurisé, sauf `localhost`).
 
+## Application mobile
+
+L'application (Android, iOS, iPadOS) ne peut garder aucun secret : tout ce qu'elle contient peut être extrait. Elle utilise donc le client **public** `sysmaster-mobile`, avec les règles de la RFC 8252 (OAuth pour les applications natives) :
+
+- connexion dans le **navigateur du système** (ASWebAuthenticationSession sur iOS, Custom Tabs sur Android), jamais dans une vue web de l'application : le mot de passe, la passkey ou la 2FA ne passent jamais par le code de SysMaster ;
+- **code d'autorisation + PKCE S256 obligatoire** (Keycloak refuse une demande sans `code_challenge`), paramètre `state` vérifié : un code intercepté par une autre application qui aurait réclamé le schéma `sysmaster://` est inutilisable sans le vérificateur, resté en mémoire ;
+- **une seule redirection exacte**, `sysmaster://auth` ; pas de mot de passe direct, pas de flux implicite, pas de compte de service ;
+- jeton d'accès de 5 minutes **en mémoire seulement** ; jeton de rafraîchissement dans le **trousseau** (Keychain iOS, Keystore Android, accessible après le premier déverrouillage, jamais sauvegardé ni transféré vers un autre appareil). Il tourne à chaque usage : un seul rafraîchissement à la fois, le nouveau jeton est enregistré avant d'être utilisé ;
+- **déconnexion** : appel du point de fin de session Keycloak avec le jeton de rafraîchissement (la session et l'authentification unique sont fermées), puis effacement du trousseau et des contenus hors ligne, même sans réseau ;
+- hors développement, l'application refuse de démarrer si l'API, Keycloak ou le site ne sont pas en HTTPS.
+
+Le test `apps/api/test/keycloak.e2e-spec.ts` rejoue ce parcours contre le vrai Keycloak en CI : formulaire de connexion, code, échange avec le vérificateur, jeton accepté par l'API, rotation, fin de session, et refus sans PKCE, avec une autre redirection ou par mot de passe direct.
+
 ## Production : à changer impérativement
 
 - Supprimer le client `sysmaster-e2e` (il autorise la connexion par mot de passe direct, utile uniquement aux tests).
+- Garder le client `sysmaster-mobile` avec sa seule redirection `sysmaster://auth` (pas de joker).
 - Supprimer les comptes de démonstration ; activer `verifyEmail` et configurer le SMTP du royaume.
 - Secrets : `KEYCLOAK_CLIENT_SECRET`, `NEXTAUTH_SECRET` (`openssl rand -base64 32`), mot de passe administrateur Keycloak, dans un coffre.
 - Keycloak en mode `start` (pas `start-dev`), derrière HTTPS, avec `KC_HOSTNAME=https://auth.<domaine>`.
