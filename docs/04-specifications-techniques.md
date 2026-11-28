@@ -29,6 +29,7 @@
 sysmaster/
 ├── apps/
 │   ├── web/                 # Next.js : académie, KB, diagnostic, tableaux de bord
+│   ├── mobile/              # Expo (React Native) : Android, iOS, iPadOS
 │   └── api/                 # NestJS : monolithe modulaire (DDD + hexagonal)
 │       └── src/modules/
 │           ├── diagnostic/  # domain / application / infrastructure / interface
@@ -248,6 +249,16 @@ Règles dans `apps/api/src/modules/gamification/domain/rules.ts`, testées unita
 - **Clavier** : le lien « Aller au contenu » est le premier arrêt et donne le focus à `<main>` ; chaque élément atteint à la touche Tab doit changer d'aspect au focus (contour ou anneau, vérifié en comparant avec et sans focus) ; un quiz se fait entièrement au clavier.
 - **Règles de l'interface** : les liens dans un texte sont soulignés (classe `link`, pas seulement la couleur) ; un contour de focus est posé sur tout élément interactif qui n'en a pas ; l'en-tête collant laisse la place à l'élément qui reçoit le focus (`scroll-padding-top`) ; animations coupées si `prefers-reduced-motion` ; la rubrique courante est annoncée (`aria-current`) ; erreurs en `role="alert"`, résultats en `role="status"`, sortie du terminal des labs en `role="log"` ; un état « pas encore obtenu » est marqué par la bordure, pas par une opacité qui ferait tomber le contraste ; textes d'erreur éclaircis en thème sombre.
 - **Hors automatisation**, à refaire à chaque grande évolution : lecture avec NVDA ou VoiceOver des parcours clés (inscription à un parcours, leçon, lab, examen, paiement), zoom du texte seul à 200 %, sous-titres des futures vidéos.
+
+### Application mobile (Phase 6)
+
+- **Pile** : Expo SDK 58 (React Native 0.88, React 19.3), navigation Expo Router (onglets Accueil, Académie, Commandes, Compte), TypeScript strict, mêmes contrats que le web (`@sysmaster/contracts`, types seulement). Dépendances figées à des versions publiées depuis au moins 14 jours, transitives comprises (`minimumReleaseAge` dans `pnpm-workspace.yaml`).
+- **Écrans** : tableau de bord (niveau, XP, série, recommandations, parcours suivis, compétences à renforcer), parcours et inscription, plan du cours avec l'état de chaque leçon, leçon (Markdown, objectifs, validation, leçon suivante), recherche de fiches commandes et fiche complète. Règle P-2 respectée : une commande dangereuse reste masquée jusqu'à la lecture de ses risques, et l'application ne propose pas de copie.
+- **Markdown** : analyseur propre (`src/lib/markdown.ts`) limité à ce que le contenu utilise ; le HTML n'est jamais interprété et seuls les liens `https://` et internes sont gardés. Les tableaux deviennent des fiches « en-tête : valeur » sur un écran étroit.
+- **Hors ligne partiel** : les parcours, cours, leçons et fiches consultés sont gardés dans le dossier privé de l'application (300 au plus, les plus anciens sont retirés) et réaffichés sans réseau avec la date de la copie. Le profil, le tableau de bord et les jetons ne sont jamais mis en cache ; tout est effacé à la déconnexion. La validation d'une leçon demande le réseau.
+- **Accessibilité** : rôles natifs (en-têtes, boutons, liens, barres de progression avec leur valeur), messages d'erreur annoncés, cibles tactiles de 48 points au moins, taille du texte qui suit le réglage du téléphone, thèmes clair et sombre contrastés, icônes masquées aux lecteurs d'écran (chaque onglet a son libellé).
+- **Connexion** : voir [06, Application mobile](06-authentification.md#application-mobile).
+- **Vérifications en CI** : types, lint, tests Jest (`jest-expo` et Testing Library : analyse Markdown, client d'API et mode hors ligne, session et rotation des jetons, configuration HTTPS, client Keycloak du royaume, règle P-2), bundle Android et iOS (`pnpm --filter @sysmaster/mobile bundle`), et le parcours de connexion PKCE contre le vrai Keycloak. Les binaires signés (EAS Build, comptes Apple et Google) restent à produire.
 
 ## 8. Environnements
 

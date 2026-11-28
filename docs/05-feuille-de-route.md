@@ -82,7 +82,7 @@ Les durées sont indicatives et supposent une équipe dédiée ; avec un dévelo
 
 ## Phase 6 — Applications
 
-- Mobile Android, iOS, iPadOS (React Native + Expo) : académie, diagnostic, assistant, hors ligne partiel.
+- 🟡 Mobile Android, iOS, iPadOS (React Native + Expo) : ✅ connexion Keycloak (PKCE, trousseau), tableau de bord, académie (parcours, cours, leçons, validation), fiches commandes, hors ligne partiel. ⏳ Diagnostic et assistant dans l'application, binaires signés et publication sur les stores (comptes Apple et Google à fournir).
 - Desktop macOS et Windows (Tauri) intégrant l'agent de collecte.
 - Notifications push.
 

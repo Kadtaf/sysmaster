@@ -648,6 +648,7 @@ La feuille de route prévoyait OpenSearch, NATS et un BFF GraphQL en Phase 2. Ch
 - *Constat* : le seul client est le site Next.js. Ses Server Components appellent l'API REST depuis le serveur, au plus près des données, et assemblent les pages composites (tableau de bord : un seul appel, `/me/dashboard`). Un BFF ajouterait une couche à maintenir sans réduire le nombre d'allers-retours du navigateur.
 - *Décision* : REST versionné, contrats partagés (`packages/contracts`), un point d'entrée REST dédié quand une page en a besoin.
 - *Quand revoir* : arrivée de l'application mobile (Phase 6), ou plus de trois appels REST pour une même vue côté client.
+- *Mise à jour (Phase 6, mobile)* : revu à l'arrivée de l'application. Chaque écran mobile fait **un seul** appel REST (tableau de bord : `/me/dashboard`, leçon : `/learning/courses/:c/lessons/:l`), et ces réponses servent telles quelles au mode hors ligne. Un BFF n'apporterait rien : décision maintenue, à revoir au premier écran qui demanderait plus de trois appels.
 
 ### Pourquoi `pg` + SQL plutôt que Prisma (ADR-011)
 

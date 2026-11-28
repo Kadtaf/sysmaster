@@ -60,6 +60,10 @@ jobs:
         env:
           KEYCLOAK_E2E_URL: http://localhost:8080
       - run: pnpm build
+      # Bundle JavaScript de l'application mobile (Metro, Hermes) : vérifie que l'application se construit
+      # pour Android et iOS. Les binaires signés (EAS) sont produits hors CI, voir docs/08.
+      - name: Application mobile (bundle Android et iOS)
+        run: pnpm --filter @sysmaster/mobile bundle
       # Audit WCAG 2.2 AA (axe, thèmes clair et sombre) et parcours clavier sur l'application construite,
       # avec de vraies connexions Keycloak (comptes de démo du royaume). Voir docs/05, « Accessibilité ».
       - name: Accessibilité (axe et clavier)

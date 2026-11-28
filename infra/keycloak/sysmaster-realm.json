@@ -86,6 +86,36 @@
       ]
     },
     {
+      "clientId": "sysmaster-mobile",
+      "name": "SysMaster Mobile (Android, iOS)",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "implicitFlowEnabled": false,
+      "serviceAccountsEnabled": false,
+      "frontchannelLogout": false,
+      "redirectUris": ["sysmaster://auth"],
+      "webOrigins": [],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "sysmaster://auth"
+      },
+      "protocolMappers": [
+        {
+          "name": "audience-sysmaster-api",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": {
+            "included.custom.audience": "sysmaster-api",
+            "access.token.claim": "true",
+            "id.token.claim": "false"
+          }
+        }
+      ]
+    },
+    {
       "clientId": "sysmaster-e2e",
       "name": "Tests automatisés (développement et CI uniquement, à supprimer en production)",
       "enabled": true,

@@ -128,6 +128,17 @@ export default function PrivacyPage() {
           demandé.
         </p>
       </Card>
+
+      <Card>
+        <CardTitle>Application mobile</CardTitle>
+        <p className="mt-2 text-sm">
+          L’application Android et iOS utilise la même connexion et le même compte que le site. Sur le téléphone, elle garde
+          seulement le jeton qui maintient votre connexion, dans le trousseau sécurisé du système, et les parcours, leçons et
+          fiches que vous avez consultés, pour les relire sans réseau (avec l’état de vos leçons). Votre profil et votre tableau de bord ne sont pas copiés sur
+          l’appareil. La déconnexion efface ces deux éléments ; vous pouvez aussi effacer les contenus depuis l’onglet Compte.
+          L’application ne contient aucun outil de mesure d’audience ni de publicité.
+        </p>
+      </Card>
     </article>
   );
 }
