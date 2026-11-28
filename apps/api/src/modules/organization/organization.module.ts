@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { BillingModule } from '../billing/billing.module';
 import { NotificationModule } from '../notification/notification.module';
 import { OrganizationService } from './application/organization.service';
 import { PgOrganizationRepository } from './infrastructure/pg-organization.repository';
@@ -9,7 +10,7 @@ import { AdminOrganizationController, OrganizationController } from './interface
  * facturation ; l'organisation ne voit que la progression d'apprentissage de ses membres.
  */
 @Module({
-  imports: [NotificationModule],
+  imports: [NotificationModule, BillingModule],
   controllers: [OrganizationController, AdminOrganizationController],
   providers: [OrganizationService, PgOrganizationRepository],
 })

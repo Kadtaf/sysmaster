@@ -39,7 +39,48 @@ function EditRow({ org, onSave, pending }: { org: AdminOrganizationDto; onSave: 
   );
 }
 
-export function AdminOrganisations({ organizations }: { organizations: AdminOrganizationDto[] }) {
+type SeatPlan = { code: string; name: string; priceCents: number | null };
+
+function SeatPrices({ plans, enabled, onSave, pending }: {
+  plans: SeatPlan[]; enabled: boolean; onSave: (code: string, priceCents: number | null) => void; pending: boolean;
+}) {
+  const [values, setValues] = useState<Record<string, string>>(
+    Object.fromEntries(plans.map((p) => [p.code, p.priceCents === null ? '' : (p.priceCents / 100).toFixed(2)])),
+  );
+  return (
+    <Card>
+      <CardTitle>Achat en ligne des sièges</CardTitle>
+      <CardDescription>
+        Prix TTC d’un siège pour 12 mois. Vide : ce type de licence reste sur devis. {enabled ? '' : 'Le paiement Stripe n’est pas encore configuré : rien n’est achetable tant que les clés manquent.'}
+      </CardDescription>
+      <ul className="mt-4 space-y-3">
+        {plans.map((p) => (
+          <li key={p.code}>
+            <form
+              className="flex flex-wrap items-end gap-3"
+              onSubmit={(e) => {
+                e.preventDefault();
+                const raw = (values[p.code] ?? '').replace(',', '.').trim();
+                onSave(p.code, raw === '' ? null : Math.round(Number(raw) * 100));
+              }}
+            >
+              <label className="text-sm font-medium">
+                {p.name} (€ par siège et par an)
+                <input inputMode="decimal" value={values[p.code] ?? ''} onChange={(e) => setValues({ ...values, [p.code]: e.target.value })}
+                  className={`${field} w-32`} placeholder="sur devis" pattern="[0-9]+([.,][0-9]{1,2})?" />
+              </label>
+              <Button type="submit" variant="outline" size="sm" disabled={pending}>Enregistrer</Button>
+            </form>
+          </li>
+        ))}
+      </ul>
+    </Card>
+  );
+}
+
+export function AdminOrganisations({ organizations, seatPlans, paymentEnabled }: {
+  organizations: AdminOrganizationDto[]; seatPlans: SeatPlan[]; paymentEnabled: boolean;
+}) {
   const { data: session } = useSession();
   const token = session?.accessToken;
   const router = useRouter();
@@ -78,6 +119,13 @@ export function AdminOrganisations({ organizations }: { organizations: AdminOrga
         <p className="mt-2 text-muted-foreground">Ouvrir une licence après devis, ajuster les sièges ou la date de fin. Chaque action est journalisée.</p>
       </div>
       {error && <p role="alert" className="text-sm text-red-600 dark:text-red-400">{error}</p>}
+
+      <SeatPrices
+        plans={seatPlans}
+        enabled={paymentEnabled}
+        pending={pending}
+        onSave={(code, priceCents) => run(() => apiRequest('PATCH', `/admin/organizations/seat-prices/${code}`, token, { priceCents }))}
+      />
 
       <Card>
         <CardTitle>Nouvelle licence</CardTitle>

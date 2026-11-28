@@ -5,7 +5,8 @@ import { useSession } from 'next-auth/react';
 import { useState, useTransition } from 'react';
 import { Check, Copy, Download } from 'lucide-react';
 import { INVITABLE_ROLES } from '@sysmaster/contracts';
-import type { OrganizationDetailDto, OrganizationInvitationDto, OrganizationProgressDto, OrganizationRole } from '@sysmaster/contracts';
+import type { OrganizationDetailDto, OrganizationInvitationDto, OrganizationProgressDto, OrganizationRole, LicenceOfferDto } from '@sysmaster/contracts';
+import { LicencePurchase } from './licence-purchase';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardDescription, CardTitle } from '@/components/ui/card';
@@ -31,7 +32,9 @@ function CopyLink({ link }: { link: string }) {
   );
 }
 
-export function OrganisationView({ org, progress, myId }: { org: OrganizationDetailDto; progress: OrganizationProgressDto | null; myId: string }) {
+export function OrganisationView({ org, progress, myId, offer, payment }: {
+  org: OrganizationDetailDto; progress: OrganizationProgressDto | null; myId: string; offer: LicenceOfferDto | null; payment: string | null;
+}) {
   const { data: session } = useSession();
   const token = session?.accessToken;
   const router = useRouter();
@@ -102,9 +105,17 @@ export function OrganisationView({ org, progress, myId }: { org: OrganizationDet
         <p className="mt-2 text-2xl font-semibold">{org.seatsUsed} / {org.seats}</p>
         <CardDescription>
           Chaque membre occupe un siège, et chaque invitation en attente en réserve un jusqu’à son expiration.
-          Un siège donne l’accès Pro tant que la licence est en cours. Pour plus de sièges ou une prolongation, contactez SysMaster.
+          Un siège donne l’accès Pro tant que la licence est en cours.
         </CardDescription>
       </Card>
+
+      {payment === 'ok' && (
+        <p role="status" className="rounded-md border p-3 text-sm">
+          Paiement reçu : les sièges ou la prolongation s’appliquent dès que Stripe le confirme. Actualisez la page dans quelques secondes.
+        </p>
+      )}
+      {payment === 'annule' && <p role="status" className="rounded-md border p-3 text-sm">Paiement annulé : rien n’a été débité.</p>}
+      {org.canManage && offer && <LicencePurchase orgId={org.id} offer={offer} endsAt={org.licence.endsAt} />}
 
       {org.canManage && (
         <Card className="space-y-4">

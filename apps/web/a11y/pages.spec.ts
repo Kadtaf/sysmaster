@@ -36,6 +36,7 @@ const PUBLIC = [
   '/classement',
   '/diagnostic',
   '/tarifs',
+  '/organisation/acheter',
   '/confidentialite',
   '/connexion',
   '/notifications/desabonnement?token=jeton-de-test',

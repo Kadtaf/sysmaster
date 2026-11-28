@@ -70,6 +70,8 @@ const EXPORT: [string, string][] = [
                   FROM billing.invoices i JOIN billing.customers c ON c.id = i.customer_id WHERE c.user_id = $1 ORDER BY i.issued_at`],
   ['achatsExamens', `SELECT certification_code, list_price_cents, discount_pct, amount_cents, currency, status, created_at, paid_at, consumed_at
                        FROM billing.exam_purchases WHERE user_id = $1 ORDER BY created_at`],
+  ['achatsLicences', `SELECT action, organization_kind, organization_name, seats, unit_price_cents, amount_cents, currency, status, created_at, paid_at
+                       FROM billing.seat_purchases WHERE buyer_id = $1 ORDER BY created_at`],
   ['journalActions', `SELECT action, target_type, target_id, created_at FROM platform.audit_log WHERE actor_id = $1 ORDER BY created_at`],
 ];
 
@@ -297,6 +299,10 @@ export class PgPrivacyRepository extends PrivacyRepository {
     // Pièces comptables : dix ans, puis plus rien (Stripe garde son propre exemplaire des factures).
     await run('billing.invoices', `DELETE FROM billing.invoices WHERE issued_at < $1`, at(RETENTION_DAYS.billingRecords));
     await run('billing.exam_purchases', `DELETE FROM billing.exam_purchases WHERE created_at < $1`, at(RETENTION_DAYS.billingRecords));
+    await run('billing.seat_purchases', `DELETE FROM billing.seat_purchases WHERE created_at < $1`, at(RETENTION_DAYS.billingRecords));
+    // Commandes de licence jamais payées : ce ne sont pas des pièces comptables, inutile de les garder.
+    await run('billing.seat_purchases.unpaid', `DELETE FROM billing.seat_purchases
+                                                 WHERE status IN ('pending', 'expired') AND created_at < $1`, at(RETENTION_DAYS.unpaidSeatOrders));
     return result;
   }
 }

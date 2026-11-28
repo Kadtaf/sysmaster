@@ -8,6 +8,8 @@ import { Card, CardDescription, CardTitle } from '@/components/ui/card';
 import { ApiUnavailableError, apiGet } from '@/lib/api';
 import { formatPrice } from '@/lib/billing';
 import { CheckoutButton } from './checkout-button';
+import { SalesContact } from '@/components/sales-contact';
+import { buttonVariants } from '@/components/ui/button';
 
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = { title: 'Tarifs' };
@@ -93,15 +95,30 @@ export default async function PricingPage({ searchParams }: { searchParams: Prom
       {licences.length > 0 && (
         <Card>
           <CardTitle>Entreprises, centres de formation, écoles, universités</CardTitle>
-          <CardDescription>Licence annuelle par siège, sur devis.</CardDescription>
+          <CardDescription>
+            Licence annuelle par siège : chaque siège donne l’accès Pro à une personne, que vous invitez par e-mail.
+            {catalog.seatOffers.length > 0 ? ` Achat en ligne jusqu’à ${catalog.onlineSeatMax} sièges, ou sur devis.` : ' Sur devis.'}
+          </CardDescription>
           <ul className="mt-4 grid gap-3 text-sm md:grid-cols-2">
-            {licences.map((p) => (
-              <li key={p.code}>
-                <span className="font-medium">{p.name}</span>
-                <span className="text-muted-foreground"> : {highlights(p).slice(1).join(', ') || 'sur mesure'}</span>
-              </li>
-            ))}
+            {licences.map((p) => {
+              const offer = catalog.seatOffers.find((o) => o.plan === p.code);
+              return (
+                <li key={p.code}>
+                  <span className="font-medium">{p.name}</span>
+                  {offer && <span> · {formatPrice(offer.unitPriceCents, offer.currency)} par siège et par an</span>}
+                  <span className="text-muted-foreground"> : {highlights(p).slice(1).join(', ') || 'sur mesure'}</span>
+                </li>
+              );
+            })}
           </ul>
+          <div className="mt-4 flex flex-wrap items-center gap-4">
+            {catalog.seatOffers.length > 0 && (
+              <Link href="/organisation/acheter" className={buttonVariants()}>Acheter des sièges</Link>
+            )}
+            <p className="text-sm">
+              Devis, plus de {catalog.onlineSeatMax} sièges, SSO ou bon de commande : <SalesContact />
+            </p>
+          </div>
         </Card>
       )}
 

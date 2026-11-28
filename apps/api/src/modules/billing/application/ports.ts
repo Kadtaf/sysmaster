@@ -23,6 +23,14 @@ export type BillingEvent =
       paymentIntentId: string | null;
       outcome: 'paid' | 'pending' | 'failed' | 'expired';
     }
+  | {
+      /** Paiement d'une commande de licence d'organisation (mêmes issues qu'un examen). */
+      kind: 'seat_payment';
+      purchaseId: string;
+      checkoutSessionId: string;
+      paymentIntentId: string | null;
+      outcome: 'paid' | 'pending' | 'failed' | 'expired';
+    }
   | { kind: 'refund'; paymentIntentId: string }
   | {
       kind: 'invoice';
@@ -58,6 +66,11 @@ export abstract class PaymentGateway {
   abstract createExamCheckout(o: {
     customerId: string; userId: string; purchaseId: string; name: string; amountCents: number; currency: string; successUrl: string; cancelUrl: string;
   }): Promise<{ url: string; sessionId: string }>;
+  /** Paiement unique d'une commande de sièges : `quantity` sièges à `unitAmountCents` chacun. */
+  abstract createSeatCheckout(o: {
+    customerId: string; userId: string; purchaseId: string; name: string; quantity: number; unitAmountCents: number; currency: string;
+    successUrl: string; cancelUrl: string;
+  }): Promise<{ url: string; sessionId: string }>;
   /**
    * Résilie l'abonnement tout de suite, sans attendre la fin de la période (effacement du compte).
    * Sans effet sur un abonnement déjà résilié ou inconnu de Stripe.
@@ -90,7 +103,37 @@ export interface SeatLicence {
   endsAt: Date | null;
 }
 
+export interface LicenceSnapshot {
+  id: string;
+  name: string;
+  kind: 'company' | 'training_center' | 'school' | 'university';
+  seats: number;
+  /** Membres et invitations en attente. */
+  used: number;
+  startsAt: Date | null;
+  endsAt: Date | null;
+}
+
+export interface NewSeatPurchase {
+  buyerId: string;
+  organizationId: string | null;
+  action: 'new' | 'renew' | 'add_seats';
+  kind: LicenceSnapshot['kind'];
+  name: string;
+  plan: string;
+  seats: number;
+  unitPriceCents: number;
+  amountCents: number;
+  currency: string;
+}
+
 export abstract class BillingRepository {
+  /** Licence d'une organisation : sièges, sièges pris et dates. */
+  abstract licence(orgId: string): Promise<LicenceSnapshot | null>;
+  abstract createSeatPurchase(p: NewSeatPurchase): Promise<string>;
+  abstract attachSeatCheckout(purchaseId: string, checkoutSessionId: string): Promise<void>;
+  /** Fixe (ou retire, null) le prix en ligne d'un siège pour une offre par siège ; journalisé. */
+  abstract setSeatPrice(plan: string, priceCents: number | null, adminId: string): Promise<boolean>;
   abstract plans(): Promise<PlanRow[]>;
   abstract features(plan: string): Promise<Record<string, unknown>>;
   abstract customerId(userId: string): Promise<string | null>;
