@@ -116,8 +116,21 @@ describeDb('Certifications : examen, certificat signé, vérification, révocati
     expect(events.rows[0].n).toBe(1);
 
     // Un nom modifié en base ne passe plus la vérification.
+    // PDF public, téléchargeable, au nom du titulaire.
+    const pdf = await http().get(`/api/v1/certificates/${serial.toLowerCase()}/pdf`).buffer(true).parse((res, cb) => {
+      const chunks: Buffer[] = [];
+      res.on('data', (c: Buffer) => chunks.push(c));
+      res.on('end', () => cb(null, Buffer.concat(chunks)));
+    }).expect(200);
+    expect(pdf.headers['content-type']).toBe('application/pdf');
+    expect(pdf.headers['content-disposition']).toBe(`attachment; filename="certificat-${serial}.pdf"`);
+    expect((pdf.body as Buffer).subarray(0, 5).toString()).toBe('%PDF-');
+    await http().get('/api/v1/certificates/SM-0000-NOPE-000000/pdf').expect(404);
+
     await pool.query(`UPDATE assessment.certificates SET holder_name = 'Quelqu’un d’autre' WHERE serial = $1`, [serial]);
     expect((await http().get(`/api/v1/certificates/${serial}`).expect(200)).body.signatureValid).toBe(false);
+    // Signature fausse : pas de PDF propre pour un certificat falsifié.
+    expect((await http().get(`/api/v1/certificates/${serial}/pdf`).expect(409)).body.message).toMatch(/signature/);
     await pool.query(`UPDATE assessment.certificates SET holder_name = 'Test Utilisateur' WHERE serial = $1`, [serial]);
 
     const mine = await u.as(http().get(`/api/v1/certifications/${CODE}`)).expect(200);
@@ -129,6 +142,7 @@ describeDb('Certifications : examen, certificat signé, vérification, révocati
     await admin.as(http().post(`/api/v1/certificates/${serial}/revoke`).send({ reason: 'Fraude constatée à l’examen' })).expect(200);
     const revoked = await http().get(`/api/v1/certificates/${serial}`).expect(200);
     expect(revoked.body).toMatchObject({ status: 'revoked', revokeReason: 'Fraude constatée à l’examen' });
+    expect((await http().get(`/api/v1/certificates/${serial}/pdf`).expect(409)).body.message).toMatch(/révoqué/);
     expect((await http().get('/api/v1/certificates/public-key').expect(200)).text).toContain('BEGIN PUBLIC KEY');
   });
 

@@ -1,5 +1,10 @@
-import type { Difficulty } from '@sysmaster/contracts';
+import type { CertificateDto, Difficulty } from '@sysmaster/contracts';
 import type { KeyedQuestion } from '../domain/scoring';
+
+/** Mise en page du certificat en PDF, avec un QR code vers la page de vérification. */
+export abstract class CertificateRenderer {
+  abstract pdf(certificate: CertificateDto, verifyUrl: string): Promise<Uint8Array>;
+}
 
 export abstract class CertificateSigner {
   /** false si aucune clé n'est configurée : on n'ouvre alors aucun examen. */

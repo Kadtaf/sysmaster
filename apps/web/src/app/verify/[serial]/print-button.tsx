@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 export function PrintButton() {
   return (
     <Button variant="outline" onClick={() => window.print()} className="print:hidden">
-      <Printer className="size-4" aria-hidden /> Imprimer ou enregistrer en PDF
+      <Printer className="size-4" aria-hidden /> Imprimer
     </Button>
   );
 }

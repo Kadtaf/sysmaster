@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Header, HttpCode, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, Header, HttpCode, Param, Post, StreamableFile } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import {
   ExamSubmissionSchema, RevokeCertificateSchema,
@@ -79,6 +79,19 @@ export class CertificationController {
   @ApiOperation({ summary: 'Vérification publique d’un certificat : titulaire, certification, dates, statut (valide, expiré, révoqué), signature' })
   verify(@Param('serial') serial: string): Promise<CertificateDto> {
     return this.certs.verify(serial);
+  }
+
+  @Public()
+  @Get('certificates/:serial/pdf')
+  @RateLimit(LIMITS.certificateLookup)
+  @ApiOperation({ summary: 'Certificat en PDF (A4 paysage, QR code vers la vérification). 409 s’il est révoqué, expiré ou mal signé' })
+  async pdf(@Param('serial') serial: string): Promise<StreamableFile> {
+    const { serial: s, bytes } = await this.certs.pdf(serial);
+    return new StreamableFile(Buffer.from(bytes), {
+      type: 'application/pdf',
+      disposition: `attachment; filename="certificat-${s.replace(/[^A-Za-z0-9-]/g, '')}.pdf"`,
+      length: bytes.length,
+    });
   }
 
   @ApiBearerAuth()

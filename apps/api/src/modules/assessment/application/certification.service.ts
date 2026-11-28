@@ -8,8 +8,9 @@ import { BillingService } from '../../billing/application/billing.service';
 import type { AuthenticatedUser } from '../../iam/domain/identity';
 import { canonical, certificateStatus, eligibility, expiry, isLate, serialFor } from '../domain/certification';
 import { score } from '../domain/scoring';
+import { webUrl } from '../../../shared/web/web-url';
 import { examPaymentRequired, examPrice } from '../../billing/domain/billing';
-import { CertificateSigner, CertificationRepository, CertificationRow, StoredCertificate, UserCertState } from './certification-ports';
+import { CertificateRenderer, CertificateSigner, CertificationRepository, CertificationRow, StoredCertificate, UserCertState } from './certification-ports';
 
 /**
  * Certifications (docs/03 §2.7) : conditions (prérequis, labs pratiques, délai après un échec),
@@ -22,6 +23,7 @@ export class CertificationService {
     private readonly repo: CertificationRepository,
     private readonly signer: CertificateSigner,
     private readonly billing: BillingService,
+    private readonly renderer: CertificateRenderer,
   ) {}
 
   async list(user: AuthenticatedUser | null): Promise<CertificationDto[]> {
@@ -116,6 +118,20 @@ export class CertificationService {
     const c = await this.repo.certificate(serial.toUpperCase());
     if (!c) throw new NotFoundException('Aucun certificat ne porte ce numéro.');
     return this.certificateDto(c);
+  }
+
+  /**
+   * Certificat en PDF, seulement s'il est valide et que sa signature est bonne : on ne fabrique pas
+   * un document propre pour un certificat révoqué, expiré ou falsifié.
+   */
+  async pdf(serial: string): Promise<{ serial: string; bytes: Uint8Array }> {
+    const c = await this.verify(serial);
+    if (!c.signatureValid) throw new ConflictException('La signature de ce certificat est invalide : aucun PDF n’est délivré.');
+    if (c.status !== 'valid') {
+      throw new ConflictException(c.status === 'revoked' ? 'Ce certificat est révoqué : aucun PDF n’est délivré.' : 'Ce certificat est expiré : aucun PDF n’est délivré.');
+    }
+    const url = `${webUrl()}/verify/${encodeURIComponent(c.serial)}`;
+    return { serial: c.serial, bytes: await this.renderer.pdf(c, url) };
   }
 
   async mine(user: AuthenticatedUser): Promise<CertificateDto[]> {
